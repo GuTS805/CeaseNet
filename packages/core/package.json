@@ -1,0 +1,11 @@
+{
+  "name": "@ceasenet/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@arkiv-network/sdk": "^1.0.1",
+    "viem": "^2.38.2"
+  }
+}

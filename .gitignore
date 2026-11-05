@@ -31,3 +31,6 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# Local runtime state
+.ceasenet/
