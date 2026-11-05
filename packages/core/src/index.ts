@@ -1,5 +1,7 @@
+export * from "./arkiv"
 export * from "./gate"
 export * from "./hash"
+export * from "./reader"
 export * from "./schema"
 export * from "./timers"
 export * from "./types"
