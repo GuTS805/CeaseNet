@@ -1,5 +1,6 @@
 import { ExpirationTime } from "@arkiv-network/sdk"
 import { addr, key, u64 } from "@arkiv-network/sdk/schema"
+import { stringToBytes } from "viem"
 import type { ArkivWallet } from "./arkiv"
 import { recallContentHash } from "./hash"
 import { Ack, Agent, Artifact, Custody, Disclose, Endorse, Episode, Heartbeat, Lift, Loadout, Recall, Robot, TrustList } from "./schema"
@@ -9,6 +10,8 @@ const READ_ONLY = { readonly: true } as const
 /** Nobody can edit a STOP, and anyone can keep it alive, so it cannot quietly lapse. */
 const STOP_FLAGS = { readonly: true, permissionlessExtension: true } as const
 const LONG = () => ExpirationTime.fromDays(180)
+
+const text = (value: string | undefined) => (value === undefined ? undefined : stringToBytes(value))
 
 /** Drops unset optional values, which the SDK treats as missing columns. */
 function clean<T extends Record<string, unknown>>(values: T): T {
@@ -61,10 +64,10 @@ export class ArkivWriter {
         artifact,
         level,
         severity: input.severity,
-        reason: input.reason,
+        reason: text(input.reason),
         contentHash,
-        sealedEvidence: input.sealedEvidence,
-        advice: input.advice,
+        sealedEvidence: text(input.sealedEvidence),
+        advice: text(input.advice),
         pkg: input.pkg,
         versions: input.versions,
       }) as any,
@@ -134,7 +137,7 @@ export class ArkivWriter {
           kind: input.kind,
           fixedHash: input.fixedHash?.toLowerCase(),
           fixedRef: input.fixedRef,
-          note: input.note,
+          note: text(input.note),
         }) as any,
         { expiration: ExpirationTime.max(), flags: READ_ONLY },
       ),
@@ -155,7 +158,7 @@ export class ArkivWriter {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Loadout,
-        { robot: addr(this.address), seq: u64(input.seq), files: JSON.stringify(input.files) },
+        { robot: addr(this.address), seq: u64(input.seq), files: stringToBytes(JSON.stringify(input.files)) },
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )
@@ -261,7 +264,7 @@ export class ArkivWriter {
         Disclose,
         clean({
           recall: key(input.recall),
-          description: input.description,
+          description: stringToBytes(input.description),
           reproductionRef: input.reproductionRef,
         }) as any,
         { expiration: LONG(), flags: READ_ONLY },
@@ -273,7 +276,7 @@ export class ArkivWriter {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Agent,
-        { agent: addr(this.address), owner: addr(input.owner), framework: input.framework, purpose: input.purpose },
+        { agent: addr(this.address), owner: addr(input.owner), framework: input.framework, purpose: stringToBytes(input.purpose) },
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )
@@ -283,7 +286,7 @@ export class ArkivWriter {
     return this.enqueue(() =>
       this.wallet.createEntity(
         TrustList,
-        { owner: addr(this.address), seq: u64(input.seq), issuers: JSON.stringify(input.issuers) },
+        { owner: addr(this.address), seq: u64(input.seq), issuers: stringToBytes(JSON.stringify(input.issuers)) },
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )

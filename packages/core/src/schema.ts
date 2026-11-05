@@ -1,10 +1,12 @@
-import { addr, defineSchema, key, str, u64 } from "@arkiv-network/sdk/schema"
+import { addr, bytes, defineSchema, key, str, u64 } from "@arkiv-network/sdk/schema"
 
 /**
  * Every record CeaseNet keeps on Arkiv.
  *
  * Anyone can write an entity with any attributes, so a record's labels prove nothing. Readers always
- * check `$creator` against the key that is allowed to create that record (see trust.ts).
+ * check `$creator` against the key that is allowed to create that record.
+ *
+ * A `str` holds at most 128 bytes, so anything that can be longer is a `bytes` column holding UTF-8.
  */
 
 const ns = (name: string) => `ceasenet.${name}`
@@ -33,8 +35,8 @@ export const Robot = defineSchema(ns("robot"), {
 export const Loadout = defineSchema(ns("loadout"), {
   robot: addr().indexed(),
   seq: u64().indexed(),
-  /** JSON array of {@link LoadedFile}. */
-  files: str(),
+  /** UTF-8 JSON array of {@link LoadedFile}. */
+  files: bytes(),
 })
 
 /** One per robot, updated in place. Expired means "unknown". */
@@ -49,12 +51,12 @@ export const Recall = defineSchema(ns("recall"), {
   artifact: str().indexed(),
   level: str().indexed(),
   severity: str().indexed(),
-  reason: str(),
+  reason: bytes(),
   contentHash: str().indexed(),
   /** Never a readable Swarm link: an encrypted reference carries its own key, and entities are public. */
-  sealedEvidence: str().optional(),
+  sealedEvidence: bytes().optional(),
   /** Steps owners should take, such as "change your email password". */
-  advice: str().optional(),
+  advice: bytes().optional(),
   /** Package name for name-wide recalls of agent tools. */
   pkg: str().indexed().optional(),
   /** Version range for name-wide recalls, checked locally because queries cannot compare ranges. */
@@ -86,7 +88,7 @@ export const Lift = defineSchema(ns("lift"), {
   kind: str().indexed(),
   fixedHash: str().optional(),
   fixedRef: str().optional(),
-  note: str().optional(),
+  note: bytes().optional(),
 })
 
 /** Who is responsible for a robot today. Created by the maker, then owned by the operator. */
@@ -110,7 +112,7 @@ export const Episode = defineSchema(ns("episode"), {
 /** Public description of a problem, released at the disclosure deadline. */
 export const Disclose = defineSchema(ns("disclose"), {
   recall: key().indexed(),
-  description: str(),
+  description: bytes(),
   reproductionRef: str().optional(),
 })
 
@@ -119,13 +121,13 @@ export const Agent = defineSchema(ns("agent"), {
   agent: addr().indexed(),
   owner: addr().indexed(),
   framework: str(),
-  purpose: str(),
+  purpose: bytes(),
 })
 
 /** Whose STOPs an owner's agents obey. Each change is a new read-only record with a higher number. */
 export const TrustList = defineSchema(ns("trust"), {
   owner: addr().indexed(),
   seq: u64().indexed(),
-  /** JSON array of issuer addresses. */
-  issuers: str(),
+  /** UTF-8 JSON array of issuer addresses. */
+  issuers: bytes(),
 })

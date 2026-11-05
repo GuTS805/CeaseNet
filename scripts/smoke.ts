@@ -49,7 +49,8 @@ const trust = makeTrust({
 
 const before = await client.getBalance({ address: maker.address })
 const t0 = Date.now()
-const stop = await maker.stop({ artifact, severity: "HIGH", reason: "smoke test" })
+const LONG_REASON = "A long explanation that does not fit in a short text field. ".repeat(8)
+const stop = await maker.stop({ artifact, severity: "HIGH", reason: LONG_REASON, advice: LONG_REASON })
 console.log(`STOP written in ${Date.now() - t0} ms, key ${stop.entityKey}`)
 console.log("cost of one record:", formatEther(before - (await client.getBalance({ address: maker.address }))), "tGLM")
 
@@ -60,11 +61,12 @@ check("a real STOP is found", view.stops.some((s) => s.key === stop.entityKey))
 check("a fake STOP is filtered out by the query", !view.stops.some((s) => s.key === fake.entityKey))
 const real = view.stops.find((s) => s.key === stop.entityKey)
 check("creator is the maker", real?.creator.toLowerCase() === maker.address.toLowerCase())
+check("long text comes back intact", real?.reason === LONG_REASON && real?.advice === LONG_REASON)
 check("creation block is readable", typeof real?.createdAt === "bigint" && real.createdAt > 0n, String(real?.createdAt))
 check("STOP lives about half a year", (real?.expiresAt ?? 0n) - view.block > 7_000_000n, String(real?.expiresAt))
 
 await refuses("nobody can edit a read-only STOP, not even its owner", () =>
-  maker.wallet.patchEntity(Recall, stop.entityKey, { set: { reason: "edited" } }),
+  maker.wallet.patchEntity(Recall, stop.entityKey, { set: { severity: "LOW" } }),
 )
 await refuses("an outsider cannot delete a STOP", () => outsider.deleteRecord(stop.entityKey))
 
@@ -91,9 +93,10 @@ check("receipt is readable by recall", acks.some((a) => a.key === ack.entityKey)
 
 const seq = BigInt(Date.now())
 await robot.loadout({ seq, files: [{ kind: "policy", name: "p", version: "1", hash: artifact }] })
-await robot.loadout({ seq: seq + 1n, files: [{ kind: "policy", name: "p", version: "2", hash: artifact }] })
+const manyFiles = ["policy", "firmware", "prompt", "model"].map((kind) => ({ kind, name: "a-long-file-name", version: "2", hash: artifact }))
+await robot.loadout({ seq: seq + 1n, files: manyFiles })
 const latest = await readLatestLoadout(client, robot.address)
-check("latest loadout comes back first", latest?.seq === seq + 1n && latest.files[0]?.version === "2")
+check("latest loadout comes back first", latest?.seq === seq + 1n && latest.files.length === 4 && latest.files[0]?.version === "2")
 
 const beat = await robot.createHeartbeat({ mode: "RUNNING", loadoutSeq: seq, ttlSeconds: 30 })
 await robot.updateHeartbeat(beat.entityKey, { mode: "STOPPED", loadoutSeq: seq + 1n, ttlSeconds: 30 })

@@ -1,0 +1,7 @@
+{
+  "name": "acme-arm-policy",
+  "version": "1.5.3",
+  "maxPayloadKg": 5,
+  "keepOutMetres": 0.5,
+  "serviceInterfaceOpen": false
+}

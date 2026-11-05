@@ -1,5 +1,6 @@
 import { asc, desc, eq, gt, or } from "@arkiv-network/sdk/query"
 import { addr, key } from "@arkiv-network/sdk/schema"
+import { hexToString } from "viem"
 import type { ArkivPublic } from "./arkiv"
 import type { TrustConfig } from "./gate"
 import { Ack, Endorse, Heartbeat, Lift, Loadout, Recall, Robot } from "./schema"
@@ -43,6 +44,8 @@ const afterKey = (after: Hex | undefined) => (after ? [gt("$key", key(after))] :
 
 type Text = { value: string } | undefined
 const opt = (c: Text) => c?.value
+const utf8 = (c: { value: string }) => hexToString(c.value as Hex)
+const optUtf8 = (c: Text) => (c ? utf8(c) : undefined)
 
 function toRecall(r: any): RecallRow {
   return {
@@ -50,13 +53,13 @@ function toRecall(r: any): RecallRow {
     artifact: r.artifact.value,
     level: r.level.value as RecallLevel,
     severity: r.severity.value,
-    reason: r.reason.value,
+    reason: utf8(r.reason),
     contentHash: r.contentHash.value,
     creator: r.$creator,
     createdAt: r.$createdAt,
     expiresAt: r.$expiresAt,
-    advice: opt(r.advice),
-    sealedEvidence: opt(r.sealedEvidence),
+    advice: optUtf8(r.advice),
+    sealedEvidence: optUtf8(r.sealedEvidence),
     pkg: opt(r.pkg),
     versions: opt(r.versions),
   }
@@ -81,7 +84,7 @@ function toLift(r: any): LiftRow {
     kind: r.kind.value as LiftKind,
     fixedHash: opt(r.fixedHash),
     fixedRef: opt(r.fixedRef),
-    note: opt(r.note),
+    note: optUtf8(r.note),
     creator: r.$creator,
     createdAt: r.$createdAt,
   }
@@ -206,7 +209,7 @@ export async function readLatestLoadout(client: ArkivPublic, robot: Hex): Promis
     key: r.$key,
     robot: r.robot.value,
     seq: BigInt(r.seq.value),
-    files: JSON.parse(r.files.value) as LoadedFile[],
+    files: JSON.parse(utf8(r.files)) as LoadedFile[],
     creator: r.$creator,
     createdAt: r.$createdAt,
   }

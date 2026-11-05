@@ -1,0 +1,5 @@
+{
+  "name": "acme-arm-firmware",
+  "version": "4.0.1",
+  "controlRateHz": 500
+}
