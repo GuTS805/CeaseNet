@@ -12,7 +12,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "keys": "tsx scripts/keys.ts"
+    "keys": "tsx scripts/keys.ts",
+    "fund": "tsx --env-file=.env scripts/fund.ts",
+    "smoke": "tsx --env-file=.env scripts/smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
