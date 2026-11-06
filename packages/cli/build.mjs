@@ -1,6 +1,6 @@
 // Builds the one file that gets installed, with the console's pages beside it.
 import { execSync } from "node:child_process"
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
+import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
@@ -41,6 +41,23 @@ await build({
     ].join("\n"),
   },
 })
+
+// The agents' tools go beside the program, each with its own package.json, so each is measured as a package of its own.
+for (const tool of ["trade-market-tool-1.0.0", "trade-broker-tool-1.0.0"]) {
+  const out = join(dist, "tools", tool)
+  await build({
+    entryPoints: [join(root, "tools", tool, "server.mjs")],
+    outfile: join(out, "server.mjs"),
+    bundle: true,
+    platform: "node",
+    format: "esm",
+    target: "node22",
+    legalComments: "none",
+    logLevel: "warning",
+    banner: { js: 'import { createRequire as __createRequire } from "node:module";\nconst require = __createRequire(import.meta.url);' },
+  })
+  copyFileSync(join(root, "tools", tool, "package.json"), join(out, "package.json"))
+}
 
 execSync("npm run build -w @ceasenet/console", { cwd: root, stdio: "inherit" })
 const pages = join(root, "apps", "console", "dist")

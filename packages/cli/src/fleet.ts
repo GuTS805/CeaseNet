@@ -1,30 +1,33 @@
 import { spawnSync, spawn as nodeSpawn } from "node:child_process"
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { type Hex, type LoadedFile } from "@ceasenet/core"
 import { modelFromEnv, modelHost } from "@ceasenet/demo/brain"
-import { writeAtomic } from "@ceasenet/guard"
+import { measurePackage, writeAtomic } from "@ceasenet/guard"
 import spawn from "cross-spawn"
 import { type CallRecord, type GuardStatus, isAlive, liveGuards, recentCalls } from "./activity"
 import { selfCommand } from "./daemonClient"
 import { type Config, createMemberHome, inHome } from "./home"
-import { resolvePlan } from "./resolve"
 import type { Settings } from "./settings"
 
 /**
- * Three real AI agents, for seeing how this behaves before trusting it with your own.
+ * Three real AI trading agents, each in a real terminal of its own.
  *
- * Each is a process of its own with its own key, doing real work with real MCP servers from npm, in a folder of its
- * own that is all those servers can reach. A real model decides each step. Each keeps reading the recall list, and
- * when a recall covers it, it closes itself and its process ends. The tasks are sample files.
+ * Each is a process of its own with its own key. A real model decides each step, through real MCP servers, on live
+ * market prices. The money is paper: orders fill at the live price in an account in the agent's own folder, and no
+ * real funds exist to lose. Each keeps reading the recall list, and when a recall covers it, it closes itself and its
+ * process ends.
  */
 
-export type ToolId = "files" | "memory"
+export type ToolId = "market" | "broker"
 
 export interface ToolDefinition {
   id: ToolId
-  /** What `npx` is asked for. */
+  /** The package's name. */
   spec: string
+  /** The folder it ships in, under tools. */
+  dir: string
   /** A person's name for it. */
   label: string
   /** The calls these agents' jobs use. Offering a model only these saves tokens on every request. */
@@ -32,13 +35,23 @@ export interface ToolDefinition {
 }
 
 export const TOOLS: Record<ToolId, ToolDefinition> = {
-  files: { id: "files", spec: "@modelcontextprotocol/server-filesystem", label: "Filesystem", calls: ["read_text_file", "write_file"] },
-  memory: { id: "memory", spec: "@modelcontextprotocol/server-memory", label: "Memory", calls: ["create_entities"] },
+  market: { id: "market", spec: "trade-market-tool", dir: "trade-market-tool-1.0.0", label: "Market data", calls: ["get_price", "get_candles"] },
+  broker: { id: "broker", spec: "trade-broker-tool", dir: "trade-broker-tool-1.0.0", label: "Paper broker", calls: ["get_portfolio", "place_order"] },
+}
+
+const here = dirname(fileURLToPath(import.meta.url))
+
+/** Beside the installed program, or in this repository when run from source. */
+export function toolDir(tool: ToolDefinition): string {
+  const shipped = join(here, "tools", tool.dir)
+  return existsSync(shipped) ? shipped : resolve(here, "..", "..", "..", "tools", tool.dir)
 }
 
 export interface Task {
+  /** What this job is about. Here, a market. */
   file: string
-  content: string
+  /** Written to the agent's inbox, for a job that reads a file. */
+  content?: string
 }
 
 export interface Member {
@@ -49,55 +62,45 @@ export interface Member {
   /** What the agent is, in the model's own instructions. */
   role: string
   tasks: Task[]
-  /** The job, given the task file and where its result goes. */
+  /** The job, given the task and where its result goes. */
   job: (input: { task: string; result: string; n: number }) => string
 }
 
 export const SHARED_RULES =
-  "Work only through your tools, one call at a time. Keep every file you write to two short lines. When you finish, reply with one short sentence saying what you did. If a tool is refused, stop at once, say why it was refused, and do not look for a way around it."
+  "Work only through your tools, one call at a time. Decide only from what the tools say: if they give no data, do not trade. All money here is paper. When you finish, reply with one short sentence saying what you did and why. If a tool is refused, stop at once and say so."
 
-/** Every one of them uses the filesystem, so recalling it closes all three. Only two use memory, so recalling that closes two. */
+const MARKETS: Task[] = [{ file: "BTC-USD" }, { file: "ETH-USD" }, { file: "SOL-USD" }]
+
+/** Every one of them reads the market, so recalling that closes all three. Only the two traders use the broker, so recalling it closes two. */
 export const TEAM: Member[] = [
   {
-    id: "invoices",
-    name: "Invoice agent",
-    does: "Reads each invoice and drafts a payment reminder",
-    tools: ["files", "memory"],
-    role: "You chase unpaid invoices for a small company.",
-    tasks: [
-      { file: "invoice-1042.txt", content: "Invoice 1042. Customer: Northwind Traders. Amount: 12,400. Due: 2 weeks ago.\n" },
-      { file: "invoice-1043.txt", content: "Invoice 1043. Customer: Blue Harbour Foods. Amount: 3,150. Due: 5 days ago.\n" },
-      { file: "invoice-1044.txt", content: "Invoice 1044. Customer: Kestrel Freight. Amount: 8,720. Due: yesterday.\n" },
-    ],
-    job: ({ task, result, n }) =>
-      `Job ${n}. Read the invoice at ${task}. Write a polite payment reminder for it to ${result}. Then use the memory tool create_entities to record one entity named "Reminder ${n}" of type "reminder", with one observation saying which invoice it was for.`,
+    id: "momentum",
+    name: "Momentum trader",
+    does: "Buys what is rising and sells what is falling, with paper money",
+    tools: ["market", "broker"],
+    role: "You are a momentum trader with a paper account.",
+    tasks: MARKETS,
+    job: ({ task, n }) =>
+      `Job ${n}, on ${task}. Call get_candles for ${task}, then get_portfolio. If it rose by more than 0.1% in the last hour, buy between 100 and 300 dollars of it. If it fell by more than 0.1% and you hold some, sell between 100 and 300 dollars of it. Otherwise do not trade.`,
   },
   {
-    id: "support",
-    name: "Support agent",
-    does: "Reads each customer message and drafts a reply",
-    tools: ["files"],
-    role: "You answer customer messages for a small company.",
-    tasks: [
-      { file: "message-1.txt", content: "From Priya: my order arrived with a cracked lid. Can you send a replacement?\n" },
-      { file: "message-2.txt", content: "From Daniel: how do I change the delivery address on my next order?\n" },
-      { file: "message-3.txt", content: "From Mei: I was charged twice for the same order last week.\n" },
-    ],
-    job: ({ task, result, n }) => `Job ${n}. Read the customer message at ${task}. Write a short, kind reply to it at ${result}.`,
+    id: "reversion",
+    name: "Reversion trader",
+    does: "Buys dips and sells spikes, with paper money",
+    tools: ["market", "broker"],
+    role: "You are a mean-reversion trader with a paper account.",
+    tasks: MARKETS,
+    job: ({ task, n }) =>
+      `Job ${n}, on ${task}. Call get_candles for ${task}, then get_portfolio. If it fell by more than 0.1% in the last hour, buy between 100 and 300 dollars of it. If it rose by more than 0.1% and you hold some, sell between 100 and 300 dollars of it. Otherwise do not trade.`,
   },
   {
-    id: "research",
-    name: "Research agent",
-    does: "Reads each note and files a one-line summary",
-    tools: ["files", "memory"],
-    role: "You keep short summaries of what a small team has found out.",
-    tasks: [
-      { file: "note-1.txt", content: "Three competitors dropped their free tier this quarter, and two raised prices by about a fifth.\n" },
-      { file: "note-2.txt", content: "Customers who finish setup on the first day are far more likely to still be with us after a year.\n" },
-      { file: "note-3.txt", content: "Most support tickets last month were about billing dates, not about the product itself.\n" },
-    ],
-    job: ({ task, result, n }) =>
-      `Job ${n}. Read the note at ${task}. Write a one-line summary of it to ${result}. Then use the memory tool create_entities to record one entity named "Finding ${n}" of type "finding", with that summary as its one observation.`,
+    id: "risk",
+    name: "Risk watcher",
+    does: "Watches live markets and says what looks dangerous. It never trades",
+    tools: ["market"],
+    role: "You watch markets for a trading desk, and you never trade.",
+    tasks: MARKETS,
+    job: ({ task, n }) => `Job ${n}, on ${task}. Call get_price for ${task}, then get_candles for it. Say in one short sentence how much it moved in the last hour and whether that looks calm or dangerous.`,
   },
 ]
 
@@ -275,19 +278,21 @@ export function claudeAvailable(): { ok: boolean; version?: string; problem?: st
 
 export const mcpSettingsPath = (home: string): string => join(home, "mcp.json")
 
-/** The servers an agent may use. Each goes through the gate, and each can reach only this agent's own folder. */
+/** The servers an agent may use. Each goes through the gate, and keeps its files in this agent's own folder. */
 export function memberMcpSettings(member: Member, home: string, mainHome: string, self: { command: string; args: string[] }) {
   const workspace = workspaceOf(home)
   const env = { CEASENET_HOME: home, CEASENET_MAIN_HOME: mainHome, CEASENET_NO_DAEMON: "1" }
-  const gated = (name: string, serverArgs: string[], extra: Record<string, string> = {}) => ({
-    command: self.command,
-    args: [...self.args, "run", "--ceasenet", "--name", name, "--", "npx", "-y", ...serverArgs],
-    env: { ...env, ...extra },
-  })
+  const gated = (tool: ToolDefinition, toolArgs: string[] = []) => {
+    const dir = toolDir(tool)
+    return {
+      command: self.command,
+      args: [...self.args, "run", "--ceasenet", "--name", tool.id, "--package", dir, "--", self.command, join(dir, "server.mjs"), ...toolArgs],
+      env,
+    }
+  }
   const servers: Record<string, unknown> = {}
-  if (member.tools.includes("files")) servers.files = gated("files", [TOOLS.files.spec, workspace])
-  // By default this server keeps its data inside its own package, shared by everyone who runs that copy.
-  if (member.tools.includes("memory")) servers.memory = gated("memory", [TOOLS.memory.spec], { MEMORY_FILE_PATH: join(workspace, "memory.jsonl") })
+  if (member.tools.includes("market")) servers.market = gated(TOOLS.market)
+  if (member.tools.includes("broker")) servers.broker = gated(TOOLS.broker, ["--book", join(workspace, "book.json"), "--outbox", join(workspace, "outbox")])
   return { mcpServers: servers }
 }
 
@@ -295,15 +300,8 @@ export interface PreparedTool extends ToolDefinition {
   file: LoadedFile
 }
 
-/** Installs each tool once, for all the agents to share. The first time takes a moment. */
-export async function prepareTools(): Promise<PreparedTool[]> {
-  const prepared: PreparedTool[] = []
-  for (const tool of Object.values(TOOLS)) {
-    const plan = await resolvePlan("npx", ["-y", tool.spec])
-    prepared.push({ ...tool, file: plan.file })
-  }
-  return prepared
-}
+/** Measures each tool as it is on disk, which is what a recall names. */
+export const prepareTools = (): PreparedTool[] => Object.values(TOOLS).map((tool) => ({ ...tool, file: measurePackage(toolDir(tool)) }))
 
 export function prepareMember(member: Member, config: Config, self: { command: string; args: string[] }, mainHome: string): Config {
   const home = memberHome(member.id)
@@ -311,7 +309,7 @@ export function prepareMember(member: Member, config: Config, self: { command: s
   for (const dir of ["inbox", "outbox"]) mkdirSync(join(workspaceOf(home), dir), { recursive: true })
   for (const task of member.tasks) {
     const path = join(workspaceOf(home), "inbox", task.file)
-    if (!existsSync(path)) writeFileSync(path, task.content)
+    if (task.content !== undefined && !existsSync(path)) writeFileSync(path, task.content)
   }
   writeAtomic(mcpSettingsPath(home), JSON.stringify(memberMcpSettings(member, home, mainHome, self), null, 2))
   return created
@@ -319,15 +317,72 @@ export function prepareMember(member: Member, config: Config, self: { command: s
 
 // ---- Starting and ending them ----
 
+const shellQuote = (text: string): string => `'${text.replace(/'/g, `'\\''`)}'`
+
+/**
+ * Opens a real terminal window running this script, and says whether one could be opened.
+ * On a machine with no screen, set CEASENET_NO_TERMINALS=1 and the agents run in the background instead.
+ */
+export function openTerminal(script: string): boolean {
+  if (process.env.CEASENET_NO_TERMINALS === "1") return false
+  const opened = (command: string, args: string[]) => {
+    const result = spawnSync(command, args, { stdio: "ignore", windowsHide: false })
+    return !result.error && result.status === 0
+  }
+  if (process.platform === "win32") return opened("cmd", ["/c", "start", "", script])
+  if (process.platform === "darwin") return opened("osascript", ["-e", `tell application "Terminal" to do script ${JSON.stringify(`sh ${shellQuote(script)}`)}`])
+  for (const [command, flag] of [["x-terminal-emulator", "-e"], ["gnome-terminal", "--"], ["konsole", "-e"], ["xterm", "-e"]] as const) {
+    if (spawnSync("sh", ["-c", `command -v ${command}`], { stdio: "ignore" }).status !== 0) continue
+    nodeSpawn(command, [flag, "sh", script], { detached: true, stdio: "ignore" }).unref()
+    return true
+  }
+  return false
+}
+
+/** What a terminal runs: the agent, then a note that stays on screen, so the reason it closed can still be read. */
+export function terminalScript(platform: NodeJS.Platform, title: string, env: Record<string, string>, command: string[]): string {
+  if (platform === "win32") {
+    const safe = (text: string) => text.replace(/%/g, "%%")
+    return [
+      "@echo off",
+      "chcp 65001 >nul",
+      `title ${title}`,
+      ...Object.entries(env).map(([k, v]) => `set "${k}=${safe(v)}"`),
+      command.map((c) => `"${safe(c)}"`).join(" "),
+      "echo.",
+      "echo This agent has ended. Press any key to close this window.",
+      "pause >nul",
+      "",
+    ].join("\r\n")
+  }
+  return [
+    ...Object.entries(env).map(([k, v]) => `export ${k}=${shellQuote(v)}`),
+    `printf '\\033]0;${title}\\007'`,
+    command.map(shellQuote).join(" "),
+    "echo",
+    "echo 'This agent has ended. Press Enter to close this window.'",
+    "read _",
+    "",
+  ].join("\n")
+}
+
 export function startMember(member: Member, mainHome: string, self: { command: string; args: string[] }, tools: PreparedTool[]): void {
   const home = memberHome(member.id)
-  const loaded = tools.filter((t) => member.tools.includes(t.id)).map((t) => t.file)
-  const child = nodeSpawn(self.command, [...self.args, "agent-run", "--id", member.id, "--tools", JSON.stringify(loaded)], {
+  const toolsFile = join(home, "tools.json")
+  writeAtomic(toolsFile, JSON.stringify(tools.filter((t) => member.tools.includes(t.id)).map((t) => t.file)))
+  const run = [...self.args, "agent-run", "--id", member.id, "--tools-file", toolsFile]
+  const env = { CEASENET_HOME: home, CEASENET_MAIN_HOME: mainHome, CEASENET_NO_DAEMON: "1" }
+
+  const script = join(home, process.platform === "win32" ? "terminal.cmd" : "terminal.sh")
+  writeFileSync(script, terminalScript(process.platform, member.name, { ...env, CEASENET_TERMINAL: "1" }, [self.command, ...run]))
+  if (openTerminal(script)) return
+
+  const child = nodeSpawn(self.command, run, {
     // On Windows a detached process has no console, so everything it starts would open a window of its own.
     detached: process.platform !== "win32",
     stdio: "ignore",
     windowsHide: true,
-    env: { ...process.env, CEASENET_HOME: home, CEASENET_MAIN_HOME: mainHome, CEASENET_NO_DAEMON: "1" },
+    env: { ...process.env, ...env },
   })
   child.unref()
 }

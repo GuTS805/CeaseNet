@@ -1,9 +1,8 @@
 import { type Hex, type LoadedFile, recallCovers } from "@ceasenet/core"
 import { explainWriteError, type RecallLike } from "./actions"
-import { chooseThinking, claudeAvailable, listModels, markWatched, memberView, type PreparedTool, prepareMember, prepareTools, shutDownMember, startMember, selfForFleet, TEAM, testModel, THINKING_SETTING, TOOLS } from "./fleet"
+import { chooseThinking, claudeAvailable, listModels, markWatched, memberView, type PreparedTool, prepareMember, prepareTools, shutDownMember, startMember, selfForFleet, TEAM, testModel, THINKING_SETTING, TOOLS, type ToolDefinition } from "./fleet"
 import { type Config, homeDir, type Keys } from "./home"
 import type { Ledger } from "./ledger"
-import { parseSpec, pinFor } from "./resolve"
 import { readSettings, saveSetting } from "./settings"
 
 export interface TeamContext {
@@ -20,13 +19,14 @@ export interface TeamContext {
 const AGENT_SHARE_DIVISOR = 16n
 const MODEL_LIST_MS = 5 * 60_000
 
-const installedTools = (prepared: PreparedTool[] | undefined): (typeof TOOLS)[keyof typeof TOOLS] extends infer T ? (T & { file?: LoadedFile })[] : never =>
-  Object.values(TOOLS).map((tool) => {
-    const ready = prepared?.find((p) => p.id === tool.id)
-    if (ready) return ready
-    const pin = pinFor(tool.spec)
-    return pin?.hash ? { ...tool, file: { kind: "tool", name: pin.name, version: pin.version, hash: pin.hash } } : { ...tool, file: { kind: "tool", name: parseSpec(tool.spec).name, version: "", hash: "" } }
-  }) as never
+const installedTools = (prepared: PreparedTool[] | undefined): (ToolDefinition & { file?: LoadedFile })[] => {
+  if (prepared) return prepared
+  try {
+    return prepareTools()
+  } catch {
+    return Object.values(TOOLS)
+  }
+}
 
 /** Everything the agents' page reads, and what it can ask for. */
 export function teamRoutes(ctx: TeamContext) {
@@ -54,7 +54,7 @@ export function teamRoutes(ctx: TeamContext) {
     const writer = ledger.writer(keys.owner)
     const known = new Set((await ledger.agents(owner)).map((a) => a.agent.toLowerCase()))
     for (const m of members) {
-      if (!known.has(m.address.toLowerCase())) await writer.agent({ agent: m.address, name: m.name, framework: "MCP", purpose: "One of the team of three that shows how CeaseNet works." })
+      if (!known.has(m.address.toLowerCase())) await writer.agent({ agent: m.address, name: m.name, framework: "MCP", purpose: "One of three paper trading agents that show how CeaseNet works." })
     }
     if (ledger.kind !== "arkiv" || !mine) return
     const share = mine / AGENT_SHARE_DIVISOR
@@ -72,8 +72,8 @@ export function teamRoutes(ctx: TeamContext) {
     const chosen = TEAM.filter((m) => !ids || ids.includes(m.id))
     const self = selfForFleet()
     try {
-      preparing = "Installing their tools"
-      prepared = await prepareTools()
+      preparing = "Measuring their tools"
+      prepared = prepareTools()
       preparing = ledger.kind === "arkiv" ? "Registering them on Arkiv and funding their wallets" : "Registering them"
       const members = chosen.map((m) => {
         const made = prepareMember(m, config, self, homeDir())

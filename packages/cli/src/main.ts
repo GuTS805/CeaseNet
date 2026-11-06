@@ -42,7 +42,8 @@ Set up
   ceasenet network <arkiv|local>  Keep recalls on the public list, or in a file on this machine.
 
 See it work
-  ceasenet agents start           Start three real AI agents that close themselves when a recall covers them.
+  ceasenet agents start           Start three real AI trading agents, each in a terminal of its own, on live prices
+                                  with paper money. They close themselves when a recall covers them.
   ceasenet agents status          Where each of them stands.
   ceasenet agents shutdown        End them, with no recall.
 
@@ -507,7 +508,7 @@ async function main(argv: readonly string[]): Promise<void> {
       const info = await waitForDaemon()
       const res = await fetch(`http://127.0.0.1:${info.port}/api/team/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-ceasenet-token": info.token }, body: "{}" })
       if (!res.ok) throw new Error(((await res.json()) as { error: string }).error)
-      out(action === "start" ? `They are starting. Watch them at http://127.0.0.1:${info.port}` : "They have been shut down, with no recall.")
+      out(action === "start" ? `Three terminals are opening, one per agent. The console is at http://127.0.0.1:${info.port}` : "They have been shut down, with no recall.")
       return
     }
     case "access-key": {

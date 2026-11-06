@@ -4,8 +4,9 @@ import { join } from "node:path"
 import { type GateView, type LoadedFile, identityFiles, memoryStore, PRODUCTION_TIMERS, type RecallRow, teamArtifact, teamFile, type TrustPolicy } from "@ceasenet/core"
 import { Guard, type GuardNet } from "@ceasenet/guard"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { type JobHandle, TeamAgent } from "../src/agentRun"
-import { type AgentEvent, type AgentState, chooseThinking, memberMcpSettings, TEAM, TOOLS } from "../src/fleet"
+import { BrainBusy, BrainUnavailable } from "@ceasenet/demo/brain"
+import { isBadToolCall, type JobHandle, TeamAgent } from "../src/agentRun"
+import { type AgentEvent, type AgentState, chooseThinking, memberMcpSettings, prepareTools, TEAM, TOOLS } from "../src/fleet"
 import { createMemberHome, initHome, loadConfig, loadKeys } from "../src/home"
 import { packageProblem } from "../src/resolve"
 import { importSettings, readSettings, saveSetting, settingsPath } from "../src/settings"
@@ -373,33 +374,74 @@ describe("an agent cut off from the list", () => {
 })
 
 describe("the team", () => {
-  it("has three agents, and every one uses the filesystem, so recalling it closes them all", () => {
+  it("has three agents, and every one reads the market, so recalling that closes them all", () => {
     expect(TEAM).toHaveLength(3)
-    expect(TEAM.every((m) => m.tools.includes("files"))).toBe(true)
+    expect(TEAM.every((m) => m.tools.includes("market"))).toBe(true)
   })
 
-  it("has one agent that does not use memory, so recalling that closes only two", () => {
-    expect(TEAM.filter((m) => m.tools.includes("memory"))).toHaveLength(2)
+  it("has one agent that never trades, so recalling the broker closes only two", () => {
+    expect(TEAM.filter((m) => m.tools.includes("broker")).map((m) => m.id)).toEqual(["momentum", "reversion"])
   })
 
-  it("gives each server only this agent's own folder, through the gate", () => {
+  it("names the market in every job, and tells the traders when to trade", () => {
+    const [momentum, reversion, risk] = TEAM
+    expect(momentum!.job({ task: "BTC-USD", result: "", n: 1 })).toContain("BTC-USD")
+    expect(momentum!.job({ task: "BTC-USD", result: "", n: 1 })).toMatch(/rose by more than 0\.1%.*buy/)
+    expect(reversion!.job({ task: "BTC-USD", result: "", n: 1 })).toMatch(/fell by more than 0\.1%.*buy/)
+    expect(risk!.job({ task: "BTC-USD", result: "", n: 1 })).not.toContain("buy")
+  })
+
+  it("puts each agent's account in its own folder, and every tool behind the gate", () => {
     const self = { command: "node", args: ["ceasenet.mjs"] }
-    const settings = memberMcpSettings(TEAM[0]!, "/home/team/invoices", "/home", self) as { mcpServers: Record<string, { args: string[]; env: Record<string, string> }> }
-    expect(settings.mcpServers.files!.args).toContain("run")
-    expect(settings.mcpServers.files!.args).toContain(join("/home/team/invoices", "workspace"))
-    expect(settings.mcpServers.memory!.env.MEMORY_FILE_PATH).toContain("workspace")
+    const settings = memberMcpSettings(TEAM[0]!, "/home/team/momentum", "/home", self) as { mcpServers: Record<string, { args: string[]; env: Record<string, string> }> }
+    const { broker, market } = settings.mcpServers
+    expect(broker!.args).toContain("run")
+    expect(market!.args).toContain("run")
+    expect(broker!.args).toContain("--package")
+    expect(broker!.args).toContain(join("/home/team/momentum", "workspace", "book.json"))
+    expect(broker!.args).toContain(join("/home/team/momentum", "workspace", "outbox"))
+  })
+
+  it("gives the risk watcher no broker at all", () => {
+    const self = { command: "node", args: ["ceasenet.mjs"] }
+    const settings = memberMcpSettings(TEAM[2]!, "/h", "/m", self) as { mcpServers: Record<string, unknown> }
+    expect(Object.keys(settings.mcpServers)).toEqual(["market"])
   })
 
   it("does not put any model or service key in what a server can see", () => {
     const self = { command: "node", args: ["ceasenet.mjs"] }
     const settings = memberMcpSettings(TEAM[0]!, "/h", "/m", self) as { mcpServers: Record<string, { env: Record<string, string> }> }
     for (const server of Object.values(settings.mcpServers)) {
-      expect(Object.keys(server.env).every((k) => k.startsWith("CEASENET_") || k === "MEMORY_FILE_PATH")).toBe(true)
+      expect(Object.keys(server.env).every((k) => k.startsWith("CEASENET_"))).toBe(true)
     }
   })
 
   it("only offers a model the calls its jobs need", () => {
-    expect(TOOLS.files.calls).toEqual(["read_text_file", "write_file"])
+    expect(TOOLS.market.calls).toEqual(["get_price", "get_candles"])
+    expect(TOOLS.broker.calls).toEqual(["get_portfolio", "place_order"])
+  })
+
+  it("measures its tools from the packages it ships", () => {
+    const tools = prepareTools()
+    expect(tools.map((t) => [t.file.name, t.file.version])).toEqual([
+      ["trade-market-tool", "1.0.0"],
+      ["trade-broker-tool", "1.0.0"],
+    ])
+    expect(tools.every((t) => t.file.hash.startsWith("0x"))).toBe(true)
+  })
+})
+
+describe("a model that writes a broken tool call", () => {
+  const refusal = 'api.groq.com returned 400: {"error":{"message":"Failed to parse tool call arguments as JSON","code":"tool_use_failed"}}'
+
+  it("is recognised, so the job is not thrown away", () => {
+    expect(isBadToolCall(new BrainUnavailable(refusal))).toBe(true)
+  })
+
+  it("is not confused with the service being down or busy", () => {
+    expect(isBadToolCall(new BrainUnavailable("api.groq.com unreachable: timeout"))).toBe(false)
+    expect(isBadToolCall(new BrainBusy(refusal, 1000))).toBe(false)
+    expect(isBadToolCall(new Error(refusal))).toBe(false)
   })
 })
 

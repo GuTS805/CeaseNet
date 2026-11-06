@@ -78,7 +78,7 @@ export function recordsService(ctx: RecordsContext) {
     return [
       // Your own agents' calls can hold anything. Sealed, they are all kept, and only you can read them.
       { id: "main", name: config.agent.name, home: homeDir(), address: config.agent.address, mode: mode ?? (ownerPublicKey ? "sealed" : "hashes") },
-      // These work on sample files, and being readable by anyone is the point of them.
+      // These trade paper money on public prices, and being readable by anyone is the point of them.
       ...TEAM.flatMap((m) => {
         const address = memberView(m).address
         return address ? [{ id: m.id, name: m.name, home: memberHome(m.id), address, mode: "public" as DiaryMode }] : []

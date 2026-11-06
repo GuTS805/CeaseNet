@@ -43,6 +43,10 @@ const CLOSE_REPORT_LIMIT_MS = 45_000
  */
 const CHECK_MS = { local: 2_000, keyed: 10_000, publicEndpoint: 10_000 }
 const MAX_TURNS = 8
+/** A terminal has someone at it, so nothing pauses. This limit keeps a forgotten window from using up a day's model allowance. */
+const TERMINAL_SESSION_MS = 20 * 60_000
+/** How often the terminal says the list is still being read. */
+const CHECK_NOTE_MS = 30_000
 
 export interface JobResult {
   ok: boolean
@@ -79,6 +83,8 @@ export interface AgentOptions {
   wait?: (ms: number) => Promise<void>
   jobGapMs?: number
   firstJob?: number
+  /** What it says when it leaves because its time is up. */
+  leaveNote?: string
 }
 
 const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -227,7 +233,7 @@ export class TeamAgent {
     while (!this.closing) {
       const unwatched = unwatchedForMs()
       if (unwatched > LEAVE_AFTER_MS) {
-        this.note("paused", "Nobody has looked for a long time, so it has shut itself down.")
+        this.note("paused", this.opts.leaveNote ?? "Nobody has looked for a long time, so it has shut itself down.")
         this.closing = true
         this.stopChecks()
         await shutdown?.().catch(() => undefined)
@@ -315,6 +321,11 @@ export const claudeJob =
 // ---- Thinking with any service that speaks the OpenAI chat API ----
 
 const BLANK_REPLY_REMINDER = "Carry on with the job: use a tool, or say in one short sentence what happened."
+const BAD_CALL_REMINDER = "Your last tool call was not valid. Call the tool again, with its arguments as a valid JSON object."
+const BAD_CALL_RETRIES = 2
+
+/** A model that wrote a broken tool call. The service refuses it, and asking again usually works, so the job need not start over. */
+export const isBadToolCall = (e: unknown): boolean => e instanceof BrainUnavailable && !(e instanceof BrainBusy) && /tool call|tool_use_failed/i.test(e.message)
 
 interface Connected {
   client: Client
@@ -325,7 +336,7 @@ interface Connected {
  * A real agent loop: the model chooses each step, and each step goes to a real MCP server through the gate.
  * Connections stay open between jobs, as they would for any agent, so the tools' processes are really there to end.
  */
-export function modelRunner(home: string, member: Member, settings: Settings): { startJob: StartJob; shutdown: () => Promise<void> } {
+export function modelRunner(home: string, member: Member, settings: Settings, step: (text: string) => void = () => undefined): { startJob: StartJob; shutdown: () => Promise<void> } {
   const model = modelSettings(settings)
   // The limit belongs to the key, which all the agents share.
   const brain = new PacedBrain(new ModelBrain(model), 60_000 / (model.requestsPerMinute / TEAM.length))
@@ -360,12 +371,23 @@ export function modelRunner(home: string, member: Member, settings: Settings): {
       { role: "user", content: prompt },
     ]
     let reminded = false
+    let badCalls = 0
     let reply = ""
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       if (signal.aborted) return { ok: false, text: "Ended." }
-      const answer = await brain.next(messages, specs, signal)
+      let answer: Awaited<ReturnType<typeof brain.next>>
+      try {
+        answer = await brain.next(badCalls > 0 ? [...messages, { role: "user", content: BAD_CALL_REMINDER }] : messages, specs, signal)
+      } catch (e) {
+        if (!isBadToolCall(e) || badCalls >= BAD_CALL_RETRIES) throw e
+        badCalls += 1
+        step("the model wrote a broken tool call, so it is asked again")
+        continue
+      }
+      badCalls = 0
       const calls = answer.message.tool_calls ?? []
       reply = answer.message.content?.trim() ?? reply
+      if (calls.length > 0 && answer.message.content?.trim()) step(`thinks: ${answer.message.content.trim()}`)
       if (calls.length === 0) {
         if (reply || reminded) return { ok: true, text: reply || "The model finished without saying anything." }
         reminded = true
@@ -375,6 +397,7 @@ export function modelRunner(home: string, member: Member, settings: Settings): {
       messages.push(answer.message)
       for (const call of calls) {
         const owner = tools.find((t) => t.specs.some((s) => s.name === call.function.name))
+        step(`calls ${call.function.name} ${call.function.arguments || "{}"}`)
         let content: string
         if (!owner) {
           content = `There is no tool called ${call.function.name}.`
@@ -386,6 +409,7 @@ export function modelRunner(home: string, member: Member, settings: Settings): {
             content = `That call failed: ${(e as Error).message.split("\n")[0]}`
           }
         }
+        step(`   -> ${content.split("\n")[0]}`)
         messages.push({ role: "tool", tool_call_id: call.id, content })
       }
     }
@@ -438,7 +462,13 @@ export async function runAgent(argv: readonly string[]): Promise<void> {
     return i === -1 ? undefined : argv[i + 1]
   }
   const member = memberNamed(value("--id") ?? "")
-  const tools = JSON.parse(value("--tools") ?? "[]") as LoadedFile[]
+  const toolsFile = value("--tools-file")
+  const tools = (toolsFile ? JSON.parse(readFileSync(toolsFile, "utf8")) : []) as LoadedFile[]
+  const inTerminal = process.env.CEASENET_TERMINAL === "1"
+  const startedAt = Date.now()
+  const print = (text: string) => {
+    if (inTerminal) console.log(`${new Date().toLocaleTimeString("en-GB")}  ${text}`)
+  }
 
   const home = homeDir()
   const config = loadConfig()
@@ -450,7 +480,14 @@ export async function runAgent(argv: readonly string[]): Promise<void> {
   const settings = readSettings()
   const thinking = chooseThinking(settings)
   if (!thinking) throw new Error("There is no model to think with.")
-  const runner = thinking.kind === "api" ? modelRunner(home, member, settings) : { startJob: claudeJob(home, member, thinking.model), shutdown: async () => undefined }
+  const runner = thinking.kind === "api" ? modelRunner(home, member, settings, print) : { startJob: claudeJob(home, member, thinking.model), shutdown: async () => undefined }
+  if (inTerminal) {
+    console.log(`\n  ${member.name}. ${member.does}.`)
+    console.log(`  Thinks with ${thinking.model}. Live prices, paper money: no real funds exist here.`)
+    console.log(`  Agent ${config.agent.address}`)
+    for (const t of tools) console.log(`  Tool  ${t.name} ${t.version}  ${t.hash.slice(0, 18)}…`)
+    console.log(`  It reads the recall list on ${config.network === "local" ? "this machine" : "Arkiv"}, and closes itself if a recall covers it.\n`)
+  }
 
   // Timed here, so the page can show what each check really cost and really read.
   const info = { block: "0", tookMs: 0, stopsRead: 0 }
@@ -491,6 +528,7 @@ export async function runAgent(argv: readonly string[]): Promise<void> {
   }, NUDGE_POLL_MS)
 
   mkdirSync(home, { recursive: true })
+  let lastCheckNote = Date.now()
   const agent = new TeamAgent({
     member,
     address: config.agent.address,
@@ -498,9 +536,10 @@ export async function runAgent(argv: readonly string[]): Promise<void> {
     guard,
     startJob: runner.startJob,
     shutdown: runner.shutdown,
-    taskPath: (file) => join(workspace, "inbox", file),
+    taskPath: (file) => file,
     resultPath: (n) => join(workspace, "outbox", `result-${n}.txt`),
     unwatchedForMs: () => {
+      if (inTerminal) return Date.now() - startedAt > TERMINAL_SESSION_MS ? Number.POSITIVE_INFINITY : 0
       try {
         return Date.now() - statSync(join(mainHome(), "team-watched")).mtimeMs
       } catch {
@@ -508,8 +547,15 @@ export async function runAgent(argv: readonly string[]): Promise<void> {
       }
     },
     readInfo: () => info,
-    write: (state) => writeAgentState(home, state),
+    write: (state) => {
+      writeAgentState(home, state)
+      if (Date.now() - lastCheckNote > CHECK_NOTE_MS && state.lastCheck) {
+        lastCheckNote = Date.now()
+        print(`recall list read ${state.checks} times, the last in ${state.lastCheck.tookMs} ms: nothing covers this agent`)
+      }
+    },
     event: (event) => {
+      print(event.kind === "closed" ? `\n  *** ${event.text} ***\n` : event.text)
       appendFileSync(join(home, "events.jsonl"), `${JSON.stringify(event)}\n`)
       recordNote(event.kind, event.text, home, event.at)
     },
@@ -518,6 +564,7 @@ export async function runAgent(argv: readonly string[]): Promise<void> {
       process.exit(code)
     },
     firstJob: nextJobNumber(home),
+    leaveNote: inTerminal ? "Its 20 minutes are up, which protects your model allowance. Start it again to carry on." : undefined,
   })
 
   // Asked to leave without a recall. Nothing of its own may be left running.
