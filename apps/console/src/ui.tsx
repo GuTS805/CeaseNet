@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
+import { motion, useReducedMotion } from "motion/react"
 
 export const short = (value: string) => (value.length > 14 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value)
 
@@ -78,6 +79,7 @@ export interface Ask {
 }
 
 export function AskDialog({ ask, close, run }: { ask: Ask; close: () => void; run: Run }) {
+  const reduced = useReducedMotion()
   const dialog = useRef<HTMLDialogElement>(null)
   const [reason, setReason] = useState("")
   const [advice, setAdvice] = useState("")
@@ -100,7 +102,7 @@ export function AskDialog({ ask, close, run }: { ask: Ask; close: () => void; ru
 
   return (
     <dialog ref={dialog} className="ask" onClose={close}>
-      <form onSubmit={(e) => void submit(e)}>
+      <motion.form initial={{ opacity: 0, y: reduced ? 0 : 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .2 }} onSubmit={(e) => void submit(e)}>
         <h2>{ask.title}</h2>
         <div className="ask-body">{ask.body}</div>
         {ask.options && (
@@ -137,7 +139,7 @@ export function AskDialog({ ask, close, run }: { ask: Ask; close: () => void; ru
             {busy ? "Working…" : ask.confirm}
           </button>
         </div>
-      </form>
+      </motion.form>
     </dialog>
   )
 }

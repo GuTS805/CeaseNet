@@ -1,9 +1,14 @@
+import "@fontsource-variable/inter"
 import "@fontsource/ibm-plex-mono/400.css"
 import "@fontsource/ibm-plex-mono/500.css"
 import "@fontsource/ibm-plex-sans/400.css"
 import "@fontsource/ibm-plex-sans/500.css"
 import "@fontsource/ibm-plex-sans/600.css"
 import "./console.css"
+import "../../shared/theme.css"
+import "./after-hours.css"
+import { MotionConfig, motion } from "motion/react"
+import { Icon, PageTransition } from "../../shared/design"
 import { StrictMode, useEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { useConsoleState } from "./api"
@@ -28,7 +33,7 @@ function useRoute(): string {
   const read = () => window.location.hash.replace(/^#\/?/, "")
   const [route, setRoute] = useState(read)
   useEffect(() => {
-    const on = () => setRoute(read())
+    const on = () => { setRoute(read()); window.scrollTo({ top: 0, behavior: "instant" }) }
     window.addEventListener("hashchange", on)
     return () => window.removeEventListener("hashchange", on)
   }, [])
@@ -75,19 +80,23 @@ function Console() {
   }
 
   if (!state) {
-    return <div className="loading">{unreachable ? "Cannot reach the console. Run: ceasenet console" : "Loading…"}</div>
+    return <div className="console-loading"><a className="brand-word" href="#/">CeaseNet</a><div className="loading-panel"><Icon name="terminal" size={36} /><span className="eyebrow">YOUR LOCAL WORKSPACE</span><h1>{unreachable ? "Let's reconnect." : "Opening your workspace."}</h1><p>{unreachable ? "The local console isn't responding. Start it in a terminal and use the address it prints." : "Connecting to your agents and reading the latest state."}</p>{unreachable ? <><pre>ceasenet console</pre><button className="primary" onClick={() => void refresh()}>Try again</button></> : <div className="loading-track" aria-label="Loading" />}</div></div>
   }
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
+      <a className="skip-link" href="#console-main" onClick={e => { e.preventDefault(); document.getElementById("console-main")?.focus() }}>Skip to content</a>
       <nav className="top" aria-label="Pages">
-        <span className="brand">CeaseNet</span>
+        <a className="brand-word" href="#/">CeaseNet</a>
         <div className="pages">
           {PAGES.map((p) => (
             <a key={p.path} href={`#/${p.path}`} className={route === p.path ? "page-link on" : "page-link"} aria-current={route === p.path ? "page" : undefined}>
+              {route === p.path && <motion.span className="nav-indicator" layoutId="console-nav" transition={{ type: "spring", stiffness: 380, damping: 32 }} />}
+              <span className="nav-label">
               {p.label}
               {p.path === "machine" && state.approvals.length > 0 && <span className="tab-count alert">{state.approvals.length}</span>}
               {p.path === "reports" && state.reportsWaiting.length > 0 && <span className="tab-count alert">{state.reportsWaiting.length}</span>}
+              </span>
             </a>
           ))}
         </div>
@@ -104,7 +113,8 @@ function Console() {
           {unreachable && <span className="network bad">Lost contact with the console</span>}
         </span>
       </nav>
-      <main>
+      <main id="console-main" tabIndex={-1}>
+        <div className="console-context"><span className="eyebrow">WORKSPACE / {PAGES.find(p => p.path === route)?.label ?? "Agents"}</span><span className="eyebrow">YOUR AGENTS. YOUR FINAL SAY.</span></div>
         {error && (
           <div className="notice bad" role="alert">
             {error}
@@ -126,6 +136,7 @@ function Console() {
               <a href="#/reports">Decide</a>
             </div>
           ))}
+        <PageTransition key={route} route={route} className="console-page">
         {route === "reports" ? (
           <ReportsPage onAsk={setAsk} run={run} canSign={state.owner.canSign} />
         ) : route === "diary" ? (
@@ -139,9 +150,11 @@ function Console() {
         ) : (
           <AgentsPage onAsk={setAsk} run={run} />
         )}
+        </PageTransition>
+        <footer className="console-footer"><span>CeaseNet / Stop. Recall. Verify.</span><span>Controlled by your owner key.</span></footer>
       </main>
       {ask && <AskDialog ask={ask} close={() => setAsk(undefined)} run={run} />}
-    </>
+    </MotionConfig>
   )
 }
 

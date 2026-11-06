@@ -18,6 +18,7 @@
     "records-check": "tsx scripts/records-check.ts",
     "fund-owner": "tsx --env-file=.env scripts/fund-owner.ts",
     "test": "vitest run",
+    "test:design": "node scripts/design-check.mjs",
     "keys": "tsx scripts/keys.ts",
     "fund": "tsx --env-file=.env scripts/fund.ts",
     "smoke": "tsx --env-file=.env scripts/smoke.ts",
@@ -42,6 +43,7 @@
     "local-bee": "tsx scripts/local-bee.ts"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

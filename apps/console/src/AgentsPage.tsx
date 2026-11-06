@@ -1,4 +1,5 @@
 import { post, type TeamMember, type TeamState, type TeamTool, usePoll } from "./api"
+import { motion, useReducedMotion } from "motion/react"
 import { type Ask, ago, Copyable, type Run, short, Status, Tile, type Tone, useNow } from "./ui"
 
 const PHASE: Record<string, { label: string; tone: Tone }> = {
@@ -33,6 +34,7 @@ function ToolChip({ tool }: { tool: TeamTool }) {
 }
 
 function AgentCard({ member, tools, state, now, onAsk, run }: { member: TeamMember; tools: TeamTool[]; state: TeamState; now: number; onAsk: (ask: Ask) => void; run: Run }) {
+  const reduced = useReducedMotion()
   const status = describe(member)
   const s = member.state
   const closed = s?.phase === "closed" || s?.phase === "closing"
@@ -51,7 +53,7 @@ function AgentCard({ member, tools, state, now, onAsk, run }: { member: TeamMemb
     })
 
   return (
-    <article className={`agent ${closed ? "agent-closed" : ""}`} aria-label={member.name}>
+    <motion.article initial={{ opacity: 0, y: reduced ? 0 : 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .4 }} whileHover={{ y: reduced ? 0 : -3 }} className={`agent ${closed ? "agent-closed" : ""}`} aria-label={member.name}>
       <header className="agent-head">
         <Status tone={status.tone}>{status.label}</Status>
         <span className="muted small nowrap">{member.alive && s ? `Process ${s.pid}` : s && closed ? "Process ended" : ""}</span>
@@ -129,7 +131,7 @@ function AgentCard({ member, tools, state, now, onAsk, run }: { member: TeamMemb
           )}
         </>
       )}
-    </article>
+    </motion.article>
   )
 }
 

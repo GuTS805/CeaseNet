@@ -47,14 +47,15 @@ function Contents({ item, canOpen }: { item: DiaryItem; canOpen: boolean }) {
 }
 
 export function DiaryPage({ run }: { run: Run }) {
-  const { data: list, refresh: refreshList } = usePoll<DiaryList>("/api/diary", 5000)
+  const { data: list, error: listError, refresh: refreshList } = usePoll<DiaryList>("/api/diary", 5000)
   const [chosen, setChosen] = useState<string>()
   const [onlyRefused, setOnlyRefused] = useState(false)
   const [storing, setStoring] = useState(false)
   const now = useNow()
   const agent = list?.agents.find((a) => a.id === chosen) ?? list?.agents[1] ?? list?.agents[0]
   const { data: read, error, refresh } = usePoll<DiaryRead>(agent ? `/api/diary/${agent.id}` : "/api/diary/main", 10_000)
-  if (!list || !agent) return <div className="loading">Reading the diaries…</div>
+  if (!list) return <div className="page-body"><div className="page-title"><h1>Diary</h1></div><div className={listError ? "notice bad" : "loading"} role="status">{listError ?? "Reading the diaries…"}</div></div>
+  if (!agent) return <div className="page-body"><div className="page-title"><div><h1>Diary</h1><p className="muted">A record of what your agents do, call by call.</p></div></div><div className="empty-state"><h2>Your first entry starts with an agent.</h2><p>No agent diaries are available yet. Start an agent to begin recording its activity.</p><a className="button-link" href="#/">View agents</a></div></div>
 
   const current = read?.id === agent.id ? read : undefined
   const parts = current?.parts ?? []
@@ -141,7 +142,7 @@ export function DiaryPage({ run }: { run: Run }) {
             {agent.waiting > 0 && <p className="muted small">{agent.waiting} entries are waiting. Each agent stores a part every 2 minutes, and straight away when it closes.</p>}
           </div>
         ) : (
-          <table className="calls">
+          <table className="calls diary-calls">
             <tbody>
               {items.map((item) => {
                 const result = outcome(item)

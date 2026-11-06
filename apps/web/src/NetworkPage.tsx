@@ -1,16 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { DEMO_AGENTS, followersOf, follows, isLive, isWithdrawn, lower, onlyLive, type PublicView, recallCovers, type RecallRow, trustFromPolicy } from "@ceasenet/core"
+import { DEMO_AGENTS, followersOf, isLive, lower, onlyLive, type PublicView, type RecallRow } from "@ceasenet/core"
 import { client, HOSTED, nameOf, shortHash, statusColour, statusLabel, useNetworkView, usePoll } from "./lib"
-import { type ChainRecord, recordsIn, ViewTracker } from "./warroom/events"
+import { type ChainRecord, recordsIn } from "./warroom/events"
 import { Ticker } from "./warroom/Ticker"
-import { cometOn } from "./warroom/WarMap"
-
-const W = 1200
-const ROW = 92
-const TOP = 26
-const ISSUER_X = 150
-const AGENT_X = 880
-const MAX_NODES = 10
 
 const isDemo = (agent: string) => DEMO_AGENTS.some((a) => lower(a) === lower(agent))
 
@@ -31,12 +23,6 @@ function issuersOf(view: PublicView): Issuer[] {
       followers: new Set(view.agents.filter((a) => a.policy?.issuers.some((i) => lower(i) === key)).map((a) => lower(a.agent.owner))).size,
     }))
     .sort((a, b) => b.recalls.length - a.recalls.length || b.followers - a.followers)
-    .slice(0, MAX_NODES)
-}
-
-const curve = (x1: number, y1: number, x2: number, y2: number) => {
-  const mid = (x1 + x2) / 2
-  return `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`
 }
 
 /** Says what the map is leaving out, and brings it back with one click. */
@@ -50,97 +36,21 @@ export function LiveToggle({ view, everyone, onChange }: { view: PublicView; eve
   )
 }
 
-/** The real graph: every line is an owner's public choice, and a red one is a STOP that binds that agent. Nothing here is drawn from a fixed list. */
+/** Public trust records, presented without a node diagram. */
 export function NetworkMap({ view, shown = view }: { view: PublicView; shown?: PublicView }) {
-  const layer = useRef<SVGGElement>(null)
-  const tracker = useRef(new ViewTracker())
-  const issuers = useMemo(() => issuersOf(shown), [shown])
-  const agents = shown.agents.slice(0, MAX_NODES)
-  const rows = Math.max(issuers.length, agents.length, 2)
-  const height = TOP * 2 + rows * ROW
-  const yFor = (i: number, count: number) => TOP + ((rows * ROW) / count) * (i + 0.5)
-  const issuerY = (key: string) => yFor(issuers.findIndex((x) => x.key === key), issuers.length)
-  const agentY = (agent: string) => yFor(agents.findIndex((a) => lower(a.agent.agent) === lower(agent)), agents.length)
-
-  const lit = (issuer: Issuer, a: PublicView["agents"][number]) =>
-    issuer.recalls.some(
-      (r) =>
-        r.level === "STOP" &&
-        follows(a.policy, r) &&
-        !isWithdrawn(r, view.lifts, trustFromPolicy(a.policy ?? { issuers: [], regulators: [], verifier: r.creator, threshold: 3 })) &&
-        (a.loadout?.files.some((f) => recallCovers(r, f)) ?? false),
-    )
-
-  // Only a new record on Arkiv sets anything moving.
-  useEffect(() => {
-    const target = layer.current
-    if (!target) return
-    for (const e of tracker.current.next(view)) {
-      if (e.kind === "recall") {
-        const from = issuers.find((i) => i.key === lower(e.row.creator))
-        if (!from) continue
-        for (const a of agents) {
-          if (a.policy?.issuers.some((i) => lower(i) === from.key)) {
-            void cometOn(target, curve(ISSUER_X + 150, issuerY(from.key), AGENT_X - 150, agentY(a.agent.agent)), e.row.level === "STOP" ? "red" : "amber", 900)
-          }
-        }
-      } else if (e.kind === "receipt" && agents.some((a) => lower(a.agent.agent) === lower(e.row.agent))) {
-        if (issuers.some((i) => i.key === lower(e.row.issuer))) {
-          void cometOn(target, curve(AGENT_X - 150, agentY(e.row.agent), ISSUER_X + 150, issuerY(lower(e.row.issuer))), e.row.action === "UPDATED" ? "teal" : "white", 900)
-        }
-      }
-    }
-  }, [view])
-
-  return (
-    <div className="net-map" style={{ aspectRatio: `${W} / ${height}` }}>
-      <svg viewBox={`0 0 ${W} ${height}`} aria-hidden="true">
-        {issuers.flatMap((issuer) =>
-          agents
-            .filter((a) => a.policy?.issuers.some((i) => lower(i) === issuer.key))
-            .map((a) => (
-              <path
-                key={`${issuer.key}:${a.agent.agent}`}
-                data-agent={lower(a.agent.agent)}
-                d={curve(ISSUER_X + 150, issuerY(issuer.key), AGENT_X - 150, agentY(a.agent.agent))}
-                pathLength={100}
-                className={`net-line ${lit(issuer, a) ? "bound" : ""}`}
-              />
-            )),
-        )}
-        <g ref={layer} />
-        {(issuers.length > 0 || agents.length > 0) && (
-          <>
-            <text x={W / 2} y={height / 2 - 6} className="net-hub">
-              ARKIV
-            </text>
-            <text x={W / 2} y={height / 2 + 14} className="net-hub-block">
-              block {String(view.block)}
-            </text>
-          </>
-        )}
-      </svg>
-      {issuers.map((i) => (
-        <div key={i.key} className={`net-node issuer ${i.recalls.some((r) => r.level === "STOP") ? "hot" : ""}`} style={{ left: `${((ISSUER_X - 150) / W) * 100}%`, top: `${(issuerY(i.key) / height) * 100}%` }}>
-          <b>{nameOf(i.key)}</b>
-          <span className="mono">{shortHash(i.key)}</span>
-          <span>
-            {i.recalls.length} recall{i.recalls.length === 1 ? "" : "s"}, {i.followers} following
-          </span>
-        </div>
-      ))}
-      {agents.map((a) => (
-        <a key={a.agent.key} href={`#/agent/${a.agent.agent}`} className="net-node agent-node" style={{ left: `${((AGENT_X - 150) / W) * 100}%`, top: `${(agentY(a.agent.agent) / height) * 100}%` }}>
-          <b>{a.agent.name}</b>
-          <span className={`status ${statusColour(a.heartbeat?.mode)}`}>{statusLabel(a.heartbeat?.mode)}</span>
-          <span className="mono">{a.loadout?.files.filter((f) => f.kind === "tool").map((f) => `${f.name} ${f.version}`).join(", ") || "Nothing published yet"}</span>
-        </a>
-      ))}
-      {issuers.length === 0 && agents.length === 0 && <div className="net-empty">{view.agents.length > 0 ? "No agent is running right now. An agent appears here while its heartbeat is live, and drops off when it stops." : "Nothing on Arkiv yet."}</div>}
+  const issuers = issuersOf(shown)
+  return <section className="network-records" aria-label="Network overview">
+    <div className="network-figures">
+      <div><span className="eyebrow">AGENTS ON RECORD</span><b>{view.agents.length}</b></div>
+      <div><span className="eyebrow">LIVE HEARTBEATS</span><b>{view.agents.filter(isLive).length}</b></div>
+      <div><span className="eyebrow">RECALL RECORDS</span><b>{view.recalls.length}</b></div>
+      <div><span className="eyebrow">LATEST BLOCK</span><b>{String(view.block)}</b></div>
     </div>
-  )
+    <div className="card"><h2>Trust, on the record.</h2><p className="muted small">Each owner chooses whose recalls to follow. A recall only binds agents whose owner follows its issuer.</p>
+      {issuers.length === 0 ? <p className="muted">No issuers for the agents currently shown.</p> : <div className="issuer-list">{issuers.map(i => <div className="issuer-record" key={i.key}><div><b>{nameOf(i.key)}</b><span className="mono muted">{shortHash(i.key)}</span></div><span>{i.recalls.length} recall records</span><span>{i.followers} following owners</span></div>)}</div>}
+    </div>
+  </section>
 }
-
 /** Everyone on the record, read from Arkiv by this browser. A new agent shows up here the moment it registers. */
 export function NetworkPage() {
   const { data: view, error } = useNetworkView()
@@ -160,15 +70,14 @@ export function NetworkPage() {
     })
   }, [view])
 
-  if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
-  if (!view || !shown) return <div className="page muted">Reading Arkiv…</div>
+  if (error && !view) return <div className="page network"><h1>The network, live</h1><div className="notice bad" role="alert">Cannot read Arkiv: {error}</div><p className="muted">The network is temporarily unavailable. This page will retry automatically.</p></div>
+  if (!view || !shown) return <div className="page network"><h1>The network, live</h1><div className="empty-state" role="status">Reading public records from Arkiv…</div></div>
   const liveCount = view.agents.filter(isLive).length
   return (
     <div className="page network">
       <h1>The network, live</h1>
       <p className="muted">
-        Every agent, key and line here comes straight from Arkiv, read by your browser with no server of ours. {view.agents.length} agents on record, {liveCount} with a live heartbeat, {view.recalls.length} recalls. A line
-        is an owner's public choice to follow a key. Red means a STOP binds that agent. <a href="#/protect">Add your own.</a>
+        Every agent and record here comes straight from Arkiv, read independently by your browser. {view.agents.length} agents on record, {liveCount} with a live heartbeat, {view.recalls.length} recalls. Each owner decides which issuers to follow. <a href="#/protect">Add your own.</a>
       </p>
       <LiveToggle view={view} everyone={everyone} onChange={setEveryone} />
       <NetworkMap view={view} shown={shown} />

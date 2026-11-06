@@ -24,6 +24,9 @@ out/
 # Logs and local data
 *.log
 coverage/
+.design-review/
+playwright-report/
+test-results/
 
 # OS and editor files
 .DS_Store

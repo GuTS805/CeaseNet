@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ADDRESSES,
   type AgentRecallState,
@@ -27,12 +27,11 @@ import {
   type ViewEvent,
   ViewTracker,
 } from "./warroom/events"
-import { STAGE_H, STAGE_W } from "./warroom/geometry"
+
 import { Inbox } from "./warroom/Inbox"
 import { WarSound } from "./warroom/sound"
 import { Ticker } from "./warroom/Ticker"
-import { type MapFx, WarMap } from "./warroom/WarMap"
-import "./warroom/warroom.css"
+import { type MapFx } from "./warroom/WarMap"
 
 const trust = trustFromPolicy(demoPolicy())
 const lower = (a: string) => a.toLowerCase()
@@ -114,28 +113,12 @@ function BigTimer({ start, end }: { start: number; end?: number }) {
   return <div ref={ref} key={end ? "done" : "running"} className={`timer ${end ? "done" : "running"}`} />
 }
 
-/** Fits the stage into the window and leaves the rest of the page below it. */
-function useStageScale() {
-  const frame = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1)
-  useLayoutEffect(() => {
-    const fit = () => {
-      const top = (frame.current?.getBoundingClientRect().top ?? 0) + window.scrollY
-      setScale(Math.max(0.5, Math.min(document.documentElement.clientWidth / STAGE_W, (window.innerHeight - top) / STAGE_H)))
-    }
-    fit()
-    window.addEventListener("resize", fit)
-    return () => window.removeEventListener("resize", fit)
-  }, [])
-  return { frame, scale }
-}
-
 /** The demo screen. Everything that moves comes from a reading of the demo server or of Arkiv. See warroom/events.ts. */
 export function LivePage() {
   const { data: state, error: demoError } = usePoll<DemoState>(() => demoGet<DemoState>("/api/state"), 500)
   const { data: view, error } = usePublicView(2000)
   const { data: block } = usePoll(() => client.getBlockNumber(), 1000)
-  const { frame, scale } = useStageScale()
+  const frame = useRef<HTMLDivElement>(null)
 
   const [busy, setBusy] = useState<string>()
   const [problem, setProblem] = useState<string>()
@@ -371,16 +354,9 @@ export function LivePage() {
   const notFollowing = stop && agents.filter((a) => a.followsMaker === false && badHash && mailLine(a, badHash) === "leaking")
 
   return (
-    <div className="war">
-      <div ref={frame} className="stage-frame" style={{ width: STAGE_W * scale, height: STAGE_H * scale }}>
-        <div ref={stage} className={`stage ${stageClass}`} style={{ transform: `scale(${scale})` }}>
-          <WarMap
-            ref={fx}
-            agents={agents.map((a, i) => ({ line: lines[i] ?? "leaking", online: a.online, follows: a.followsMaker !== false }))}
-            block={block}
-            sent={sent}
-            stolenLive={!sealed}
-          />
+    <div className="war after-live">
+      <div ref={frame} className="stage-frame">
+        <div ref={stage} className={`stage ${stageClass}`}>
 
           <div className="phase">
             <div key={phase.word} className={`phase-word ${phase.tone}`}>
@@ -455,8 +431,8 @@ export function LivePage() {
             </div>
           )}
 
-          {agents.map((a, i) => (
-            <AgentNode
+          <div className="live-agent-grid">{agents.map((a, i) => (
+            <div className="live-agent-wrapper" key={a.id}><AgentNode
               key={a.id}
               agent={a}
               index={i}
@@ -466,10 +442,10 @@ export function LivePage() {
               canUpdate={a.fixAvailable && a.online && lines[i] !== "fixed"}
               worldId={Boolean(state?.worldIdApprovals)}
               realModel={state?.brainSource === "model"}
-            />
+            /></div>
           ))}
 
-          <div className="honest">
+          </div><div className="honest">
             {state?.brainSource === "dev" ? "Built-in rules" : "Real model"}, real MCP tools, real Arkiv records. The mail tool is made up and nothing is really sent. Agents check every {(state?.timers.checkIntervalMs ?? 2000) / 1000} s here; production settings use 30 s.
           </div>
 
