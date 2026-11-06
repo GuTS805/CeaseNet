@@ -22,7 +22,8 @@
     "demo": "tsx --env-file=.env apps/demo/src/server.ts",
     "demo:dev": "tsx --env-file=.env scripts/demo-dev.ts",
     "proxy-check": "tsx --env-file=.env scripts/proxy-check.ts",
-    "verifier": "tsx --env-file=.env apps/verifier/src/server.ts"
+    "verifier": "tsx --env-file=.env apps/verifier/src/server.ts",
+    "diary-check": "tsx --env-file=.env scripts/diary-check.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
