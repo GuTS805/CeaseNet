@@ -4,9 +4,11 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@0gfoundation/0g-storage-ts-sdk": "^1.2.13",
     "@ceasenet/core": "*",
     "@ceasenet/guard": "*",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "ethers": "^6.13.1",
     "zod": "^4.6.7"
   }
 }

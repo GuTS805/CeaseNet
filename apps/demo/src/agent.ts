@@ -45,6 +45,8 @@ export interface AgentOptions {
   maxTurns?: number
   turnGapMs?: number
   firstInvoice?: number
+  /** When this says no, the agent starts no new job. */
+  shouldWork?: () => boolean
   wait?: (ms: number) => Promise<void>
 }
 
@@ -107,7 +109,8 @@ export class OfficeAgent {
   private async runLoop(): Promise<void> {
     while (this.running) {
       if (this.opts.autoUpdate) await this.installFix()
-      if (this.guard.status === "STOPPED") {
+      const idle = this.opts.shouldWork?.() === false
+      if (idle || this.guard.status === "STOPPED") {
         await this.wait(1000)
         continue
       }

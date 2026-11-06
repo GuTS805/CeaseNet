@@ -1,6 +1,9 @@
+import { existsSync, readdirSync, rmSync } from "node:fs"
+import { join } from "node:path"
 import { asc, gt, startsWith } from "@arkiv-network/sdk/query"
 import { key } from "@arkiv-network/sdk/schema"
 import { arkivPublicClient, arkivWalletClient, type Hex } from "@ceasenet/core"
+import { STATE_DIR } from "../apps/demo/src/store"
 import { accountFor, ROLES } from "./roles"
 
 // Clears rehearsals: deletes every CeaseNet record these demo wallets own, so a demo starts from nothing.
@@ -48,3 +51,9 @@ for (const role of ROLES) {
   total += deleted
 }
 console.log(`deleted ${total} records in all`)
+
+// Gate memory and the demo's sandbox folders go too, or a new run would remember the last one.
+for (const name of existsSync(STATE_DIR) ? readdirSync(STATE_DIR) : []) {
+  if (name.startsWith("gate-") || name === "sandbox") rmSync(join(STATE_DIR, name), { recursive: true, force: true })
+}
+console.log("cleared local demo state")

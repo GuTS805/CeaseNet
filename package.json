@@ -16,11 +16,11 @@
     "fund": "tsx --env-file=.env scripts/fund.ts",
     "smoke": "tsx --env-file=.env scripts/smoke.ts",
     "seed": "tsx --env-file=.env scripts/seed.ts",
-    "fleet": "tsx --env-file=.env apps/fleet/src/server.ts",
     "e2e": "tsx --env-file=.env scripts/e2e.ts",
     "reset": "tsx --env-file=.env scripts/reset.ts",
-    "fleet:dev": "tsx --env-file=.env scripts/fleet-dev.ts",
-    "web": "npm run dev -w @ceasenet/web"
+    "web": "npm run dev -w @ceasenet/web",
+    "demo": "tsx --env-file=.env apps/demo/src/server.ts",
+    "demo:dev": "tsx --env-file=.env scripts/demo-dev.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
