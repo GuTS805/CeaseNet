@@ -68,7 +68,7 @@ CI runs these on every pull request. It also installs the packed program in an e
 3. **It fails closed.** If the gate cannot tell, the call does not go through. A list out of reach is never permission.
 4. **Nothing of ours in the path.** A gate decides alone, on its own machine. Nothing may make a STOP depend on a server we run, and the site stays static.
 5. **Published records keep their meaning.** Old records must still read correctly, because they are on a public chain and can't be changed. If a change breaks readers of [arkiv/schema.md](arkiv/schema.md), say so there.
-6. **Nothing private by accident.** Records are public and hard to remove. A new field must not carry what a call sent, a key, or anything that identifies a person, and a tool must never see CeaseNet's settings. See [who learns what](README.md#who-learns-what), and update it if this changes.
+6. **Nothing private by accident.** Records are public and hard to remove. A new field must not carry what a call sent, a key, or anything that identifies a person, and a tool must never see CeaseNet's settings. See [who learns what](docs/privacy.md#who-learns-what), and update it if this changes.
 7. **Say what is true.** The README and the screens state only what has been seen working. If something is simulated or untested, it says so.
 
 ## Reporting bugs and security problems

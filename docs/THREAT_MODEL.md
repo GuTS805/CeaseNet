@@ -66,4 +66,4 @@ Everything is pinned by a lockfile and GitHub Actions by commit hash. [THIRD_PAR
 
 ## What can be learned about you
 
-See [who learns what](../README.md#who-learns-what) and [how much the public list sees](../README.md#how-much-the-public-list-sees).
+See [who learns what](privacy.md#who-learns-what) and [how much the public list sees](privacy.md#how-much-the-public-list-sees).

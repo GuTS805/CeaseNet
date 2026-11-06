@@ -23,7 +23,7 @@ npx tsx packages/guard/src/proxy.ts --package ./path/to/some-tool --owner 0xYour
 
 Without an agent key it only reads the list, so it publishes nothing about what you run. `npm run proxy-check` runs a standard MCP client through it on the live chain: the client was refused 0.5 seconds after the STOP appeared on Arkiv.
 
-The public pages need no account or wallet. The Arkiv query in the [README](../README.md#for-arkiv-judges) needs no key.
+The public pages need no account or wallet. The Arkiv query in the [README](../README.md#checks) needs no key.
 
 ## Honest limits
 

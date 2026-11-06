@@ -15,7 +15,7 @@ We aim to answer within a week. Once a fix is out, the advisory is published wit
 - **Blocking an owner's STOP:** anything that keeps a valid STOP from reaching their agent without the gate failing closed.
 - **Faking the record:** a receipt, a vote or a diary that passes its check but is not real, or a login that was not one person's.
 - **Keys and secrets:** a tool seeing CeaseNet's settings, or a key or access key reaching a record, a log or the site.
-- **Privacy:** a private agent's tools reaching the public list, or anything else that [who learns what](README.md#who-learns-what) says stays private.
+- **Privacy:** a private agent's tools reaching the public list, or anything else that [who learns what](docs/privacy.md#who-learns-what) says stays private.
 - **The console:** a web page you visit being able to press Stop or approve a call.
 
 ## Out of scope
