@@ -107,7 +107,7 @@ function AgentCard({ member, tools, state, now, onAsk, run }: { member: TeamMemb
             <dd>{s?.job ?? <span className="muted">{s?.phase === "paused" ? "Nothing: nobody is watching, so it saves your model allowance" : "Nothing right now"}</span>}</dd>
             <dt>Done</dt>
             <dd>
-              {s?.jobs ?? 0} {s?.jobs === 1 ? "job" : "jobs"}, {member.resultCount} {member.resultCount === 1 ? "file" : "files"}, {member.calls.length} tool {member.calls.length === 1 ? "call" : "calls"}
+              {s?.jobs ?? 0} {s?.jobs === 1 ? "job" : "jobs"}, {member.resultCount} paper {member.resultCount === 1 ? "order" : "orders"}, {member.calls.length} tool {member.calls.length === 1 ? "call" : "calls"}
             </dd>
           </dl>
           {s?.problem && <div className="agent-problem">{s.problem}</div>}
@@ -115,7 +115,7 @@ function AgentCard({ member, tools, state, now, onAsk, run }: { member: TeamMemb
           {member.results[0] && (
             <details className="result">
               <summary>
-                Latest work: {member.results[0].name}, {ago(member.results[0].at, now)}
+                Latest order: {member.results[0].name}, {ago(member.results[0].at, now)}
               </summary>
               <pre>{member.results[0].preview}</pre>
             </details>
@@ -214,7 +214,7 @@ export function AgentsPage({ onAsk, run }: { onAsk: (ask: Ask) => void; run: Run
       confirm: "Recall this tool",
       danger: true,
       needsReason: true,
-      placeholder: "It reads files it should not",
+      placeholder: "It is feeding agents false prices",
       go: ({ reason }) => post("/api/stop", { hash: tool.file.hash, name: tool.file.name, versions: tool.file.version, reason, severity: "CRITICAL" }),
     })
 
@@ -231,7 +231,7 @@ export function AgentsPage({ onAsk, run }: { onAsk: (ask: Ask) => void; run: Run
         <div>
           <h1>Three AI agents</h1>
           <p className="muted">
-            Each is its own process, thinking with {thinkingText}. Each does real work through real MCP tools, and keeps reading the recall list. When a recall covers it, it closes itself and its process ends. No one has to tell it twice, and the model is not asked.
+            Each is its own process, thinking with {thinkingText}. Each trades live prices with paper money through real MCP tools, in a real terminal of its own, and keeps reading the recall list. When a recall covers it, it closes itself and its process ends. No one has to tell it twice, and the model is not asked.
           </p>
         </div>
         <div className="page-actions">
@@ -341,7 +341,7 @@ export function AgentsPage({ onAsk, run }: { onAsk: (ask: Ask) => void; run: Run
       <Timeline members={members} now={now} />
 
       <p className="muted small foot-note">
-        The tasks are sample files in each agent's own folder, which is all its tools can reach. They pause after 2 minutes with nobody looking at this console, and shut down after 15, so they cannot run up your model limit unattended.
+        Prices are live from Coinbase, and the money is paper: no real funds exist here. Each terminal runs for 20 minutes, so a forgotten window can't use up a day's model allowance. From this page alone, with no terminal, they pause after 2 minutes with nobody looking and shut down after 15.
         {members[0]?.address ? ` Agent keys: ${members.map((m) => short(m.address ?? "")).join(", ")}.` : ""}
       </p>
     </div>
