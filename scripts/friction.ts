@@ -27,15 +27,15 @@ const attempt = async (name: string, run: () => Promise<unknown>) => {
 
 const textFields = { artifact, level: "STOP", severity: "HIGH", reason: stringToBytes("x"), contentHash: "0x01" }
 
-await attempt("1. a 129-byte value in a str column", () =>
+await attempt("good error: a 129-byte value in a str column", () =>
   wallet.createEntity(Recall, { ...textFields, severity: "x".repeat(129) } as any, { expiration: ExpirationTime.fromMinutes(5) }),
 )
 
-await attempt("2. a query with no filter", () => (client.select() as any).limit(1).fetch())
+await attempt("good error: a query with no filter", () => (client.select() as any).limit(1).fetch())
 
-await attempt("3. filtering on $createdAt, which every row has", () => (client.select().from(Recall) as any).where(gt("$createdAt", u64(1n))).limit(1).fetch())
+await attempt("item 6: filtering on $createdAt, which every row has", () => (client.select().from(Recall) as any).where(gt("$createdAt", u64(1n))).limit(1).fetch())
 
-await attempt("4. an expiry beyond the maximum", () =>
+await attempt("good error: an expiry beyond the maximum", () =>
   wallet.createEntity(Recall, textFields as any, { expiration: ExpirationTime.fromDays(400), flags: { readonly: true } }),
 )
 
@@ -43,27 +43,29 @@ const { entityKey: readOnly } = await wallet.createEntity(Recall, textFields as 
   expiration: ExpirationTime.fromMinutes(5),
   flags: { readonly: true },
 })
-await attempt("5a. the owner editing a read-only entity", () => wallet.patchEntity(Recall, readOnly, { set: { severity: "LOW" } }))
-await attempt("5b. the owner deleting that same read-only entity", async () => {
+await attempt("item 1: the owner editing a read-only entity", () => wallet.patchEntity(Recall, readOnly, { set: { severity: "LOW" } }))
+await attempt("item 1: the owner deleting that same read-only entity", async () => {
   await wallet.deleteEntity({ entityKey: readOnly })
   return "gone"
 })
 
 const beat = await writer.createHeartbeat({ mode: "RUNNING", loadoutSeq: 1n, ttlSeconds: 60 })
-await attempt("6. one patch and one extension in a batch, with the gas the client estimates", () =>
+const patchAndExtend = () =>
   wallet.executeBatch({
     patches: [{ schema: Heartbeat, entityKey: beat.entityKey, set: { mode: "STOPPED", loadoutSeq: u64(2n) } }],
     extensions: [{ entityKey: beat.entityKey, expiration: ExpirationTime.fromSeconds(60) }],
-  } as any),
-)
+  } as any)
+await attempt("item 3: one patch and one extension in a batch, with the gas the client estimates", patchAndExtend)
+await attempt("item 3: the same batch sent again, as the error advises", patchAndExtend)
+await attempt("item 3: and a third time", patchAndExtend)
 
 const a = await wallet.createEntity(Recall, textFields as any, { expiration: ExpirationTime.fromMinutes(5) })
 const b = await wallet.createEntity(Recall, textFields as any, { expiration: ExpirationTime.fromMinutes(5) })
 await wallet.deleteEntity({ entityKey: a.entityKey })
-await attempt("7. deleting two entities in a batch when one is already gone", () =>
+await attempt("item 5: deleting two entities in a batch when one is already gone", () =>
   wallet.executeBatch({ deletes: [{ entityKey: a.entityKey }, { entityKey: b.entityKey }] }),
 )
-await attempt("7b. was the one that still existed deleted?", async () => {
+await attempt("item 5: was the one that still existed deleted?", async () => {
   const left: any = await client.getEntity(b.entityKey).catch(() => undefined)
   return left ? "no, the whole batch failed" : "yes"
 })
@@ -73,7 +75,7 @@ const [first, second] = await Promise.allSettled([
   wallet.createEntity(Recall, textFields as any, { expiration: ExpirationTime.fromMinutes(5) }),
   wallet.createEntity(Recall, textFields as any, { expiration: ExpirationTime.fromMinutes(5) }),
 ])
-console.log(`[8. two writes at once from one key]\n  ${first.status}, ${second.status}${second.status === "rejected" ? `: ${firstLine(second.reason)}` : ""}`)
+console.log(`[item 7: two writes at once from one key]\n  ${first.status}, ${second.status}${second.status === "rejected" ? `: ${firstLine(second.reason)}` : ""}`)
 
 const timeWrite = async (w: typeof wallet) => {
   const t0 = Date.now()
@@ -86,6 +88,6 @@ for (let i = 0; i < 3; i++) {
   times.defaults.push(await timeWrite(defaults as typeof wallet))
   times.tuned.push(await timeWrite(wallet))
 }
-console.log(`[9. confirming a write on a chain with 2 second blocks]\n  default polling: ${times.defaults.join(", ")} ms\n  polling every 500 ms: ${times.tuned.join(", ")} ms`)
+console.log(`[item 4: confirming a write on a chain with 2 second blocks]\n  default polling: ${times.defaults.join(", ")} ms\n  polling every 500 ms: ${times.tuned.join(", ")} ms`)
 
 process.exitCode = 0

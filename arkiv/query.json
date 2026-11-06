@@ -1,0 +1,18 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "arkiv_query",
+  "params": [
+    "arkiv.schema = str('ceasenet.recall') AND level = str('STOP') AND $creator = addr(0xd33611D47a70192F31CBa3Ac161d7061F276485f)",
+    {
+      "select": {
+        "key": true,
+        "creator": true,
+        "createdAt": true,
+        "expiresAt": true,
+        "attributes": { "artifact": true, "level": true, "severity": true, "contentHash": true, "pkg": true, "versions": true }
+      },
+      "limit": "0x14"
+    }
+  ]
+}
