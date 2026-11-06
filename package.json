@@ -18,7 +18,9 @@
     "seed": "tsx --env-file=.env scripts/seed.ts",
     "fleet": "tsx --env-file=.env apps/fleet/src/server.ts",
     "e2e": "tsx --env-file=.env scripts/e2e.ts",
-    "reset": "tsx --env-file=.env scripts/reset.ts"
+    "reset": "tsx --env-file=.env scripts/reset.ts",
+    "fleet:dev": "tsx --env-file=.env scripts/fleet-dev.ts",
+    "web": "npm run dev -w @ceasenet/web"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
