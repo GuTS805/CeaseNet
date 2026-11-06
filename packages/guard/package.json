@@ -9,6 +9,7 @@
     "./agent-pass": "./src/agentPass.ts"
   },
   "bin": {
+    "ceasenet": "./src/cli.ts",
     "ceasenet-guard": "./src/proxy.ts"
   },
   "dependencies": {

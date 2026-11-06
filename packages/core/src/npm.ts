@@ -25,7 +25,10 @@ export function parseSpec(spec: string): PackageSpec {
   const at = text.lastIndexOf("@")
   const name = at > 0 ? text.slice(0, at) : text
   const version = at > 0 ? text.slice(at + 1) : undefined
-  if (!/^(@[a-z0-9][\w.~-]*\/)?[a-z0-9][\w.~-]*$/i.test(name) || version === "") throw new Error(`"${spec}" is not a package name`)
+  const goodName = /^(@[a-z0-9][\w.~-]*\/)?[a-z0-9][\w.~-]*$/i.test(name)
+  // The version reaches a shell on Windows, so only these characters get through.
+  const goodVersion = version === undefined || /^[\w.+-]+$/.test(version)
+  if (!goodName || !goodVersion) throw new Error(`"${spec}" is not a package name`)
   return version ? { name, version } : { name }
 }
 

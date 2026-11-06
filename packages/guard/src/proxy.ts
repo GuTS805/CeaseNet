@@ -1,14 +1,10 @@
 #!/usr/bin/env node
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { arkivPublicClient, arkivWalletClient, ArkivWriter, DEMO_TIMERS, demoPolicy, type Hex, PRODUCTION_TIMERS, readLatestLoadout } from "@ceasenet/core"
-import { privateKeyToAccount } from "viem/accounts"
+import { DEMO_TIMERS, demoPolicy, type Hex, PRODUCTION_TIMERS } from "@ceasenet/core"
 import { agentPassFromEnv, approverFromPass, fileLinks } from "./agentPass"
-import { ArkivGuardNet, ReadOnlyNet } from "./arkivNet"
-import { fileStore } from "./fileStore"
-import { Guard, type GuardNet } from "./guard"
 import { measurePackage } from "./measure"
-import { runProxy } from "./proxyCore"
+import { runGuarded } from "./runGuarded"
 
 /**
  * Puts the gate in front of any MCP server that runs over stdio, with no change to the agent or the tool:
@@ -45,48 +41,25 @@ function parseArgs(argv: string[]) {
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const { pkg, owner, memory, demoTimers, command, args } = parseArgs(argv)
-  const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
-  const timers = demoTimers ? DEMO_TIMERS : PRODUCTION_TIMERS
-  const client = arkivPublicClient(accessKey)
   const file = measurePackage(pkg)
-
-  let net: GuardNet = new ReadOnlyNet(client, owner)
-  let startSeq = 1n
-  const key = process.env.CEASENET_AGENT_KEY as Hex | undefined
-  if (key) {
-    const writer = new ArkivWriter(arkivWalletClient(privateKeyToAccount(key), accessKey))
-    net = new ArkivGuardNet(client, owner, writer, timers.heartbeatTtlSeconds)
-    startSeq = ((await readLatestLoadout(client, writer.address))?.seq ?? 0n) + 1n
-  }
-
-  const store = fileStore(memory ?? join(homedir(), ".ceasenet", `gate-${file.name.replace(/[^\w.-]/g, "_")}.json`))
+  const log = (line: string) => console.error(`ceasenet-guard: ${line}`)
   const pass = agentPassFromEnv()
-  const approve =
-    pass && approverFromPass(pass, fileLinks(join(homedir(), ".ceasenet", "approvers.json")), owner ?? "this-machine", (line) => console.error(`ceasenet-guard: ${line}`))
-  const guard = new Guard({ policy: demoPolicy(), timers, store, files: [file], net, startSeq, approve })
-  await guard.start()
-  guard.run()
-
-  // The tool does not get the agent's key.
-  const env = { ...process.env }
-  delete env.CEASENET_AGENT_KEY
-  delete env.WORLD_IDP_CLIENT_SECRET
-  const child = runProxy({
-    guard,
+  const approve = pass && approverFromPass(pass, fileLinks(join(homedir(), ".ceasenet", "approvers.json")), owner ?? "this-machine", log)
+  await runGuarded({
     file,
     command,
     args,
-    env,
-    input: process.stdin,
-    output: process.stdout,
-    log: (line) => console.error(`ceasenet-guard: ${line}`),
+    owner,
+    policy: demoPolicy(),
+    agentKey: process.env.CEASENET_AGENT_KEY as Hex | undefined,
+    accessKey: process.env.ARKIV_ACCESS_KEY ?? "",
+    timers: demoTimers ? DEMO_TIMERS : PRODUCTION_TIMERS,
+    memoryDir: join(homedir(), ".ceasenet"),
+    memoryFile: memory,
+    approve,
+    log,
   })
-  child.on("exit", (code) => process.exit(code ?? 1))
-  child.on("error", (e) => {
-    console.error(`ceasenet-guard: could not start the tool: ${e.message}`)
-    process.exit(1)
-  })
-  console.error(`ceasenet-guard: guarding ${file.name} ${file.version} (${file.hash})`)
+  log(`guarding ${file.name} ${file.version} (${file.hash})`)
 }
 
 await main().catch((e) => {

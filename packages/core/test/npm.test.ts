@@ -49,7 +49,7 @@ describe("reading a package name", () => {
   })
 
   it("refuses things that are not package names", () => {
-    for (const bad of ["", "../evil", "a b", "tool@", "@scope", "http://x/y"]) expect(() => parseSpec(bad)).toThrow(/not a package name/)
+    for (const bad of ["", "../evil", "a b", "tool@", "@scope", "http://x/y", "tool@1.0.0&calc", "tool@1 || x"]) expect(() => parseSpec(bad)).toThrow(/not a package name/)
   })
 })
 

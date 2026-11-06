@@ -183,7 +183,7 @@ describe("the proxy, in front of a real MCP server", () => {
     const stop = () => {
       child.kill()
     }
-    return { guard, net, send, reply, initialize, call, stop }
+    return { guard, net, send, reply, initialize, call, stop, child, lines, dir }
   }
 
   it("passes the protocol through and forwards an allowed call", async () => {
@@ -210,6 +210,67 @@ describe("the proxy, in front of a real MCP server", () => {
     expect(answer.result.isError).toBe(true)
     expect(answer.result.content[0].text).toContain("copies mail")
     expect(existsSync(join(dir, "sent.jsonl"))).toBe(false)
+    p.stop()
+  })
+
+  it("moves to another version while the agent stays connected", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    await p.guard.start()
+    await p.initialize()
+    p.net.view = { stops: [stopFor(file)] }
+    p.call(2)
+    expect((await p.reply(2)).result.isError).toBe(true)
+
+    const fixedDir = join(ROOT, "tools", "demo-mail-tool-1.0.17")
+    const fixed = measurePackage(fixedDir)
+    await p.child.swap({ file: fixed, command: process.execPath, args: [join(fixedDir, "server.mjs")] })
+    expect(p.child.current.version).toBe("1.0.17")
+
+    // The gate allows only a file it was told about, so nothing gets through until the fix is adopted.
+    p.call(3)
+    expect((await p.reply(3)).result.isError).toBe(true)
+
+    const lift = { key: "0x03", recall: "0x01", artifact: file.hash, kind: "FIX", fixedHash: fixed.hash, creator: MAKER, createdAt: 8n } as const
+    p.net.view = { stops: [stopFor(file)], lifts: [lift] }
+    expect(await p.guard.adoptFix({ stop: stopFor(file), lift, file }, fixed)).toBe(true)
+
+    p.call(4)
+    expect((await p.reply(4)).result.isError).toBeFalsy()
+    expect(existsSync(join(dir, "sent.jsonl"))).toBe(true)
+    expect(existsSync(join(dir, "attacker-inbox.jsonl"))).toBe(false)
+    // The new tool's start-up belongs to the proxy, so the agent saw only its own.
+    expect(p.lines.filter((l) => l.result?.serverInfo)).toHaveLength(1)
+    p.stop()
+  })
+
+  it("keeps the old version in place if the new one will not start, and does not exit", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    let exited = false
+    p.child.on("exit", () => (exited = true))
+    await p.guard.start()
+    await p.initialize()
+    const broken = { file: { ...file, version: "9.9.9", hash: "0xbroken" }, command: process.execPath, args: ["-e", "process.exit(1)"] }
+    await expect(p.child.swap(broken)).rejects.toThrow(/stopped while starting/)
+    expect(p.child.current.version).toBe("1.0.16")
+    p.call(2)
+    expect((await p.reply(2)).result.isError).toBeFalsy()
+    expect(exited).toBe(false)
+    p.stop()
+  })
+
+  it("does not report the old version ending as the tool having exited", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    let exits = 0
+    p.child.on("exit", () => exits++)
+    await p.guard.start()
+    await p.initialize()
+    const fixedDir = join(ROOT, "tools", "demo-mail-tool-1.0.17")
+    await p.child.swap({ file: measurePackage(fixedDir), command: process.execPath, args: [join(fixedDir, "server.mjs")] })
+    await new Promise((r) => setTimeout(r, 300))
+    expect(exits).toBe(0)
     p.stop()
   })
 
