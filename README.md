@@ -45,7 +45,7 @@
 | **Ethereum Foundation: Best CROPS app** | The lead property is censorship resistance. A second gate in Python, written from the spec with none of our code, passes the same 56 cases as ours, and every part we run has a stated replacement | [CROPS](#crops), [Build on it](#open-source-build-on-it-or-replace-us) |
 | **Arkiv** | Arkiv is the recall list itself. Every gate decides from what it reads there, and authority comes only from who signed a record | [How we use Arkiv](arkiv/how-you-use-arkiv.md), [the schema](arkiv/schema.md), and `npm run query`, which needs no key |
 | **Arkiv + Swarm** | Each agent's diary is encrypted to its owner and kept on Swarm, with its index and hash on Arkiv. A copy of the site lives on Swarm too | [arkiv/swarm.md](arkiv/swarm.md) |
-| **World** | Log in with World: one real person per wallet, so votes on a recall count people, not wallets. Votes alone never stop an agent, because its owner decides | [docs/world.md](docs/world.md). A real World App login has not finished yet, so the site also offers "Skip World ID", marked as unverified |
+| **World** | Log in with World: one real person per wallet, so votes on a recall count people, not wallets. Votes alone never stop an agent, because its owner decides | [docs/world.md](docs/world.md). Logging in with World App works on the hosted site. For the hackathon it also offers "Skip World ID", marked as unverified |
 
 To try it with no wallet and nothing public, see [Start](#start) and use `ceasenet init --local`. The [live site](https://ceasenet.vercel.app/) reads Arkiv from your browser, with no account.
 
@@ -121,7 +121,7 @@ A recall opened by someone who isn't the owner never stops anything by itself, b
 
 ![A normal recall's page: what it is aimed at and who opened it, that it binds nobody until the owner approves, and its votes so far](docs/images/recall.png)
 
-The hosted site runs the verifier as a Vercel function, [api/verifier.mjs](api/verifier.mjs), built from [this source](apps/verifier/src/vercel.ts). `npm run verifier` runs your own. A real World App login has not finished yet, so the hackathon site also offers "Skip World ID", marked as unverified everywhere it shows.
+The hosted site runs the verifier as a Vercel function, [api/verifier.mjs](api/verifier.mjs), built from [this source](apps/verifier/src/vercel.ts). `npm run verifier` runs your own. Logging in with World App works there, and the first real login is on Arkiv. For the hackathon the site also offers "Skip World ID", marked as unverified everywhere it shows.
 
 ## Look back: what did that agent do?
 

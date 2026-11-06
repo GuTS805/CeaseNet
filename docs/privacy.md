@@ -36,7 +36,7 @@ We left Open as the default because a recall's reach can then be counted by anyo
 - **The verifier is one key.** It decides who counts as a person, so a dishonest one could invent votes, but votes stop nothing until the owner approves. It runs as a Vercel function holding only its own key, which can write logins, normal recalls and votes, and never a STOP that binds an agent. Anyone can run their own from this repository.
 - **A private agent can't be counted.** A tool recall's page can't show it among the agents covered, and the site can't tell its owner a tool recall concerns them. The console on its own machine still can. An owner's console on another machine sees only who the agent is.
 - **Timing is still visible** unless an agent is silent. A heartbeat and a diary index show when an agent is running, though not what it does.
-- **"Skip World ID" is on for the hackathon** (`VERIFIER_ALLOW_BYPASS`), because World App could not finish our request in time. One person can then vote from several wallets. Such logins are marked `unverified-` on the record and on every page. Turn it off for real use.
+- **"Skip World ID" is on for the hackathon** (`VERIFIER_ALLOW_BYPASS`), so people without World App can try the site. One person can then vote from several wallets. Such logins are marked `unverified-` on the record and on every page. Turn it off for real use.
 - **The public Swarm gateway refuses websites,** so the Swarm copy opens through your own Bee node, such as Swarm Desktop or Nook, at `http://localhost:1633/bzz/06c04c335ccf229650ff3ce9b571cb1d8bf068439b4cf395b09e9bcdd2e5b071/`. It reads Arkiv's public endpoint, with no access key in it.
 
 ## We assume that

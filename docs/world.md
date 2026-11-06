@@ -4,7 +4,7 @@ CeaseNet uses World ID in two places, for two different trust moments: logging i
 
 ## IDKit: log in with World, one person per wallet
 
-**Status: built and unit tested, and the refusals checked live.** The proof checks are the same ones World's real verify API accepted for our earlier confirmations: same action, credential and server code. A full login needs a person with World App or the simulator, so it has not been run by a script.
+**Status: built and unit tested, and the refusals checked live.** The proof checks are the same ones World's real verify API accepted for our earlier confirmations: same action, credential and server code. A full login needs a person with World App or the simulator, so it has not been run by a script. On 7 November a real login with World App on the hosted site was accepted, and its `ceasenet.human` record is on Arkiv (key `0x55361751e0113d0e36e34078c5bb1e83567fdc27062ac38b08a3c677ef224bab`).
 
 ### The trust event
 
