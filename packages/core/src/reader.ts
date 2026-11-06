@@ -49,7 +49,7 @@ const opt = (c: Text) => c?.value
 const utf8 = (c: { value: string }) => hexToString(c.value as Hex)
 const optUtf8 = (c: Text) => (c ? utf8(c) : undefined)
 
-function toRecall(r: any): RecallRow {
+export function toRecallRow(r: any): RecallRow {
   return {
     key: r.$key,
     artifact: r.artifact.value,
@@ -120,7 +120,7 @@ export async function readRecallsBy(client: ArkivPublic, creators: readonly stri
       .limit(PAGE)
       .fetch() as any,
   )
-  return { rows: res.rows.map(toRecall), block: res.block }
+  return { rows: res.rows.map(toRecallRow), block: res.block }
 }
 
 export async function readEndorsements(client: ArkivPublic, recalls: readonly Hex[], verifier: string) {
