@@ -1,0 +1,8 @@
+{
+  "name": "trade-broker-tool",
+  "version": "1.0.0",
+  "description": "A paper trading account for CeaseNet's trading agents. Orders fill at the live price, and no real money moves.",
+  "private": true,
+  "type": "module",
+  "main": "server.mjs"
+}

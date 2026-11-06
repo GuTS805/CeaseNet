@@ -1,0 +1,8 @@
+{
+  "name": "trade-market-tool",
+  "version": "1.0.0",
+  "description": "Live crypto prices and recent candles from Coinbase's public market data, for CeaseNet's trading agents.",
+  "private": true,
+  "type": "module",
+  "main": "server.mjs"
+}
