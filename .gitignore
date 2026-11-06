@@ -43,3 +43,4 @@ desktop.ini
 packages/cli/LICENSE
 # The link to the Vercel project, made by vercel link
 .vercel
+.swarm-site/

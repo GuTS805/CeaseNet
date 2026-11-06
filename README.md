@@ -45,7 +45,7 @@ Then restart your agent's client and use it as usual. If PowerShell says running
 | **Diaries** | On 0G Storage, with the index on Arkiv | A file here |
 | **What it needs** | Test tokens, to write. Reading is free | Nothing |
 
-Your agents obey recalls from the first minute either way. To write to the public list, fund your owner's wallet once, and it keeps your agents' wallets in funds from there. It needs [tGLM](https://hub.arkiv.network/faucet) for Arkiv and [0G tokens](https://faucet.0g.ai) for diaries. `ceasenet init` prints the address, and the console shows it until it is done. Your trust list is then published and your agent registered by itself.
+Your agents obey recalls from the first minute either way. To write to the public list, fund your owner's wallet once, and it keeps your agents' wallets in funds from there. It needs [tGLM](https://hub.arkiv.network/faucet) for Arkiv and [0G tokens](https://faucet.0g.ai) for diaries. `ceasenet init` prints the address, and the console shows it until it is done. Your agent is then registered by itself, answering to you.
 
 To move from one to the other, press **Move to the public list** on the console's Arkiv page, or run `ceasenet network arkiv`. On the public list, every tool call on the machine reads the chain first. If it stays out of reach for 5 minutes, your agents start asking a person, and 5 minutes after that they refuse.
 
@@ -185,7 +185,7 @@ There are no simulated people: every vote is from a different person logged in w
 
 | Data | Where | Why |
 |---|---|---|
-| Recalls, receipts, trust lists, owners, fingerprints, reports, votes and the diary index | [Arkiv](arkiv/schema.md) | Public, can't be edited, and readable with no account |
+| Recalls, receipts, owners, logins, fingerprints, votes and the diary index | [Arkiv](arkiv/schema.md) | Public, can't be edited, and readable with no account |
 | Each agent's diary | Swarm, encrypted to its owner, or 0G Storage until Swarm is set up, with its hash on Arkiv | Too big for Arkiv, and a changed copy fails the check |
 | Fixed tools and sealed evidence, in the scripted demo | [Swarm](arkiv/swarm.md), with references on Arkiv | Fixes must survive the maker's site going away |
 
@@ -198,10 +198,10 @@ There are no simulated people: every vote is from a different person logged in w
 - **It can't defend against a tool that has already taken over your machine.** A tool runs as you, so while it is running it could read `~/.ceasenet`, where keys, settings and calls not yet stored are kept unencrypted, or edit your settings. A STOP prevents further use, not what already happened. To limit this, keep your owner's key on another machine with `ceasenet init --owner`.
 - **A tool's dependencies aren't measured,** only its own files. A tool run through Docker or a Python runner is known only by its name and command, which the console labels.
 - **Pinning means no automatic updates.** `ceasenet update <spec>` looks for a new version the next time the client starts it. A package that needs its install scripts may not run when pinned. Publishing a fix with `ceasenet fix` tells everyone what to move to, but agents don't move by themselves.
-- **Nobody publishes recalls for tools in the wild yet.** You start by obeying only yourself, so until a maker or registry you trust issues them, you only get the recalls you issue.
+- **An agent obeys only its owner.** A maker or registry can open a normal recall and gather votes, but your agents stop only when you approve it, or stop them yourself.
 - **Each call takes a moment longer.** About 0.4 s through the gate on the public list with an [access key](https://hub.arkiv.network/access-keys) (`ceasenet access-key`), and about 0.6 s without. Claude Code's own tools take about 0.2 s in local mode, and about 0.9 s on the public list without a key. An access key has a quota, and when it runs out CeaseNet carries on through the public endpoint, and the Arkiv page says so.
-- **Reports need a verifier people can reach,** and today that means running your own and hosting it. Owners choose whose to listen to with `REPORT_VERIFIER`. Filing with a real World ID has only been tested against a stand-in for World's service, though the same checks on votes have been accepted by World itself.
-- **A report only reaches an owner whose console is running.** A report and its votes wait on the chain for 72 hours.
+- **Logging in needs a verifier people can reach.** The hosted site has one, as a Vercel function. A real World App login has not finished yet: World App could not complete our request, so the hackathon site also offers "Skip World ID", marked as unverified. Owners choose whose recalls to hear with `REPORT_VERIFIER`.
+- **A normal recall waits on the chain for 72 hours.** The owner sees it on the site, or in the console when it is running.
 - **It only binds agents that run the gate.** A silent agent proves nothing: from outside, a lost connection and ignoring a recall look the same, so the public board says "silent", not "disobeying".
 - **It runs on test networks,** and it has no users yet.
 
@@ -238,7 +238,7 @@ curl -s https://rpc.rabdi.db-chain.testnet.arkiv.network/ -H 'content-type: appl
 curl -s https://rpc.rabdi.db-chain.testnet.arkiv.network/ -H 'content-type: application/json' -d @arkiv/query-diaries-by-time.json
 ```
 
-Anyone can write any record, so these show everyone's. A gate's own query adds `AND $creator = addr(0x...)` for the keys its owner follows, which the chain sets and nobody can fake. That is why a fake STOP changes nothing.
+Anyone can write any record, so these show everyone's. A gate's own query adds `AND $creator = addr(0x...)` for its owner, which the chain sets and nobody can fake. That is why a STOP from anyone else changes nothing.
 
 **Wallets that wrote entities:**
 
@@ -260,15 +260,20 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 
 ## CROPS
 
-**Censorship resistance.** Each gate reads Arkiv itself, so nothing of ours stands between a recall and an agent. If the website and everything else we run disappear, agents keep obeying. An owner replaces any issuer by publishing a new trust list and any verifier with a setting, and recalls need no approval from us. A diary's index is on Arkiv and its contents on 0G, so an agent's record does not depend on us either.
+**Lead property: censorship resistance.** A recall has to reach an agent even when the tool's maker, a registry, a crowd or we would rather it didn't, and nobody but the agent's owner may stop it. Everything below serves that.
 
-**Open source.** MIT licence. `npm install && npm test && npm run build` works from this repository alone, with no keys. Using the product needs no account with us. Writing to the public list needs test tokens. Reading it needs nothing.
+- **C, censorship resistance (lead).** Each agent's gate reads Arkiv itself and obeys only a STOP its owner's wallet signed, so no server of ours stands between an owner and their agent, and nobody else, us included, can stop it or keep it from being stopped. The site is static and also lives on Swarm at `e0554a8e179b71d76e8102b1889af262fe15e0b699ee207830c4ce2ca654dd4b`, so losing our domain or Vercel loses nothing an owner needs.
+- **O, open source.** MIT licence. `npm ci && npm test && npm run build` works from a clone with no keys and no account with us, and `npm run build:verifier` rebuilds the hosted verifier from the same source.
+- **P, privacy.** The Arkiv RPC learns your IP and whose recalls you read, never which tools your agent runs, because the gate downloads them all and matches locally. Diaries are sealed to the owner's key, and the client loads no trackers or analytics: it talks only to its own host and Arkiv, and to World, npm or Swarm when you ask it to.
+- **S, security.** Agent and owner keys are separate, the owner's can stay in a browser wallet on another machine, and the site never holds a key: every record is signed in your wallet. A pinned tool is blocked if its code changes, and the tools a gate runs get none of CeaseNet's settings or keys.
 
-**Privacy.** The Arkiv RPC learns your IP and which keys you follow, not which tools you run, because the gate downloads all their recalls and matches locally. The same goes for the "Check a tool" page. Publishing a loadout, heartbeat and receipts is what lets others see that an agent obeyed, and it is optional: an agent whose wallet has no funds still obeys, and leaves no public trace. Your own agents' diaries seal each call's contents to your key, so what is public is only what happened and when. The model provider sees what the agent sends it, and you choose who that is. World learns only that someone proved for this app's action, and Arkiv gets a hash scoped to one report, so one person's votes can't be linked across reports. The site has no trackers.
+**Tradeoffs we accept, and where data goes:**
+- **Logging in is public.** It links your wallet address to "a person checked by World ID" on Arkiv, and your votes are public under that address. World learns only that someone proved for our action. Nothing else about you is stored, and nothing at all in your browser.
+- **The verifier is one key.** It decides who counts as a person, so a dishonest one could invent votes, but votes stop nothing until the owner approves. It runs as a Vercel function holding only its own key, which can write logins, normal recalls and votes, and never a STOP that binds an agent. Anyone can run their own from this repository.
+- **"Skip World ID" is on for the hackathon** (`VERIFIER_ALLOW_BYPASS`), because World App could not finish our request in time. One person can then vote from several wallets. Such logins are marked `unverified-` on the record and on every page. Turn it off for real use.
+- **The public Swarm gateway refuses websites,** so the Swarm copy opens through your own Bee node, such as Swarm Desktop or Nook, at `http://localhost:1633/bzz/<reference>/`. It reads Arkiv's public endpoint, with no access key in it.
 
-**Security.** Agents and owners have separate keys, and an owner's can live on another machine. The tools a gate runs are given their own settings and none of CeaseNet's. A pinned package is measured, and blocked if its code changes. Votes can't stop anything, so nobody gains power over your agent by gathering them. We assume that:
-- the keys on your trust list are honest. A stolen issuer key can stop your tool, but not run code on your machine, and removing it from your list ends that
-- the verifier you listen to is honest. A dishonest one can bother you with false reports, but can't stop anything
+**We assume that:**
 - your own machine is not already compromised, as [above](#what-this-does-not-do)
 - Arkiv's testnet serves correct data. A node that hides records can delay a recall, which is why an unreachable list fails closed, but a node that serves a stale list is not detected
 - someone saw a record before it was deleted. Arkiv has no historical reads, so a deleted STOP stays provable only through receipts, gate memory and independent watchers
@@ -278,7 +283,7 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 | Sponsor | How it's used | Details |
 |---|---|---|
 | **Arkiv** | The recall list itself: what every gate reads, and where owners, fingerprints, reports, votes and the diary index live | [arkiv/](arkiv/) |
-| **World** | IDKit: one person, one vote, on any report. Agent Pass: a real person approves a paused call | [docs/world.md](docs/world.md) |
+| **World** | IDKit: log in once, one person per wallet, so each vote on a recall is a different person. Agent Pass: a real person approves a paused call | [docs/world.md](docs/world.md) |
 | **0G** | Every agent's diary, on 0G Storage. Not entered for a 0G prize | [diaryService.ts](packages/cli/src/diaryService.ts) |
 | **Ethereum Foundation** | The CROPS section above, and the reason the design has no central party | |
 | **Swarm** | Every agent's diary, encrypted to its owner. Fixed tools and sealed evidence in the scripted demo | [arkiv/swarm.md](arkiv/swarm.md) |

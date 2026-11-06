@@ -63,3 +63,22 @@ Add this with the extra time: press **Cut off** on one company before the STOP. 
 | How is this different from Gravitee or Lasso? | Those are per-company gateways. This is a shared public list with public receipts. |
 | What did you actually build, and what did AI do? | Answer honestly from `docs/ai-usage.md`. Each person should be able to explain their part. |
 | What isn't real here? | The tools are made up, the timers are short, it's on testnet, two of the three people are simulated. |
+
+## For the EF CROPS prize: under 3 minutes, on censorship resistance
+
+The lead property is censorship resistance: nobody but an agent's owner can stop it, and nobody, us included, can keep the owner from stopping it. The moment it matters is when CeaseNet itself is out of the picture and the owner's STOP still lands.
+
+Before recording: the three trading agents on the public list (`ceasenet network arkiv`, with the owner funded), their terminals open, a browser wallet that is not the owner's (for the outsider), and Nook running.
+
+| Time | Show | Say |
+|---|---|---|
+| 0:00 | The three trading agents trading in their terminals | "Three AI agents, trading with real models through MCP tools. Each one's gate reads Arkiv itself." |
+| 0:20 | The site, signed in with a wallet that is not the owner's. **Stop it as the owner**, choose "a tool", paste the market tool's hash from a terminal, sign | "I'm not their owner. Here is a STOP on the tool they all use, signed and on Arkiv." |
+| 0:50 | The terminals: still trading. The STOP's page: "No agent owned by this key is covered" | "Nothing happens. An agent obeys only a STOP its owner signed. No crowd, registry or company can switch it off." |
+| 1:15 | Close the site. Show Vercel's domain blocked, or just no browser | "Now take us away: no website, no verifier, no server of ours." |
+| 1:30 | In a terminal: `ceasenet kill --all --reason "Owner stopped them"` | "The owner signs one STOP, straight to Arkiv, from their own machine." |
+| 1:45 | The three terminals close themselves, each with the reason and how long it took | "Every agent read it itself and stopped. Nothing of ours was in the path." |
+| 2:15 | Open the copy of the site on Swarm through Nook: `http://localhost:1633/bzz/e0554a8e179b71d76e8102b1889af262fe15e0b699ee207830c4ce2ca654dd4b/#/recalls`. Open the STOP: receipts from all three | "Even the site survives losing its domain: this copy lives on Swarm and reads Arkiv directly. And the receipts prove each agent obeyed." |
+| 2:45 | The README's CROPS section | "MIT, builds with no keys, no trackers, every record signed in your own wallet. The tradeoffs are written down in the README." |
+
+To restart them afterwards: `ceasenet lift <key>`, with the key `kill` printed.

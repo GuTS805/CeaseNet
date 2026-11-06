@@ -66,6 +66,6 @@ Enter **IDKit** now. Enter **Agent Pass** only after `npm run agent-pass-check` 
 
 ### Ethereum Foundation: Best CROPS App
 
-**How we use it:** censorship resistance is the reason this exists: a recall has to reach agents even when the maker, a registry or we would rather it didn't. The CROPS section is in the [README](../README.md#crops). The video shows the lead property at about 2:12, when a maker deletes its own STOP and agents keep obeying. **Check this time against the final video.**
+**How we use it:** censorship resistance is the reason this exists. Each agent's gate reads Arkiv itself and obeys only its owner's signed STOP, so nobody else, us included, can stop it, and nothing of ours can keep the owner from stopping it. The site is static and also lives on Swarm (`e0554a8e179b71d76e8102b1889af262fe15e0b699ee207830c4ce2ca654dd4b`), and the client loads no trackers. The CROPS section, with one or two lines per letter and the tradeoffs we accept, is in the [README](../README.md#crops). The CROPS video (under 3 minutes, script in [demo-script.md](demo-script.md)) shows an outsider's STOP changing nothing, then the owner's STOP closing all three agents with no site or server of ours involved. **Add the video link.**
 
 **Feedback:** **ADD YOUR OWN**, if the team has any.
