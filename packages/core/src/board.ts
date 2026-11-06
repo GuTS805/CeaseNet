@@ -56,6 +56,12 @@ export function follows(policy: TrustPolicy | undefined, recall: RecallRow): boo
     : lower(policy.verifier) === lower(recall.creator)
 }
 
+/** How many owners have chosen, on their public list, to obey this recall's issuer. Anyone can issue a recall: this is what makes one matter. */
+export function followersOf(recall: RecallRow, agents: readonly BoardAgent[]): number {
+  const owners = new Set(agents.filter((a) => a.policy && follows(a.policy, recall)).map((a) => lower(a.agent.owner)))
+  return owners.size
+}
+
 /**
  * Who is affected by a recall and whether they obeyed.
  *

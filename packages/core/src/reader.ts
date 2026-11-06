@@ -208,6 +208,34 @@ export async function readAgents(client: ArkivPublic, owners: readonly string[])
   return res.rows.map(toAgent).filter((a) => a.owner.toLowerCase() === a.creator.toLowerCase())
 }
 
+/** Every recall on Arkiv, from anyone. Showing one says nothing about whether anyone obeys it. */
+export async function readEveryRecall(client: ArkivPublic) {
+  const res = await readAll((after) =>
+    client
+      .select()
+      .from(Recall)
+      .where(...afterKey(after))
+      .orderBy(asc("$key"))
+      .limit(PAGE)
+      .fetch() as any,
+  )
+  return { rows: res.rows.map(toRecallRow), block: res.block }
+}
+
+/** Every passport on Arkiv. Only one created by the owner it names counts. */
+export async function readEveryAgent(client: ArkivPublic): Promise<AgentRow[]> {
+  const res = await readAll<any>((after) =>
+    client
+      .select()
+      .from(Agent)
+      .where(...afterKey(after))
+      .orderBy(asc("$key"))
+      .limit(PAGE)
+      .fetch() as any,
+  )
+  return res.rows.map(toAgent).filter((a) => a.owner.toLowerCase() === a.creator.toLowerCase())
+}
+
 /** The passport of one agent, whoever owns it. A passport only counts if the owner it names created it. */
 export async function readAgent(client: ArkivPublic, agent: Hex): Promise<AgentRow | undefined> {
   const res: any = await client.select().from(Agent).where(eq("agent", addr(agent))).limit(50).fetch()
