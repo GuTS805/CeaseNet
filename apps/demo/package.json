@@ -13,7 +13,7 @@
     "@ceasenet/core": "*",
     "@ceasenet/guard": "*",
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "ethers": "^6.13.1",
+    "ethers": "^6.17.0",
     "zod": "^4.6.7"
   }
 }
