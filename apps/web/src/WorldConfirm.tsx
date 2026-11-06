@@ -34,6 +34,10 @@ export function WorldConfirm({ recall }: { recall: Hex }) {
   const [starting, setStarting] = useState(false)
 
   useEffect(() => {
+    if (!VERIFIER_URL) {
+      setConfig(null)
+      return
+    }
     fetch(`${VERIFIER_URL}/api/world-config`)
       .then((r) => r.json() as Promise<WorldConfig>)
       .then(setConfig)

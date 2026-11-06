@@ -8,6 +8,7 @@ import {
   isWithdrawn,
   type LiftRow,
   measureFiles,
+  type PublicView,
   type RecallRow,
   trustFromPolicy,
 } from "@ceasenet/core"
@@ -20,6 +21,36 @@ const trust = trustFromPolicy(demoPolicy())
 const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : "Warning")
 
 /** Every recall from a key the demo's owners follow, newest first. */
+export function RecallList({ view }: { view: PublicView }) {
+  if (view.recalls.length === 0) return <p className="muted">No recalls on record.</p>
+  return (
+    <div className="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Level</th>
+            <th>Reason</th>
+            <th>Issued by</th>
+            <th>Block</th>
+          </tr>
+        </thead>
+        <tbody>
+          {view.recalls.slice(0, 50).map((r) => (
+            <tr key={r.key}>
+              <td>
+                <a href={`#/recall/${r.key}`}>{levelName(r)}</a>
+              </td>
+              <td>{r.reason}</td>
+              <td>{nameOf(r.creator)}</td>
+              <td className="mono muted">{String(r.createdAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function RecallsPage() {
   const { data: view, error } = usePublicView(4000)
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
@@ -30,33 +61,7 @@ export function RecallsPage() {
       <p className="muted" style={{ marginTop: 0 }}>
         Read straight from Arkiv in your browser. No server of ours is involved.
       </p>
-      {view.recalls.length === 0 && <p className="muted">No recalls on record.</p>}
-      {view.recalls.length > 0 && (
-        <div className="card">
-          <table>
-            <thead>
-              <tr>
-                <th>Level</th>
-                <th>Reason</th>
-                <th>Issued by</th>
-                <th>Block</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.recalls.slice(0, 50).map((r) => (
-                <tr key={r.key}>
-                  <td>
-                    <a href={`#/recall/${r.key}`}>{levelName(r)}</a>
-                  </td>
-                  <td>{r.reason}</td>
-                  <td>{nameOf(r.creator)}</td>
-                  <td className="mono muted">{String(r.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <RecallList view={view} />
     </div>
   )
 }

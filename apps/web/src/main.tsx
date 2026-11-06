@@ -3,7 +3,9 @@ import { createRoot } from "react-dom/client"
 import type { Hex } from "@ceasenet/core"
 import { AgentPage } from "./AgentPage"
 import { CheckPage } from "./CheckPage"
+import { HOSTED } from "./lib"
 import { LivePage } from "./LivePage"
+import { PublicHome } from "./PublicHome"
 import { RecallPage, RecallsPage } from "./RecallPages"
 import "./styles.css"
 
@@ -29,7 +31,7 @@ function App() {
         <span className="tagline">Recalls for AI agents</span>
         <nav className="nav">
           <a className={page === "" ? "on" : ""} href="#/">
-            Live
+            {HOSTED ? "Home" : "Live"}
           </a>
           <a className={page.startsWith("recall") ? "on" : ""} href="#/recalls">
             Recalls
@@ -47,6 +49,8 @@ function App() {
         <RecallPage key={arg} recallKey={arg as Hex} />
       ) : page === "check" ? (
         <CheckPage />
+      ) : HOSTED ? (
+        <PublicHome />
       ) : (
         <LivePage />
       )}

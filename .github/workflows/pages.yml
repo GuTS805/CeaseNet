@@ -1,0 +1,45 @@
+name: Publish the public site
+
+# Needs a public repository, with Settings > Pages > Source set to "GitHub Actions".
+# The access key is optional and not a secret: it ships in any site that reads Arkiv. Without it, the site uses
+# Arkiv's public endpoint, which is rate limited. Set it under Settings > Secrets and variables > Actions > Variables.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build -w @ceasenet/web
+        env:
+          # Empty means no live agents can be reached from this site, so it shows the public record instead.
+          DEMO_URL: ""
+          VERIFIER_URL: ""
+          ARKIV_ACCESS_KEY: ${{ vars.ARKIV_ACCESS_KEY }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+      - id: deploy
+        uses: actions/deploy-pages@v4

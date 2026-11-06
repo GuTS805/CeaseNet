@@ -29,7 +29,7 @@ Three things make it hold up:
 
 ## Try it
 
-The public pages read Arkiv directly in your browser. To run the live agents you need Node 22.10 or newer.
+The public pages read Arkiv directly in your browser: **live site link goes here**. To run the live agents you need Node 22.10 or newer.
 
 ```bash
 git clone https://github.com/GuTS805/CeaseNet.git && cd CeaseNet
@@ -111,7 +111,7 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 
 **Censorship resistance.** We run the website, the demo server and the verifier that files World ID confirmations. If they fail or refuse, agents keep obeying, because each gate reads Arkiv itself, and anyone can host the static site. An owner can replace our verifier and any issuer by publishing a new trust list. Recalls need no approval from us.
 
-**Open source.** MIT licence. `npm install && npm test && npm run build -w @ceasenet/web` works from this repository alone, with no keys. Running live agents needs keys for third-party networks: Arkiv is optional for reads, and 0G is needed for the model.
+**Open source.** MIT licence. `npm install && npm test && npm run build -w @ceasenet/web` works from this repository alone, with no keys. Running live agents needs third-party accounts: test tokens to write to Arkiv, and a 0G key for the model. Reading Arkiv needs neither.
 
 **Privacy.** The Arkiv RPC learns your IP and which keys you follow, not which tools you run, because the gate downloads all their recalls and matches locally. The same goes for the "Check a tool" page. Publishing a loadout, heartbeat and receipts is optional. The model provider, through 0G's router, sees what the agent sends it. The public diary holds only a hash of each call's arguments. World learns only that someone proved for this app's action, and Arkiv gets a hash scoped to one warning, so one person's answers can't be linked across warnings. The site has no trackers.
 

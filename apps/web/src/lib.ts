@@ -18,6 +18,8 @@ declare const __SWARM_GATEWAY__: string
 export const client = arkivPublicClient(__ARKIV_ACCESS_KEY__)
 export const DEMO_URL = __DEMO_URL__
 export const VERIFIER_URL = __VERIFIER_URL__
+/** A public copy of the site, with no live agents behind it. It also reads Arkiv less often, to stay within the public endpoint's limits. */
+export const HOSTED = !__DEMO_URL__
 export const SWARM_GATEWAY = __SWARM_GATEWAY__.replace(/\/+$/, "")
 
 export const swarmLink = (reference: string) => `${SWARM_GATEWAY}/bzz/${reference}`
@@ -92,7 +94,7 @@ export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknow
 }
 
 /** Everything public, read straight from Arkiv with no server of ours in between. */
-export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(() => readPublicView(client), everyMs)
+export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(() => readPublicView(client), HOSTED ? Math.max(everyMs, 15_000) : everyMs)
 
 export async function demoGet<T>(path: string): Promise<T> {
   const res = await fetch(DEMO_URL + path)
