@@ -68,9 +68,31 @@ async function switchToArkiv(provider: Eip1193Provider): Promise<void> {
   }
 }
 
+type BrowserWallet = NonNullable<Window["ethereum"]> & { isMetaMask?: boolean; isPhantom?: boolean; providers?: BrowserWallet[] }
+
+/**
+ * The wallet to use. With several extensions installed, each may claim window.ethereum, and one that is not MetaMask
+ * can refuse what this site asks. Wallets announce themselves (EIP-6963), so MetaMask is chosen when it is there.
+ */
+function useBrowserWallet(): BrowserWallet | undefined {
+  const fallback = typeof window === "undefined" ? undefined : (window.ethereum as BrowserWallet | undefined)
+  const [announced, setAnnounced] = useState<BrowserWallet>()
+  useEffect(() => {
+    const take = (event: Event) => {
+      const { info, provider } = (event as CustomEvent<{ info: { rdns?: string }; provider: BrowserWallet }>).detail ?? {}
+      if (info?.rdns === "io.metamask") setAnnounced(provider)
+    }
+    window.addEventListener("eip6963:announceProvider", take)
+    window.dispatchEvent(new Event("eip6963:requestProvider"))
+    return () => window.removeEventListener("eip6963:announceProvider", take)
+  }, [])
+  const legacy = fallback?.providers?.find((p) => p.isMetaMask && !p.isPhantom)
+  return announced ?? legacy ?? fallback
+}
+
 /** Keeps the browser wallet for every page. All signing happens in the wallet: this site never holds a key. */
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const provider = typeof window === "undefined" ? undefined : window.ethereum
+  const provider = useBrowserWallet()
   const [address, setAddress] = useState<Hex>()
   const [problem, setProblem] = useState<string>()
   const [chainId, setChainId] = useState<number>()
@@ -93,13 +115,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const connect = useCallback(async () => {
     if (!provider) return
     setProblem(undefined)
+    // The address first: some wallets refuse anything else from a site that is not connected yet. Logging in needs
+    // only the address and a signature, so a wallet that will not move to Arkiv can still log in.
     try {
-      await switchToArkiv(provider)
-      setChainId(Number(await provider.request({ method: "eth_chainId" })))
       takeAccount(await provider.request({ method: "eth_requestAccounts" }))
     } catch (e) {
       setProblem(walletMessage(e))
+      return
     }
+    try {
+      await switchToArkiv(provider)
+    } catch (e) {
+      setProblem(`Connected, but your wallet did not move to the Arkiv testnet, which signing records needs: ${walletMessage(e)}`)
+    }
+    const id = await provider.request({ method: "eth_chainId" }).catch(() => undefined)
+    if (id !== undefined) setChainId(Number(id))
   }, [provider, takeAccount])
 
   const sign = useCallback(
