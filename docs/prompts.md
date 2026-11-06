@@ -99,3 +99,5 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 16:58 | okay now i am telling you my idea / so just listen and dont chanmge / i am thinking of removing these agents and add as trading agents(3) in terminal |
 | 11-06 16:58 | real terminal real agents |
 | 11-06 16:58 | okay then if you got it / then les go and dont make any mistakres |
+| 11-06 17:26 | ek baar chla ke verify toh krle / end to end / work kr rha ya nhi / phir 1 guide de |
+| 11-06 17:48 | chotti galtiyan sahi karo / and phir merge krdo / no ai trace |
