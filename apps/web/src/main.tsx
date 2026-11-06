@@ -1,3 +1,13 @@
+import "@fontsource/big-shoulders-display/800"
+import "@fontsource/big-shoulders-display/900"
+import "@fontsource/ibm-plex-mono/400.css"
+import "@fontsource/ibm-plex-mono/500.css"
+import "@fontsource/ibm-plex-mono/600.css"
+import "@fontsource/ibm-plex-sans/400.css"
+import "@fontsource/ibm-plex-sans/500.css"
+import "@fontsource/ibm-plex-sans/600.css"
+import "@fontsource/ibm-plex-sans/700.css"
+import "./styles.css"
 import { StrictMode, useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import type { Hex } from "@ceasenet/core"
@@ -7,7 +17,6 @@ import { HOSTED } from "./lib"
 import { LivePage } from "./LivePage"
 import { PublicHome } from "./PublicHome"
 import { RecallPage, RecallsPage } from "./RecallPages"
-import "./styles.css"
 
 function useHash() {
   const [hash, setHash] = useState(window.location.hash)
