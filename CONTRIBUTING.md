@@ -37,7 +37,7 @@ CI runs these on every pull request. It also installs the packed program in an e
 | You changed | Then run | Because |
 |---|---|---|
 | Anything the verifier uses | `npm run build:verifier` | [api/verifier.mjs](api/verifier.mjs) is what the hosted site runs, and CI fails if it differs from the source |
-| A dependency | `npm run notices` | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists every licence we ship |
+| A dependency | `npm run notices` | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists every licence we ship. Merging a Dependabot update needs this too |
 | What a gate decides | [arkiv/vectors/gate.json](arkiv/vectors/gate.json) and [examples/ceasenet_gate.py](examples/ceasenet_gate.py) | Both implementations are held to the vectors. A rule with no vector is a rule nobody else can follow |
 
 **Do not edit anything under [tools/](tools).** A recall names a tool by the hash of its exact bytes, so a changed file, even its `package.json`, is a different tool.

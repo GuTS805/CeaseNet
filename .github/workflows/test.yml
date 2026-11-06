@@ -34,7 +34,9 @@ jobs:
       # difference shows it is exactly this source.
       - name: The hosted verifier is built from this source
         run: npm run build:verifier && git diff --exit-code api/verifier.mjs
+      # Dependabot can't regenerate it, so this is checked when its update reaches main.
       - name: The list of licences is current
+        if: github.actor != 'dependabot[bot]'
         run: npm run notices && git diff --exit-code THIRD_PARTY_NOTICES.md
       - run: npm run build -w @ceasenet/web
         env:

@@ -38,6 +38,6 @@ On every push: type checks, all tests, the conformance vectors in a second langu
 | Package | Comes from | Why it stands |
 |---|---|---|
 | `axios` 0.27.2 (high) | `@0gfoundation/0g-storage-ts-sdk`, through `open-jsonrpc-provider` | The SDK has no fixed release. It is loaded only when a diary part goes to 0G. Set up Swarm and that never happens |
-| `ws` 8.17.1 (high) | `ethers` 6.13.1, which the 0G SDK requires | Only for WebSocket connections, which we don't open. We talk to 0G over HTTP |
+| `ws` 8.17.1 (high) | `ethers` 6.13.1, which the 0G SDK requires | The 0G SDK requires exactly this `ethers`, and a newer one fails our type checks. `ws` is only for WebSocket connections, which we don't open: we talk to 0G over HTTP |
 
 CeaseNet runs on test networks. Do not use it to protect anything you can't afford to lose yet.

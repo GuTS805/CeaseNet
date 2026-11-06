@@ -10,6 +10,8 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # The 0G Storage SDK requires exactly 6.13.1, and a newer one fails the type checks. See SECURITY.md.
+      - dependency-name: ethers
     groups:
       minor-and-patch:
         update-types: [minor, patch]
