@@ -2,7 +2,7 @@
 
 Changes to the `ceasenet` program and to the public contract in [arkiv/schema.md](arkiv/schema.md). Records on Arkiv can't be changed, so anything that affects readers of old records is called out.
 
-## 0.1.0 (unreleased)
+## 0.1.0 (7 November 2026)
 
 The first version, built at ETHGlobal Mumbai 2026. It runs on test networks.
 

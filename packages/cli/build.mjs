@@ -64,4 +64,6 @@ const pages = join(root, "apps", "console", "dist")
 if (!existsSync(join(pages, "index.html"))) throw new Error("the console did not build")
 cpSync(pages, join(dist, "console"), { recursive: true })
 cpSync(join(root, "LICENSE"), join(here, "LICENSE"))
+// The bundle leaves out the licence comments of what it includes, so their notices go beside it instead.
+cpSync(join(root, "THIRD_PARTY_NOTICES.md"), join(dist, "THIRD_PARTY_NOTICES.md"))
 console.log(`built ${join(dist, "ceasenet.mjs")}`)
