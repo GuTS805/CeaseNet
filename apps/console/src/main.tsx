@@ -8,7 +8,7 @@ import "./console.css"
 import "../../shared/theme.css"
 import "./after-hours.css"
 import { MotionConfig, motion } from "motion/react"
-import { Icon, PageTransition } from "../../shared/design"
+import { Icon, LogoMark, PageTransition } from "../../shared/design"
 import { StrictMode, useEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { useConsoleState } from "./api"
@@ -80,14 +80,14 @@ function Console() {
   }
 
   if (!state) {
-    return <div className="console-loading"><a className="brand-word" href="#/">CeaseNet</a><div className="loading-panel"><Icon name="terminal" size={36} /><span className="eyebrow">YOUR LOCAL WORKSPACE</span><h1>{unreachable ? "Let's reconnect." : "Opening your workspace."}</h1><p>{unreachable ? "The local console isn't responding. Start it in a terminal and use the address it prints." : "Connecting to your agents and reading the latest state."}</p>{unreachable ? <><pre>ceasenet console</pre><button className="primary" onClick={() => void refresh()}>Try again</button></> : <div className="loading-track" aria-label="Loading" />}</div></div>
+    return <div className="console-loading"><a className="brand-word" href="#/" aria-label="CeaseNet home"><LogoMark />CeaseNet</a><div className="loading-panel"><Icon name="terminal" size={36} /><span className="eyebrow">YOUR LOCAL WORKSPACE</span><h1>{unreachable ? "Let's reconnect." : "Opening your workspace."}</h1><p>{unreachable ? "The local console isn't responding. Start it in a terminal and use the address it prints." : "Connecting to your agents and reading the latest state."}</p>{unreachable ? <><pre>ceasenet console</pre><button className="primary" onClick={() => void refresh()}>Try again</button></> : <div className="loading-track" aria-label="Loading" />}</div></div>
   }
 
   return (
     <MotionConfig reducedMotion="user">
       <a className="skip-link" href="#console-main" onClick={e => { e.preventDefault(); document.getElementById("console-main")?.focus() }}>Skip to content</a>
       <nav className="top" aria-label="Pages">
-        <a className="brand-word" href="#/">CeaseNet</a>
+        <a className="brand-word" href="#/" aria-label="CeaseNet home"><LogoMark />CeaseNet</a>
         <div className="pages">
           {PAGES.map((p) => (
             <a key={p.path} href={`#/${p.path}`} className={route === p.path ? "page-link on" : "page-link"} aria-current={route === p.path ? "page" : undefined}>

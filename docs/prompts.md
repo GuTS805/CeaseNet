@@ -154,3 +154,6 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-07 02:23 | privacy me aisa kari ku koi lwda aas pass n aaye aur readme sbse achikrdo beech beech me ss add krdo / bina kisi ss ke dedicated section ke |
 | 11-07 02:31 | continue |
 | 11-07 03:22 | so see my project nexora and take insipiration from there and imlement open source in it as best as you can / dont maeany mistakes |
+| 11-07 04:00 | now rate it in every aspect |
+| 11-07 04:03 | crops aur demo video dono alaga lag daalni hai? |
+| 11-07 04:07 | [image of the CN monogram and CeaseNet wordmark] use this as logo in this project and also add it in redame / and make reaadme much better so that judge will understand by reading some satrting portion also / dont make anjy mistakes |

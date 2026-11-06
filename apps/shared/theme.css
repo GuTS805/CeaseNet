@@ -57,6 +57,8 @@ tbody tr:hover { background: #ffffff03; }
 .skip-link:focus { top: 15px; }
 .brand-word { color: var(--text); font-size: 30px; font-weight: 650; letter-spacing: -.065em; text-decoration: none; line-height: 1; }
 .brand-word:hover { text-decoration: none; }
+/* Sized as in the logo artwork: the mark is about 1.46 times the height of a capital, centred on the capitals. */
+.brand-mark { display: inline-block; height: 1.06em; width: auto; margin-right: .32em; vertical-align: -.17em; }
 .route-content { min-width: 0; }
 .empty-state { padding: 70px 25px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; }
 .empty-state h2 { font-size: 25px; margin: 16px 0 8px; }

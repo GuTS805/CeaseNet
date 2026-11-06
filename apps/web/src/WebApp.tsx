@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion, MotionConfig } from "motion/react"
 import type { Hex } from "@ceasenet/core"
-import { Icon, PageTransition } from "../../shared/design"
+import { Icon, LogoMark, PageTransition } from "../../shared/design"
 import { AgentPage } from "./AgentPage"
 import { CheckPage } from "./CheckPage"
 import { IssuePage } from "./IssuePage"
@@ -103,6 +103,7 @@ export function WebApp() {
       <header className="site-header">
         <div className="brand-block">
           <a className="brand-word" href="#/" aria-label="CeaseNet home">
+            <LogoMark />
             CeaseNet
           </a>
           <span className="tagline">Recalls for AI agents</span>

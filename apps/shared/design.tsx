@@ -16,6 +16,13 @@ export function Icon({ name, size = 20 }: { name: "stop" | "layers" | "diary" | 
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
 }
 
+// The CN monogram, traced from the logo artwork. The C's counter is closed by the N's first stem.
+export const LOGO_MARK_PATH = "M90 0H200L312 117V0H370V216H327L221 101V216H90A90 90 0 0 1 0 126V90A90 90 0 0 1 90 0ZM165 59V157H86A28 28 0 0 1 58 129V87A28 28 0 0 1 86 59Z"
+
+export function LogoMark({ className = "brand-mark" }: { className?: string }) {
+  return <svg className={className} viewBox="0 0 370 216" fill="currentColor" aria-hidden="true" focusable="false"><path fillRule="evenodd" d={LOGO_MARK_PATH} /></svg>
+}
+
 export function Reveal({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
   const reduced = useReducedMotion()
   return <motion.div className={className} initial={{ opacity: 0, y: reduced ? 0 : 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.08 }} transition={{ duration: reduced ? 0 : 0.65, delay, ease: [0.22, 1, 0.36, 1] }}>{children}</motion.div>

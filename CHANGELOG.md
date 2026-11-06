@@ -15,6 +15,7 @@ The first version, built at ETHGlobal Mumbai 2026. It runs on test networks.
 - Every call goes in a diary, stored on Swarm encrypted to the owner, or on 0G Storage, with its index on Arkiv.
 - `ceasenet privacy private` keeps what your agents run off the public list.
 - `ceasenet rpc <url>` reads and writes through an Arkiv node you choose. A gate treats a node more than 2 minutes behind as out of reach.
+- The console and the public site carry the CeaseNet logo, the CN monogram, in their headers and tab icons.
 
 **The contract**
 

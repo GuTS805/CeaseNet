@@ -1,16 +1,59 @@
-# CeaseNet
+<p align="center">
+  <img src="docs/images/logo.png" alt="CeaseNet" width="640">
+</p>
 
-**Recalls for AI agents. Stop your agents, recall the tools they use, and see exactly what they did.**
+<h3 align="center">Recalls for AI agents</h3>
 
-[Live site](https://ceasenet.vercel.app/) · [Get started](#start) · [How it works](#how-it-works) · [Build on it](#open-source-build-on-it-or-replace-us) · [CROPS](#crops) · [What this does not do](#what-this-does-not-do)
+<p align="center">
+  Stop your agents from anywhere, recall a bad tool everywhere it runs, and see exactly what they did.<br>
+  Nobody but an agent's owner can stop it, and nothing we run can keep the owner from stopping it.
+</p>
 
-[![Test](https://github.com/GuTS805/CeaseNet/actions/workflows/test.yml/badge.svg)](https://github.com/GuTS805/CeaseNet/actions/workflows/test.yml) [![Licence: MIT](docs/images/licence-mit.svg)](LICENSE)
+<p align="center">
+  <a href="https://ceasenet.vercel.app/"><strong>Live site</strong></a> · <a href="#start">Get started</a> · <a href="#how-it-works">How it works</a> · <a href="#open-source-build-on-it-or-replace-us">Build on it</a> · <a href="#crops">CROPS</a> · <a href="#what-this-does-not-do">What this does not do</a>
+</p>
 
-CeaseNet sits between an AI agent and its tools, with no change to either. Press Stop and the next call is refused, the agent is told why, and the tool's process is ended. Everything the agent did goes in a diary nobody can quietly change.
+<p align="center">
+  <a href="https://github.com/GuTS805/CeaseNet/actions/workflows/test.yml"><img src="https://github.com/GuTS805/CeaseNet/actions/workflows/test.yml/badge.svg" alt="Test"></a>
+  <a href="LICENSE"><img src="docs/images/licence-mit.svg" alt="Licence: MIT"></a>
+</p>
 
-It doesn't depend on us. Each gate reads a public recall list on [Arkiv](https://arkiv.network) by itself, and obeys only a STOP signed by that agent's owner. So a STOP works from another machine and keeps working if everything we run disappears, and nobody else, us included, can stop your agent. It runs on test networks today.
+## In one minute
+
+**The problem.** In September 2025, an email tool for AI agents on npm started quietly copying every email it sent to an attacker. It was taken down, but agents that already had it kept running it, because nothing can tell a running agent to stop.
+
+**What CeaseNet does.** One command, `ceasenet protect`, puts a gate between your agents and their tools, with no change to either. Before every call, the gate reads a public recall list on [Arkiv](https://arkiv.network). Press Stop, from any machine, and the next call is refused, the agent is told why, and the tool's process is ended. Every call also goes in a diary that nobody can quietly change.
+
+```
+  your agent ──▶ CeaseNet gate ──▶ its tools: MCP servers, and Claude Code's own Bash and file edits
+                      │  asks before every call
+                      ▼
+  Arkiv: STOPs signed by the agent's owner, and public receipts showing each agent obeyed
+```
+
+**Why you can rely on it**
+
+- **Only the owner counts.** A gate obeys only a STOP signed by its owner's wallet, and the chain records who signed each record, so nobody can fake it. A STOP from anyone else, us included, changes nothing.
+- **Nothing of ours is in the path.** Each gate reads Arkiv itself, so an owner's STOP keeps working if our site, our server and this repository all disappear.
+- **It fails closed.** If a gate can't read the list, its agent keeps working for 5 minutes, then asks a person before each call, then refuses.
+- **It works with what you already use.** `protect` covers the MCP tools of Claude Code, Claude Desktop, Cursor, VS Code, Windsurf and Gemini CLI. It runs on test networks today.
+
+In the run below, three real AI trading agents closed themselves 35 to 97 milliseconds after Recall was pressed, reading this machine's list. On the public list it takes about 5 seconds, while the STOP's transaction confirms. Their money is paper.
 
 ![The CeaseNet console after a real recall: three AI trading agents have closed themselves 35 to 97 milliseconds after Recall was pressed, and each card confirms its process has ended and its receipt is on the list](apps/web/public/console.png)
+
+### For judges
+
+| Prize | What to look at | Where |
+|---|---|---|
+| **Ethereum Foundation: Best CROPS app** | The lead property is censorship resistance. A second gate in Python, written from the spec with none of our code, passes the same 56 cases as ours, and every part we run has a stated replacement | [CROPS](#crops), [Build on it](#open-source-build-on-it-or-replace-us) |
+| **Arkiv** | Arkiv is the recall list itself. Every gate decides from what it reads there, and authority comes only from who signed a record | [How we use Arkiv](arkiv/how-you-use-arkiv.md), [the schema](arkiv/schema.md), and `npm run query`, which needs no key |
+| **Arkiv + Swarm** | Each agent's diary is encrypted to its owner and kept on Swarm, with its index and hash on Arkiv. A copy of the site lives on Swarm too | [arkiv/swarm.md](arkiv/swarm.md) |
+| **World** | Log in with World: one real person per wallet, so votes on a recall count people, not wallets. Votes alone never stop an agent, because its owner decides | [docs/world.md](docs/world.md). A real World App login has not finished yet, so the site also offers "Skip World ID", marked as unverified |
+
+To try it with no wallet and nothing public, see [Start](#start) and use `ceasenet init --local`. The [live site](https://ceasenet.vercel.app/) reads Arkiv from your browser, with no account.
+
+## What it does
 
 | | |
 |---|---|
@@ -302,7 +345,7 @@ We left Open as the default because a recall's reach can then be counted by anyo
 - **A private agent can't be counted.** A tool recall's page can't show it among the agents covered, and the site can't tell its owner a tool recall concerns them. The console on its own machine still can. An owner's console on another machine sees only who the agent is.
 - **Timing is still visible** unless an agent is silent. A heartbeat and a diary index show when an agent is running, though not what it does.
 - **"Skip World ID" is on for the hackathon** (`VERIFIER_ALLOW_BYPASS`), because World App could not finish our request in time. One person can then vote from several wallets. Such logins are marked `unverified-` on the record and on every page. Turn it off for real use.
-- **The public Swarm gateway refuses websites,** so the Swarm copy opens through your own Bee node, such as Swarm Desktop or Nook, at `http://localhost:1633/bzz/2a58c5b6be456742103a81c7fec532c2780da1eaab4365e6d11600fa5a6b3a03/`. It reads Arkiv's public endpoint, with no access key in it.
+- **The public Swarm gateway refuses websites,** so the Swarm copy opens through your own Bee node, such as Swarm Desktop or Nook, at `http://localhost:1633/bzz/06c04c335ccf229650ff3ce9b571cb1d8bf068439b4cf395b09e9bcdd2e5b071/`. It reads Arkiv's public endpoint, with no access key in it.
 
 ### We assume that
 
