@@ -58,79 +58,50 @@ npm run verifier    # optional: real World ID confirmations
 
 `npm run reset` clears rehearsals. `.env.example` explains every setting. Without Swarm or World settings the demo still runs, and those parts turn off or show a labelled stand-in.
 
-### Protect a real agent
+### Use it for real
 
-Point your MCP client at this command in place of the tool's own. Nothing else changes:
+None of this needs the demo or its keys. You bring your own wallet or keys, and any MCP server from npm.
+
+**On the website**, with a browser wallet on the Rabdi testnet (free tGLM from the [faucet](https://hub.arkiv.network/faucet)):
+
+- **Protect an agent:** choose whose recalls your agents obey, and register an agent. Your choices go on Arkiv, signed by your wallet.
+- **Recall a tool:** measure any version on npm in your browser, then sign a STOP. Nothing is installed or run, and it binds only owners who follow your key.
+- **Network:** every agent, key and recall on Arkiv, drawn live from the records, with no list of keys to start from.
+
+**On your machine,** in this repository (on Windows PowerShell, type `npm.cmd` instead of `npm`):
 
 ```bash
-npx tsx packages/guard/src/proxy.ts --package ./path/to/tool --owner 0xYourOwnerAddress -- node ./path/to/tool/server.js
+npm run ceasenet -- init --name "My agent"     # makes keys, kept in ~/.ceasenet and never printed
+npm run ceasenet -- follow 0xKeyYouTrust       # whose STOPs you obey
+npm run ceasenet -- register                   # puts your passport and list on Arkiv. Needs tGLM
+npm run ceasenet -- add @modelcontextprotocol/server-filesystem@2.2.0 -- /some/folder
 ```
 
-It measures the tool's real files, then answers `tools/call` only if the gate allows. Without `CEASENET_AGENT_KEY` it only reads the list, and writes nothing about you.
+`add` installs that exact version with its install scripts off, checks what landed on disk against what npm publishes, and prints settings for Claude Desktop, Cursor, or any other MCP client. Paste them in. Nothing about the client or the tool changes.
 
-### Checks against live networks
-
-| Command | What it proves |
+| Command | What it does |
 |---|---|
-| `npm run smoke` | Every Arkiv behaviour the design relies on: a read-only STOP, anyone can extend it, an outsider can't delete it, and an owner can |
-| `npm run e2e` | The whole story on the live chain, against a running demo |
-| `npm run proxy-check` | A standard MCP client is refused through the proxy, 0.5 s after the STOP appears on Arkiv |
-| `npm run model-check` | Your AI model can call tools and react to a refusal, and shows your key's limits |
-| `npm run diary-check` | A diary part stores on 0G, reads back with no wallet, and a changed copy fails |
-| `npm run swarm-check` | A fix and sealed evidence on a real Bee node. Needs a postage batch |
-| `npm run agent-pass-check` | One real World ID Agent Pass attempt. Needs portal credentials |
-| `npm run friction` | Reproduces each problem in our [Arkiv feedback](arkiv/friction.md) |
+| `ceasenet check <package@version or folder>` | Is it recalled, by whom, and do you follow them? Exits with 1 if a key you follow stopped it |
+| `ceasenet recall <package@version or folder> --reason "..."` | Issues a STOP with your own key |
+| `ceasenet fix <recallKey> <package@version or folder>` | Publishes the exact fixed version |
+| `ceasenet status` | Your keys, balances and what is on the record |
 
-## For Arkiv judges
+With no tGLM the agent still obeys the list. It just publishes nothing about itself.
 
-**Query you can run, with no key and no wallet:**
+A fix only reaches you when you change your client's settings to the new version, unless you add `--auto-fix` to `ceasenet run`. That moves the tool with the client still connected, but it lets a key you follow choose the code you run, so it stays off unless you ask.
 
-```bash
-npm run query
-```
+`npm run product-check` runs all of this on the live testnet with new keys and this repository's own tool, and removes its records afterwards. `npm run product-check -- --npm` does it with a real package from npm, which means downloading that package and running it on your machine.
 
-Or with nothing installed, using [arkiv/query.json](arkiv/query.json):
-
-```bash
-curl -s https://rpc.rabdi.db-chain.testnet.arkiv.network/ -H 'content-type: application/json' -d @arkiv/query.json
-```
-
-It asks for every STOP created by the maker's key, on Rabdi (chain 7794095). A fake STOP from any other key is not in the results.
-
-**Wallets that wrote entities:**
-
-| Role | Address |
-|---|---|
-| Tool maker | `0xd33611D47a70192F31CBa3Ac161d7061F276485f` |
-| Security council (regulator) | `0x6b135261aBF3707da627dc7494727176D64b0AD8` |
-| Tool registry | `0x9A2088c25aDe29a50Dbc154924A823A90b4A8A91` |
-| Verifier | `0x8ea3c7A2aa463B563892410589f01867DfAe7766` |
-| Asha Exports (owner, agent) | `0x3f53e130327F0E594aFfCA9c7c30b56d276b93C6`, `0x8D2554bd95C650448dC58b0c9711773b9736ab10` |
-| Bandra Freight (owner, agent) | `0x82c3072f28547c882C64F1e84B3f4562a0D5b153`, `0x48113119e0C59C6063Aa8dacB20851b3dB91eE1a` |
-| Coastal Foods (owner, agent) | `0xa10db75Aa52ff086C68bbe86523F3Dd710306a32`, `0x36d030406493A524d84c39bfc2fdbAE6a955a962` |
-| Outsider, for the fake STOP | `0xE16525DD63fF2Ff570e31762798b87199D23FB3f` |
-| Live checks only (`npm run smoke`, `npm run friction`) | `0xc784d92e6B8AFAfBc0f042Db82F5841665e7dFa4`, `0x4cf240e7E978AE82100A81De4A206e38645E1750`, `0x90a21122Ba0cAe96bbA0A5a15DE2Bc6F7598685b`, `0x01203FfBa0Cb1Cb02F36Fa76a45846275bd22997` |
-
-Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](arkiv/reach.md), [why Arkiv](arkiv/why-arkiv.md), [how we use Arkiv](arkiv/how-you-use-arkiv.md), [Swarm](arkiv/swarm.md).
-
-## CROPS
-
-**Censorship resistance.** We run the website, the demo server and the verifier that files World ID confirmations. If they fail or refuse, agents keep obeying, because each gate reads Arkiv itself, and anyone can host the static site. An owner can replace our verifier and any issuer by publishing a new trust list. Recalls need no approval from us.
-
-**Open source.** MIT licence. `npm install && npm test && npm run build -w @ceasenet/web` works from this repository alone, with no keys. Running live agents needs test tokens to write to Arkiv, and a key for any compatible AI model, which can be one you run yourself. Reading Arkiv needs neither.
-
-**Privacy.** The Arkiv RPC learns your IP and which keys you follow, not which tools you run, because the gate downloads all their recalls and matches locally. The same goes for the "Check a tool" page. Publishing a loadout, heartbeat and receipts is optional. The model provider sees what the agent sends it, and you choose who that is. The public diary holds only a hash of each call's arguments. World learns only that someone proved for this app's action, and Arkiv gets a hash scoped to one warning, so one person's answers can't be linked across warnings. The site has no trackers.
-
-**Security.** Each role has its own key, and tools run as separate processes that see none of them. Backend secrets never reach a browser or a model. A fix runs only if its hash matches the published one. We assume that:
-- the keys on your trust list are honest. A stolen issuer key can stop your tool, but not run code on your machine, and removing it from your list ends that
-- your own machine is not compromised. The gate protects you from a bad tool, not from a bad host
-- Arkiv's testnet serves correct data. A node that hides records can delay a recall, which is why an unreachable list fails closed, but a node that serves a stale list is not detected
-- someone saw a record before it was deleted. Arkiv has no historical reads, so a deleted STOP stays provable only through receipts, gate memory and independent watchers
+For a tool that isn't on npm, or isn't written for Node, put the gate in front of it directly: `npx tsx packages/guard/src/proxy.ts --package ./path/to/tool --owner 0xYourOwnerAddress -- <the tool's command>`.
 
 ## What this does not do
 
 - It only binds agents that run the gate.
 - A silent agent proves nothing: from outside, a lost connection and ignoring a recall look the same. The board reports "silent", not "disobeying".
+- **It refuses calls. It is not a sandbox.** A recalled tool's process keeps running until the agent's client closes it, and a tool runs as your own user, so it could read your files, including `~/.ceasenet/identity.json`. The gate protects you from what a tool is asked to do after a recall. It can't undo what a tool has already done, or stop code a tool runs on its own.
+- A measurement covers the package's own files, not its dependencies.
+- `ceasenet` runs tools written for Node from npm, one at a time per agent key. To run several tools, give each its own keys, or run the extras with `--read-only`.
+- Anyone can write a recall or a passport, so the public pages show strangers' records too. They label who follows whom, and hide recalls nobody follows until you ask. On a busy network those pages would need an index, which we have not built.
 - The demo's tools are made up, and nothing is really sent. The demo's timers are short and it says so: a 2-second check, against 30 seconds in the production settings.
 - In the demo, people beyond the first are labelled "simulated", because World's simulator acts as one identity.
 - It runs on testnets only and has no users yet.

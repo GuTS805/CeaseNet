@@ -48,5 +48,6 @@ Arkiv lets the owner delete even a read-only record, so we designed for it. `npm
 
 ## Other uses
 
+- **Open reads.** The public pages query every recall and passport with no list of keys, so a stranger's agent shows up the moment it registers. Who follows whom comes from the owners' public trust lists, and the network map is drawn from those records.
 - **Fail closed.** If a gate can't read Arkiv, it keeps working for a grace period, then asks a human for each call, then refuses. The demo's "Cut off" button shows this.
 - **Receipts prove behaviour, not just reading.** The board separates "blocked it", "fixed", "silent" and "not following". "Silent" is reported as unknown, because nobody can tell from outside whether a silent agent lost its connection or is ignoring the recall.

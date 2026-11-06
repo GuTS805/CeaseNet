@@ -96,3 +96,10 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 10:02 | do 1 |
 | 11-06 10:08 | done |
 | 11-06 10:29 | yes go ahead |
+| 11-06 11:30 | why its not working the stop one |
+| 11-06 11:34 | where the reset button how i do it |
+| 11-06 11:34 | [pasted a PowerShell error from running npm run reset] |
+| 11-06 13:30 | okay now whats nxt? |
+| 11-06 11:46 | okay now in arkiv what improves or get worse if we use entity network? |
+| 11-06 11:57 | okay now check every project which are for submissoin of ethglobal mumbai / and rate them |
+| 11-06 12:48 | okay so my friend is also working on this / probably main so from here make a branch and make this end to end working product / i mean it is just a flowchart graph right now. make it so that it works real end to end |
