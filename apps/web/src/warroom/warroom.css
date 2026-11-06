@@ -1335,9 +1335,9 @@
 
 .erase {
   position: absolute;
-  left: 306px;
+  left: 300px;
   top: 8px;
-  width: 950px;
+  width: 958px;
   height: 678px;
   z-index: 20;
   display: flex;

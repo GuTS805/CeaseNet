@@ -477,7 +477,7 @@ export function LivePage() {
             <button className="stop-button" disabled={!state || Boolean(busy) || Boolean(stop) || Boolean(erasedKey)} onClick={() => void pressStop()}>
               <span className="stop-word">STOP</span>
               <span className="stop-sub">
-                {stop ? "is on Arkiv" : erasedKey ? "was erased" : `${state?.tools.bad.name ?? ""} ${state?.tools.bad.version ?? ""}`}, as its maker
+                {stop ? "is on Arkiv" : erasedKey ? "was erased from Arkiv" : `${state?.tools.bad.name ?? ""} ${state?.tools.bad.version ?? ""}, as its maker`}
               </span>
             </button>
             <button className="fix-button" disabled={!stop || Boolean(busy) || Boolean(hasFix)} onClick={() => void publishFix()}>

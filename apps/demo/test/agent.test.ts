@@ -251,6 +251,30 @@ describe("OfficeAgent", () => {
     expect(m.reached).toContain("1.0.17:send_email")
   })
 
+  it("moves to a published fix in the middle of a job", async () => {
+    const inner = new DevBrain()
+    let requests = 0
+    let m: ReturnType<typeof make> | undefined
+    const brain: Brain = {
+      next: async (messages) => {
+        requests++
+        if (requests === 1 && m) {
+          m.net.view = {
+            stops: [STOP],
+            lifts: [{ key: "0x03", recall: STOP.key, artifact: BAD.file.hash, kind: "FIX", fixedHash: GOOD.file.hash, creator: MAKER, createdAt: 8n }],
+          }
+          await m.guard.check(true)
+        }
+        return inner.next(messages)
+      },
+    }
+    m = make(brain)
+    await prepare(m)
+    await m.agent.runJob()
+    expect(m.reached).toEqual(["2.1.0:read_invoice", "1.0.17:send_email"])
+    expect(m.closed).toEqual(["1.0.16"])
+  })
+
   it("does not install a fix it cannot find", async () => {
     const m = make()
     await prepare(m)

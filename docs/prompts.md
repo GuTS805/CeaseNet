@@ -90,3 +90,9 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 06:48 | okay if the site works then open it i wanna see |
 | 11-06 06:57 | first we will make ai agents only and with the diary feature of 0g / we will not specifically target 0g / instaed target another good candidate |
 | 11-06 08:38 | do the rest bro |
+| 11-06 09:42 | open the website |
+| 11-06 09:46 | bro it looks lame / what can we do to add the wow factor |
+| 11-06 09:59 | so tell m if i remove 0g as it only allows 0.5 faucet in a day? |
+| 11-06 10:02 | do 1 |
+| 11-06 10:08 | done |
+| 11-06 10:29 | yes go ahead |

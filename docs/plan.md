@@ -21,6 +21,7 @@ Existing products leave a gap. Runtime gateways are run per company, with no sha
 | Real MCP, with tools as separate processes | It works with existing tools, and a tool holds no keys |
 | A proxy that needs no code change | Otherwise nobody would adopt it |
 | Diary on 0G, fixes and evidence on Swarm, hashes on Arkiv | Each store does what it's good at, and a hash on Arkiv catches any change |
+| Everything on the live screen moves only when a real reading changes | A demo that animates made-up events proves nothing. The screen compares readings of the demo server and of Arkiv, and tests cover that comparison |
 | The model is any OpenAI-compatible service | Nobody should have to trust one model provider. We first used 0G's router, and moved when its credits and request limit got in the way of the demo |
 
 ## Build order
@@ -35,6 +36,7 @@ Existing products leave a gap. Runtime gateways are run per company, with no sha
 8. 0G diary, live
 9. Swarm: fixes and sealed evidence
 10. Documents, demo and submission
+11. The live screen: the map, the stranger's inbox, the strip of blocks, the erase moment and sound
 
 ## What we cut
 

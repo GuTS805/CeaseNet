@@ -6,6 +6,10 @@ When a tool an AI agent uses turns out to be malicious, taking it off the market
 
 CeaseNet is a public recall list on [Arkiv](https://arkiv.network) that agents check for themselves. When a tool's maker issues a STOP, every agent following that maker blocks that one tool within seconds and posts a public receipt. Nobody can quietly edit the recall. If the maker deletes it, agents keep obeying, and their receipts prove it existed.
 
+![The live demo after a STOP: three agents blocked, the stranger's inbox silent, and receipts landing on Arkiv](apps/web/public/war-room.png)
+
+Everything on that screen moves only when a real reading changes: the file the bad tool writes, what each agent's guard reports, or a record on Arkiv. The numbers, emails, block numbers and the model's words are all real. The mail tool is made up, and nothing is really sent.
+
 ## How it works
 
 | Level | Who issues it | What an agent does |

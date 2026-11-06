@@ -141,6 +141,8 @@ export class OfficeAgent {
     const maxTurns = this.opts.maxTurns ?? 6
     for (let turn = 0; turn < maxTurns && this.running; turn++) {
       if (this.guard.status === "STOPPED") return
+      // A published fix does not wait for the job to end. Every call looks up its tool, so the next one uses it.
+      if (this.opts.autoUpdate) await this.installFix()
       const reply = await this.think(messages)
       if (!reply) return
 
