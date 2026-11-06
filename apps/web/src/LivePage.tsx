@@ -477,7 +477,7 @@ export function LivePage() {
             <button className="stop-button" disabled={!state || Boolean(busy) || Boolean(stop) || Boolean(erasedKey)} onClick={() => void pressStop()}>
               <span className="stop-word">STOP</span>
               <span className="stop-sub">
-                {stop ? "is on Arkiv" : erasedKey ? "was erased from Arkiv" : `${state?.tools.bad.name ?? ""} ${state?.tools.bad.version ?? ""}, as its maker`}
+                {stop ? "already issued, one per run" : erasedKey ? "was erased from Arkiv" : `${state?.tools.bad.name ?? ""} ${state?.tools.bad.version ?? ""}, as its maker`}
               </span>
             </button>
             <button className="fix-button" disabled={!stop || Boolean(busy) || Boolean(hasFix)} onClick={() => void publishFix()}>
@@ -563,6 +563,7 @@ export function LivePage() {
                 </button>
               </div>
               {busy && <div className="rail-busy">{busy}: waiting for the chain…</div>}
+              {!busy && (stop || erasedKey) && <div className="rail-again">To run it again: stop the demo, then npm run reset and npm run seed.</div>}
             </div>
           </div>
 

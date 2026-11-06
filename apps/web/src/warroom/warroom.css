@@ -1291,6 +1291,13 @@
   color: #8f9db2;
 }
 
+.rail-again {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: #7d8aa0;
+}
+
 .rail-busy {
   font: 500 12px var(--mono);
   color: var(--human);
