@@ -116,16 +116,16 @@ class ArkivAgentNet extends ArkivGuardNet {
 }
 
 async function readObeyingOwner(client: ReturnType<typeof arkivPublicClient>, owner: string, fallback: TrustPolicy, remembered: readonly Hex[]): Promise<GateView> {
-  const published = await readTrustPolicy(client, owner)
-  const policy = obeyingOwner(published ?? fallback, owner)
+  // An agent obeys only its owner, whatever list anyone has published, so there is nothing more to read.
+  const policy = obeyingOwner(fallback, owner)
   const view = await readGateView(client, undefined, policy, remembered)
   return { ...view, policy }
 }
 
 export function arkivLedger(config: Config): Ledger {
-  const client = arkivPublicClient(config.accessKey)
+  const client = arkivPublicClient(config.accessKey, config.rpc)
   const owner = config.owner.address
-  const writerFor = (key: Hex) => new ArkivWriter(arkivWalletClient(privateKeyToAccount(key), config.accessKey))
+  const writerFor = (key: Hex) => new ArkivWriter(arkivWalletClient(privateKeyToAccount(key), config.accessKey, config.rpc))
   return {
     kind: "arkiv",
     readOnlyNet: () => new ArkivReadNet(client, owner),

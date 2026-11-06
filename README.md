@@ -47,7 +47,9 @@ Then restart your agent's client and use it as usual. If PowerShell says running
 
 Your agents obey recalls from the first minute either way. To write to the public list, fund your owner's wallet once, and it keeps your agents' wallets in funds from there. It needs [tGLM](https://hub.arkiv.network/faucet) for Arkiv and [0G tokens](https://faucet.0g.ai) for diaries. `ceasenet init` prints the address, and the console shows it until it is done. Your agent is then registered by itself, answering to you.
 
-To move from one to the other, press **Move to the public list** on the console's Arkiv page, or run `ceasenet network arkiv`. On the public list, every tool call on the machine reads the chain first. If it stays out of reach for 5 minutes, your agents start asking a person, and 5 minutes after that they refuse.
+To move from one to the other, press **Move to the public list** on the console's Arkiv page, or run `ceasenet network arkiv`. On the public list, every tool call on the machine reads the chain first. If it stays out of reach for 5 minutes, your agents start asking a person, and 5 minutes after that they refuse. A node whose newest block is more than 2 minutes old counts as out of reach too, so one that has fallen behind or stopped can't keep serving a list from before a STOP.
+
+Your agents read and write through Arkiv's public endpoint unless you choose a node yourself, such as one you run: `ceasenet rpc <url>` checks that it is on the same chain and up to date before switching to it, and `ceasenet rpc default` switches back. The standalone `ceasenet-guard` takes it as `ARKIV_RPC`. Tools never see either.
 
 ### Settings
 
@@ -262,20 +264,21 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 
 **Lead property: censorship resistance.** A recall has to reach an agent even when the tool's maker, a registry, a crowd or we would rather it didn't, and nobody but the agent's owner may stop it. Everything below serves that.
 
-- **C, censorship resistance (lead).** Each agent's gate reads Arkiv itself and obeys only a STOP its owner's wallet signed, so no server of ours stands between an owner and their agent, and nobody else, us included, can stop it or keep it from being stopped. The site is static and also lives on Swarm at `e0554a8e179b71d76e8102b1889af262fe15e0b699ee207830c4ce2ca654dd4b`, so losing our domain or Vercel loses nothing an owner needs.
-- **O, open source.** MIT licence. `npm ci && npm test && npm run build` works from a clone with no keys and no account with us, and `npm run build:verifier` rebuilds the hosted verifier from the same source.
+- **C, censorship resistance (lead).** Each agent's gate reads Arkiv itself and obeys only a STOP its owner's wallet signed, so no server of ours stands between an owner and their agent, and nobody else, us included, can stop it or keep it from being stopped. No single node can quietly hold a STOP back either: a gate treats a node whose newest block is over 2 minutes old as out of reach and fails closed, and an owner can move their agents to a node they run with `ceasenet rpc <url>`. The site is static and also lives on Swarm at `60bbf7da2f7b5ebdda02636dcc005ad647fa959b0b987a63f5ed49b8d74e7c69`, so losing our domain or Vercel loses nothing an owner needs.
+- **O, open source.** MIT licence. `npm ci && npm test && npm run build` works from a clone with no keys and no account with us, and `npm run build:verifier` rebuilds the hosted verifier from the same source. CI rebuilds it on every push and fails if [api/verifier.mjs](api/verifier.mjs), the file the hosted site runs, differs from that by a single byte.
 - **P, privacy.** The Arkiv RPC learns your IP and whose recalls you read, never which tools your agent runs, because the gate downloads them all and matches locally. Diaries are sealed to the owner's key, and the client loads no trackers or analytics: it talks only to its own host and Arkiv, and to World, npm or Swarm when you ask it to.
 - **S, security.** Agent and owner keys are separate, the owner's can stay in a browser wallet on another machine, and the site never holds a key: every record is signed in your wallet. A pinned tool is blocked if its code changes, and the tools a gate runs get none of CeaseNet's settings or keys.
 
 **Tradeoffs we accept, and where data goes:**
 - **Logging in is public.** It links your wallet address to "a person checked by World ID" on Arkiv, and your votes are public under that address. World learns only that someone proved for our action. Nothing else about you is stored, and nothing at all in your browser.
 - **The verifier is one key.** It decides who counts as a person, so a dishonest one could invent votes, but votes stop nothing until the owner approves. It runs as a Vercel function holding only its own key, which can write logins, normal recalls and votes, and never a STOP that binds an agent. Anyone can run their own from this repository.
+- **Our host sees who uses the hosted site.** Like any host, Vercel logs the IP address of each page load and each call to the verifier. To read the list without that, use the Swarm copy or run the site yourself. Logging in and voting still go through a verifier.
 - **"Skip World ID" is on for the hackathon** (`VERIFIER_ALLOW_BYPASS`), because World App could not finish our request in time. One person can then vote from several wallets. Such logins are marked `unverified-` on the record and on every page. Turn it off for real use.
 - **The public Swarm gateway refuses websites,** so the Swarm copy opens through your own Bee node, such as Swarm Desktop or Nook, at `http://localhost:1633/bzz/<reference>/`. It reads Arkiv's public endpoint, with no access key in it.
 
 **We assume that:**
 - your own machine is not already compromised, as [above](#what-this-does-not-do)
-- Arkiv's testnet serves correct data. A node that hides records can delay a recall, which is why an unreachable list fails closed, but a node that serves a stale list is not detected
+- the Arkiv node a gate reads serves correct data. A node that hides records can delay a recall, which is why an unreachable list fails closed. One that falls behind or stops is caught, because a gate refuses a list more than 2 minutes old by this machine's clock, but one that hides records while keeping up with the chain is not. The remedy is a node you run, through `ceasenet rpc`
 - someone saw a record before it was deleted. Arkiv has no historical reads, so a deleted STOP stays provable only through receipts, gate memory and independent watchers
 
 ## Sponsors

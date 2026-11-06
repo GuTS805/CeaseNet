@@ -223,7 +223,7 @@ export interface ArkivInputs {
   agents: { name: string; address: string }[]
 }
 
-export const makeArkivClient = (config: Config): ArkivPublic => arkivPublicClient(config.accessKey)
+export const makeArkivClient = (config: Config): ArkivPublic => arkivPublicClient(config.accessKey, config.rpc)
 
 const entityLink = (mode: string, key: string | undefined) => (mode === "arkiv" && key ? `${ARKIV_EXPLORER}/entity/${key}` : undefined)
 const clip = (text: string, n = 90) => (text.length > n ? `${text.slice(0, n)}…` : text)
@@ -237,7 +237,7 @@ export async function readArkiv({ config, ledger, client, agents }: ArkivInputs)
   const chain: ArkivView["chain"] = {
     name: "Arkiv Rabdi testnet",
     chainId: CHAIN_ID,
-    rpc: RPC_URL,
+    rpc: config.rpc ?? RPC_URL,
     explorer: ARKIV_EXPLORER,
     reachable: false,
     accessKey: Boolean(config.accessKey),

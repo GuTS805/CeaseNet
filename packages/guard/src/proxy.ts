@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { arkivPublicClient, arkivWalletClient, ArkivWriter, DEMO_TIMERS, demoPolicy, type Hex, PRODUCTION_TIMERS, readLatestLoadout } from "@ceasenet/core"
+import { arkivPublicClient, arkivWalletClient, ArkivWriter, checkRpcUrl, DEMO_TIMERS, demoPolicy, type Hex, PRODUCTION_TIMERS, readLatestLoadout } from "@ceasenet/core"
 import { privateKeyToAccount } from "viem/accounts"
 import { agentPassFromEnv, approverFromPass, fileLinks } from "./agentPass"
 import { ArkivGuardNet, ReadOnlyNet } from "./arkivNet"
@@ -47,15 +47,17 @@ function parseArgs(argv: string[]) {
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const { pkg, owner, memory, demoTimers, command, args } = parseArgs(argv)
   const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
+  // An Arkiv node the owner chose, such as their own. The tool never sees this: toolEnv hides every ARKIV_ setting.
+  const rpc = process.env.ARKIV_RPC ? checkRpcUrl(process.env.ARKIV_RPC) : undefined
   const timers = demoTimers ? DEMO_TIMERS : PRODUCTION_TIMERS
-  const client = arkivPublicClient(accessKey)
+  const client = arkivPublicClient(accessKey, rpc)
   const file = measurePackage(pkg)
 
   let net: GuardNet = new ReadOnlyNet(client, owner)
   let startSeq = 1n
   const key = process.env.CEASENET_AGENT_KEY as Hex | undefined
   if (key) {
-    const writer = new ArkivWriter(arkivWalletClient(privateKeyToAccount(key), accessKey))
+    const writer = new ArkivWriter(arkivWalletClient(privateKeyToAccount(key), accessKey, rpc))
     net = new ArkivGuardNet(client, owner, writer, timers.heartbeatTtlSeconds)
     startSeq = ((await readLatestLoadout(client, writer.address))?.seq ?? 0n) + 1n
   }

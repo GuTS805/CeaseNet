@@ -133,4 +133,21 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 23:17 | [chose: the page flow of the swarm-diary branch, with the new design] |
 | 11-06 23:25 | now what u to do is that this flow is good demo but now dont want demo data / so what we will do is that there should be first login with world for address / then the user can open the recall by itself / for normal oit want votes / agent should match its owner wallet themself and only obey them / for normal use recalls if they gfet enough recnosition then owner can approve it / also give the regisster agent route to for new agent to register with relevent things / keep the three agent as i have to show something vids tooo |
 | 11-06 23:33 | [chose: keep the three trading agents; log in with World ID plus a wallet; 3 votes, real World ID only] |
+| 11-07 00:11 | rotate kardo |
 | 11-07 00:20 | continue |
+| 11-07 00:23 | world waala  phone pe login hai par woh deskto[ pe nhi ho para toh do something so we can use phone |
+| 11-07 00:39 | no qr comming [screenshot] |
+| 11-07 00:42 | [chose: run the verifier on Vercel, with its settings there] |
+| 11-07 00:51 | okk ab mujw batao ki  ab qr chal jaayega deploy pe? |
+| 11-07 01:04 | this showing on phone after scan [screenshot] |
+| 11-07 01:11 | see [screenshot] |
+| 11-07 01:12 | laptop mai koio eror nhji dikahta |
+| 11-07 01:14 | [screenshot of the World developer portal] |
+| 11-07 01:17 | see [screenshots of the World ID settings and the new action] |
+| 11-07 01:25 | ,ake a bypass button for the world id |
+| 11-07 01:31 | bypass should work fopr ech route right they are not allowing me |
+| 11-07 01:35 | [pasted PowerShell output: npm run install-cli and ceasenet init] |
+| 11-07 01:40 | why i cant sign in? [screenshot] |
+| 11-07 01:45 | ok then keep all this in mind / but now we should focus on ef corps.. |
+| 11-07 01:58 | CORPS me kya kya improve krna hai poora btana ache se / ki wo bounty lge |
+| 11-07 02:01 | a,b,c,d,e sb karo / and dont make any mistakes |

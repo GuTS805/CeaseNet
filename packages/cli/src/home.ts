@@ -22,6 +22,8 @@ export interface Config {
   owner: { address: Hex }
   /** Not a secret: the Arkiv SDK puts it in the RPC URL. Optional: it has a quota, and the public endpoint takes over when that runs out. */
   accessKey: string
+  /** An Arkiv node the owner chose, such as their own. Unset means Arkiv's public endpoint. */
+  rpc?: string
   /** Where the local list is kept, so several agents on one machine can share an owner. */
   ledgerFile?: string
   port: number
@@ -63,7 +65,7 @@ export function createMemberHome(dir: string, member: { name: string }, config: 
   if (existsSync(path)) {
     const existing = JSON.parse(readFileSync(path, "utf8")) as Config
     // The owner may have moved to the public list since this agent was made.
-    const next: Config = { ...existing, network: config.network, accessKey: config.accessKey, owner: config.owner, ledgerFile, team: true }
+    const next: Config = { ...existing, network: config.network, accessKey: config.accessKey, rpc: config.rpc, owner: config.owner, ledgerFile, team: true }
     writeAtomic(path, `${JSON.stringify(next, null, 2)}\n`)
     return next
   }
@@ -74,6 +76,7 @@ export function createMemberHome(dir: string, member: { name: string }, config: 
     agent: { name: member.name, address: privateKeyToAccount(agent).address },
     owner: config.owner,
     accessKey: config.accessKey,
+    rpc: config.rpc,
     ledgerFile,
     port: config.port,
     team: true,

@@ -25276,12 +25276,12 @@ var shared = quotaAwareFetch();
 function arkivChain(accessKey) {
   return rabdi({ accessKey });
 }
-var transport = () => http(void 0, { fetchFn: shared.fetchFn });
-function arkivPublicClient(accessKey) {
-  return createPublicClient({ chain: arkivChain(accessKey), transport: transport(), pollingInterval: POLLING_MS });
+var transport = (rpc) => http(rpc || void 0, { fetchFn: shared.fetchFn });
+function arkivPublicClient(accessKey, rpc) {
+  return createPublicClient({ chain: arkivChain(accessKey), transport: transport(rpc), pollingInterval: POLLING_MS });
 }
-function arkivWalletClient(account, accessKey) {
-  return createWalletClient({ chain: arkivChain(accessKey), transport: transport(), account, pollingInterval: POLLING_MS });
+function arkivWalletClient(account, accessKey, rpc) {
+  return createWalletClient({ chain: arkivChain(accessKey), transport: transport(rpc), account, pollingInterval: POLLING_MS });
 }
 
 // packages/core/src/gate.ts

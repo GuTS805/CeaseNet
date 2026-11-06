@@ -559,6 +559,17 @@ describe("a team member's home", () => {
     expect(second.network).toBe("arkiv")
     expect(second.accessKey).toBe("k")
   })
+
+  it("follows the owner to a node they chose, and back to Arkiv's own", () => {
+    const { config } = initHome({ name: "Main", network: "arkiv", accessKey: "" })
+    const made = createMemberHome(join(dir, "m"), { name: "One" }, { ...config, rpc: "https://node.example/" })
+    expect(made.rpc).toBe("https://node.example/")
+    const moved = createMemberHome(join(dir, "m"), { name: "One" }, { ...config, rpc: "https://other.example/" })
+    expect(moved.rpc).toBe("https://other.example/")
+    createMemberHome(join(dir, "m"), { name: "One" }, config)
+    const saved = JSON.parse(readFileSync(join(dir, "m", "config.json"), "utf8")) as { rpc?: string }
+    expect(saved.rpc).toBeUndefined()
+  })
 })
 
 describe("whether a pinned package is still what was installed", () => {

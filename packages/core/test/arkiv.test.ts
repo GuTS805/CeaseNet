@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { PUBLIC_RPC, quotaAwareFetch } from "../src/arkiv"
+import { checkRpcUrl, PUBLIC_RPC, quotaAwareFetch } from "../src/arkiv"
+import { checkListFresh, MAX_LIST_AGE_MS } from "../src/reader"
 
 const KEYED = `${PUBLIC_RPC}my-key`
 const answer = (status: number, body: string, headers: Record<string, string> = {}) => new Response(body, { status, headers })
@@ -104,5 +105,47 @@ describe("an access key the network no longer accepts", () => {
     const res = await s.fetchFn(PUBLIC_RPC)
     expect(res.status).toBe(401)
     expect(s.asked).toEqual([PUBLIC_RPC])
+  })
+})
+
+describe("a node the owner chooses", () => {
+  it("takes a web address and gives it back in its usual form", () => {
+    expect(checkRpcUrl(" https://node.example ")).toBe("https://node.example/")
+    expect(checkRpcUrl("http://127.0.0.1:8545")).toBe("http://127.0.0.1:8545/")
+  })
+
+  it("refuses anything that is not a web address", () => {
+    expect(() => checkRpcUrl("node.example")).toThrow("not a web address")
+    expect(() => checkRpcUrl("ws://node.example")).toThrow("https:// or http://")
+    expect(() => checkRpcUrl("file:///etc/passwd")).toThrow("https:// or http://")
+  })
+
+  it("sends a chosen node nothing of the access key", async () => {
+    const seen: string[] = []
+    const { fetchFn } = quotaAwareFetch(async (input) => {
+      seen.push(String(input))
+      return answer(200, "{}")
+    })
+    await fetchFn("https://node.example/", { method: "POST" })
+    expect(seen).toEqual(["https://node.example/"])
+  })
+})
+
+describe("a list that is not live", () => {
+  const now = 1_800_000_000_000
+  const secondsAgo = (s: number) => BigInt(now / 1000 - s)
+
+  it("accepts a block from a moment ago", () => {
+    expect(() => checkListFresh(secondsAgo(2), now)).not.toThrow()
+    expect(() => checkListFresh(secondsAgo(MAX_LIST_AGE_MS / 1000), now)).not.toThrow()
+  })
+
+  it("accepts a block slightly ahead of this machine's clock", () => {
+    expect(() => checkListFresh(secondsAgo(-5), now)).not.toThrow()
+  })
+
+  it("refuses a node that has fallen behind or stopped", () => {
+    expect(() => checkListFresh(secondsAgo(MAX_LIST_AGE_MS / 1000 + 1), now)).toThrow("121 seconds old")
+    expect(() => checkListFresh(secondsAgo(3600), now)).toThrow("not serving the live list")
   })
 })

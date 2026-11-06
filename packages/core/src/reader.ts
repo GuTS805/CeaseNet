@@ -519,13 +519,33 @@ export async function readGateView(
   const { rows, block } = await readRecallsBy(client, [...new Set([...policy.issuers, policy.verifier])])
   const stops = rows.filter((r) => r.level === "STOP")
   const advisories = rows.filter((r) => r.level === "ADVISORY")
-  const [endorsements, lifts] = await Promise.all([
+  const [endorsements, lifts, newest] = await Promise.all([
     readEndorsements(
       client,
       advisories.map((a) => a.key),
       policy.verifier,
     ),
     readLifts(client, [...new Set([...rows.map((r) => r.key), ...remembered])]),
+    client.getBlock({ blockNumber: block }),
   ])
+  // A node that stopped following the chain would otherwise keep serving a list from before a STOP.
+  checkListFresh(newest.timestamp)
   return { block, policy: published, stops, advisories, endorsements, lifts }
+}
+
+/** Blocks come every 2 seconds, so a node whose newest block is older than this is not serving the live list. */
+export const MAX_LIST_AGE_MS = 120_000
+
+/**
+ * Refuses a list read at a block too far in the past. The gate then treats the list as out of reach, and after its
+ * grace period stops the agent, as it would with no list at all.
+ *
+ * This catches a node that has fallen behind or stopped. A node that hides records while keeping up with the chain
+ * is not caught here: only a second node, chosen by the owner, can show that.
+ */
+export function checkListFresh(blockTimestampSeconds: bigint, nowMs: number = Date.now(), maxAgeMs: number = MAX_LIST_AGE_MS): void {
+  const ageMs = nowMs - Number(blockTimestampSeconds) * 1000
+  if (ageMs > maxAgeMs) {
+    throw new Error(`the Arkiv node answered from a block ${Math.round(ageMs / 1000)} seconds old, so it is not serving the live list`)
+  }
 }

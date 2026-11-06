@@ -4,7 +4,7 @@ import { memberView, type StartResult, startReport, TEAM } from "./fleet"
 import { importSettings } from "./settings"
 import { existsSync, statSync } from "node:fs"
 import { hostname } from "node:os"
-import { agentArtifact, fleetArtifact, type Hex, type LoadedFile, recallCovers } from "@ceasenet/core"
+import { agentArtifact, arkivPublicClient, checkListFresh, checkRpcUrl, fleetArtifact, type Hex, type LoadedFile, recallCovers } from "@ceasenet/core"
 import { measurePackage } from "@ceasenet/guard"
 import { currentPolicy, enrollAgent, isEnded, liftRecall, publishFix, publishIdentity, setFollowing, stopAgent, stopFleet, stopTool } from "./actions"
 import { liveGuards, recentCalls } from "./activity"
@@ -41,6 +41,8 @@ Set up
   ceasenet access-key <key>       Use your own Arkiv access key. It has a quota, and when that runs out reads carry on through the public endpoint.
   ceasenet import-settings <file> Copy the settings CeaseNet uses from a .env file. A wallet's secret phrase is left behind.
   ceasenet network <arkiv|local>  Keep recalls on the public list, or in a file on this machine.
+  ceasenet rpc <url|default>      Read and write the public list through an Arkiv node you choose, such as your own,
+                                  so no single node operator can hide a recall from your agents.
 
 See it work
   ceasenet agents start           Start three real AI trading agents, each in a terminal of its own, on live prices
@@ -253,7 +255,8 @@ async function cmdStatus(): Promise<void> {
   out(`Agent    ${config.agent.name}  ${config.agent.address}`)
   out(`Owner    ${config.owner.address}${keys.owner ? "" : "  (key held elsewhere)"}`)
   out(`Recalls  ${networkLine(config)}`)
-  if (config.network === "arkiv" && !config.accessKey) {
+  if (config.network === "arkiv" && config.rpc) out(`Node     ${config.rpc}, chosen by you`)
+  if (config.network === "arkiv" && !config.accessKey && !config.rpc) {
     out(`Access   none, so reads use Arkiv's public endpoint, which has a rate limit. Get a free key at ${ACCESS_KEYS}, then: ceasenet access-key <key>`)
   }
   try {
@@ -530,6 +533,32 @@ async function main(argv: readonly string[]): Promise<void> {
       out(`The console is at http://127.0.0.1:${info.port}`)
       return
     }
+    case "rpc": {
+      const given = p.positional[0]
+      if (!given) throw new Error("Use: ceasenet rpc <https://your-arkiv-node/>, or ceasenet rpc default")
+      if (given === "default") {
+        const { rpc: _dropped, ...rest } = loadConfig()
+        saveConfig(rest)
+        out("Your agents now use Arkiv's public endpoint again.")
+        out("Start the console again, and restart your agents, so they follow.")
+        return
+      }
+      const rpc = checkRpcUrl(given)
+      // Checked before saving: a node on another chain, or one that has stopped, would leave the agents reading nothing.
+      try {
+        const client = arkivPublicClient("", rpc)
+        const [chainId, newest] = await Promise.all([client.getChainId(), client.getBlock()])
+        if (chainId !== client.chain.id) throw new Error(`it serves chain ${chainId}, not Arkiv's Rabdi testnet (${client.chain.id})`)
+        checkListFresh(newest.timestamp)
+        saveConfig({ ...loadConfig(), rpc })
+        out(`Your agents now read and write the public list through ${rpc}, which is at block ${newest.number}.`)
+        out("Start the console again, and restart your agents, so they follow.")
+      } catch (e) {
+        const reason = ((e as { shortMessage?: string }).shortMessage ?? (e instanceof Error ? e.message : String(e))).replace(/\.+$/, "")
+        throw new Error(`Could not use ${rpc}: ${reason}. Nothing was changed.`)
+      }
+      return
+    }
     case "access-key": {
       const key = p.positional[0]
       if (!key) throw new Error(`Use: ceasenet access-key <key>. Get a free one at ${ACCESS_KEYS}`)
@@ -556,5 +585,7 @@ async function main(argv: readonly string[]): Promise<void> {
 
 main(process.argv.slice(2)).catch((e) => {
   console.error(`ceasenet: ${(e as Error).message}`)
-  process.exit(1)
+  // Exiting at once while a web request is still closing crashes Node on Windows, so give it a moment.
+  process.exitCode = 1
+  setTimeout(() => process.exit(1), 200).unref()
 })

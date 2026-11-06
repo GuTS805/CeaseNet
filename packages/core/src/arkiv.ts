@@ -67,14 +67,30 @@ export function arkivChain(accessKey: string) {
   return rabdi({ accessKey })
 }
 
-const transport = () => http(undefined, { fetchFn: shared.fetchFn })
+/**
+ * A node of the owner's choosing, such as one they run themselves, so no single RPC operator can hide a recall
+ * from their agents. It gets no access key: that belongs to Arkiv's own endpoint.
+ */
+const transport = (rpc?: string) => http(rpc || undefined, { fetchFn: shared.fetchFn })
 
-export function arkivPublicClient(accessKey: string) {
-  return createPublicClient({ chain: arkivChain(accessKey), transport: transport(), pollingInterval: POLLING_MS })
+/** An owner's own node must be a web address. Returns it in its usual form. */
+export function checkRpcUrl(url: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url.trim())
+  } catch {
+    throw new Error(`${url} is not a web address. It should look like https://your-node.example/`)
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") throw new Error(`${url} must start with https:// or http://`)
+  return parsed.href
 }
 
-export function arkivWalletClient(account: Account, accessKey: string) {
-  return createWalletClient({ chain: arkivChain(accessKey), transport: transport(), account, pollingInterval: POLLING_MS })
+export function arkivPublicClient(accessKey: string, rpc?: string) {
+  return createPublicClient({ chain: arkivChain(accessKey), transport: transport(rpc), pollingInterval: POLLING_MS })
+}
+
+export function arkivWalletClient(account: Account, accessKey: string, rpc?: string) {
+  return createWalletClient({ chain: arkivChain(accessKey), transport: transport(rpc), account, pollingInterval: POLLING_MS })
 }
 
 export type ArkivPublic = ReturnType<typeof arkivPublicClient>
