@@ -38,10 +38,6 @@
 - **It fails closed.** If a gate can't read the list, its agent keeps working for 5 minutes, then asks a person before each call, then refuses.
 - **It works with what you already use.** `protect` covers the MCP tools of Claude Code, Claude Desktop, Cursor, VS Code, Windsurf and Gemini CLI. It runs on test networks today.
 
-In the run below, three real AI trading agents closed themselves 35 to 97 milliseconds after Recall was pressed, reading this machine's list. On the public list it takes about 5 seconds, while the STOP's transaction confirms. Their money is paper.
-
-![The CeaseNet console after a real recall: three AI trading agents have closed themselves 35 to 97 milliseconds after Recall was pressed, and each card confirms its process has ended and its receipt is on the list](apps/web/public/console.png)
-
 ### For judges
 
 | Prize | What to look at | Where |
@@ -52,6 +48,10 @@ In the run below, three real AI trading agents closed themselves 35 to 97 millis
 | **World** | Log in with World: one real person per wallet, so votes on a recall count people, not wallets. Votes alone never stop an agent, because its owner decides | [docs/world.md](docs/world.md). A real World App login has not finished yet, so the site also offers "Skip World ID", marked as unverified |
 
 To try it with no wallet and nothing public, see [Start](#start) and use `ceasenet init --local`. The [live site](https://ceasenet.vercel.app/) reads Arkiv from your browser, with no account.
+
+In the run below, three real AI trading agents closed themselves 35 to 97 milliseconds after Recall was pressed, reading this machine's list. On the public list it takes about 5 seconds, while the STOP's transaction confirms. Their money is paper.
+
+![The CeaseNet console after a real recall: three AI trading agents have closed themselves 35 to 97 milliseconds after Recall was pressed, and each card confirms its process has ended and its receipt is on the list](apps/web/public/console.png)
 
 ## What it does
 
