@@ -223,11 +223,7 @@ export function AgentPage({ address }: { address: Hex }) {
 
           <div className="field">
             <div className="label">Obeys STOPs from</div>
-            {entry.policy ? (
-              <div>{entry.policy.issuers.map(nameOf).join(", ") || "Nobody"}</div>
-            ) : (
-              <div className="muted">No trust list published</div>
-            )}
+            <div>Only its owner, {nameOf(entry.agent.owner)}</div>
           </div>
 
           <div className="field">
@@ -290,7 +286,7 @@ export function AgentPage({ address }: { address: Hex }) {
               See this agent's records on the Arkiv explorer
             </a>
             {" · "}
-            <a href={`#/report/${address}`}>Report this agent</a>
+            <a href={`#/report/${address}`}>Open a recall on this agent</a>
           </div>
         </div>
       </div>

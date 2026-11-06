@@ -4,15 +4,17 @@ import {
   ARKIV_EXPLORER,
   arkivPublicClient,
   type AgentStatus,
+  type BoardAgent,
   CONFIRMATION_THRESHOLD,
   CONFIRMATION_WINDOW_BLOCKS,
-  demoPolicy,
+  countConfirmations,
   type Hex,
   type LoadedFile,
+  lower,
   makeTrust,
   type PublicView,
-  readPublicView,
   readWholeList,
+  recallCovers,
   type RecallRow,
   type TrustConfig,
 } from "@ceasenet/core"
@@ -37,22 +39,9 @@ export const shortHash = (h: string) => (h.length > 14 ? `${h.slice(0, 8)}…${h
 export const explorerAddress = (a: string) => `${ARKIV_EXPLORER}/address/${a}`
 export const explorerEntity = (k: string) => `${ARKIV_EXPLORER}/entity/${k}`
 
-const NAMES: Record<string, string> = Object.fromEntries(
-  (
-    [
-      [ADDRESSES.maker, "Maker of demo-mail-tool"],
-      [ADDRESSES.regulator, "Security council"],
-      [ADDRESSES.publisher, "Tool registry"],
-      [ADDRESSES.verifier, "CeaseNet verifier"],
-      [ADDRESSES.outsider, "Outsider"],
-      [ADDRESSES.ownerA, "Asha Exports"],
-      [ADDRESSES.ownerB, "Bandra Freight"],
-      [ADDRESSES.ownerC, "Coastal Foods"],
-    ] as const
-  ).map(([address, name]) => [address.toLowerCase(), name]),
-)
+const NAMES: Record<string, string> = { [ADDRESSES.verifier.toLowerCase()]: "CeaseNet verifier" }
 
-/** A readable name for the demo's keys. Names are this site's labels: the address is what counts. */
+/** A readable name for a key this site knows. Names are this site's labels: the address is what counts. */
 export const nameOf = (address: string) => NAMES[address.toLowerCase()] ?? shortHash(address)
 
 export type Colour = "green" | "amber" | "red" | "grey"
@@ -153,8 +142,36 @@ function sharedView(read: () => Promise<PublicView>) {
   }
 }
 
-const publicView = sharedView(() => (HOSTED ? readWholeList(client) : readPublicView(client)))
-const networkView = sharedView(() => readWholeList(client))
+/**
+ * The keys of the old scripted demo: its companies, their agents, and the tool maker, council and registry it played.
+ * Their records are still on Arkiv until they expire, but they are not real, so this site leaves them out.
+ */
+const DEMO_KEYS = new Set(
+  Object.entries(ADDRESSES)
+    .filter(([role]) => role !== "verifier")
+    .map(([, address]) => address.toLowerCase()),
+)
+const isDemoKey = (address: string) => DEMO_KEYS.has(address.toLowerCase())
+const namesDemo = (artifact: string) => /^(agent|fleet|team):/.test(artifact) && isDemoKey(artifact.slice(artifact.indexOf(":") + 1))
+
+/** Only real records: nothing from the old demo's keys, and no stand-in votes from test mode. */
+export function withoutDemo(view: PublicView): PublicView {
+  const recalls = view.recalls.filter((r) => !isDemoKey(r.creator) && !namesDemo(r.artifact))
+  const kept = new Set(recalls.map((r) => r.key))
+  return {
+    ...view,
+    agents: view.agents.filter((a) => !isDemoKey(a.agent.agent) && !isDemoKey(a.agent.owner)),
+    recalls,
+    acks: view.acks.filter((a) => kept.has(a.recall)),
+    lifts: view.lifts.filter((l) => kept.has(l.recall)),
+    endorsements: view.endorsements.filter((e) => kept.has(e.recall) && !e.human.startsWith("simulated-")),
+    disclosures: view.disclosures.filter((d) => kept.has(d.recall)),
+  }
+}
+
+const readReal = () => readWholeList(client).then(withoutDemo)
+const publicView = sharedView(readReal)
+const networkView = sharedView(readReal)
 
 /** Everything public, read straight from Arkiv with no server of ours in between. */
 export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(() => publicView.read(), HOSTED ? Math.max(everyMs, 20_000) : everyMs, [], publicView.known)
@@ -169,81 +186,52 @@ export const forgetView = (): void => {
 }
 
 /**
- * How to read one recall on a page that shows everyone's. Only its own issuer can end it, and on the demo's pages
- * the demo's regulator as well. Whether it binds any agent is up to that agent's owner, not this page.
+ * How to read one recall on a page that shows everyone's. Only its own issuer can end it. Whether it binds an agent
+ * depends on who owns that agent: an agent obeys only its owner.
  */
-export const trustForRecall = (recall: RecallRow): TrustConfig => {
-  const demo = demoPolicy()
-  return makeTrust({
+export const trustForRecall = (recall: RecallRow): TrustConfig =>
+  makeTrust({
     stopKeys: [recall.creator],
-    regulators: HOSTED ? [] : demo.regulators,
+    regulators: [],
     verifier: recall.creator,
     threshold: CONFIRMATION_THRESHOLD,
     windowBlocks: CONFIRMATION_WINDOW_BLOCKS,
   })
+
+/** Opened by a logged-in person through the verifier. It needs votes, and binds nobody until an owner approves it. */
+export const isNormalRecall = (r: RecallRow): boolean => r.level === "ADVISORY" && r.severity === "REPORT" && lower(r.creator) === lower(ADDRESSES.verifier)
+
+/** What a recall is aimed at, if this agent has it: the agent itself, its owner's fleet, or something it loaded. */
+export const coversAgent = (r: RecallRow, a: BoardAgent): boolean => {
+  if (lower(r.artifact) === `agent:${lower(a.agent.agent)}`) return true
+  if (lower(r.artifact) === `fleet:${lower(a.agent.owner)}` || lower(r.artifact) === `team:${lower(a.agent.owner)}`) return true
+  return Boolean(a.loadout?.files.some((f) => recallCovers(r, f)))
 }
 
-export async function demoGet<T>(path: string): Promise<T> {
-  const res = await fetch(DEMO_URL + path)
-  if (!res.ok) throw new Error(((await res.json()) as { error: string }).error)
-  return (await res.json()) as T
+/** Agents a STOP binds: those it covers whose owner signed it. */
+export const boundBy = (stop: RecallRow, view: PublicView): BoardAgent[] =>
+  stop.level === "STOP" ? view.agents.filter((a) => lower(a.agent.owner) === lower(stop.creator) && coversAgent(stop, a)) : []
+
+/** Owners who can approve a normal recall, because it covers agents of theirs. */
+export const ownersFor = (recall: RecallRow, view: PublicView): Map<string, BoardAgent[]> => {
+  const owners = new Map<string, BoardAgent[]>()
+  for (const a of view.agents) {
+    if (!coversAgent(recall, a)) continue
+    const owner = lower(a.agent.owner)
+    owners.set(owner, [...(owners.get(owner) ?? []), a])
+  }
+  return owners
 }
 
-export async function demoPost<T>(path: string, body: unknown = {}): Promise<T> {
-  const res = await fetch(DEMO_URL + path, { method: "POST", body: JSON.stringify(body) })
-  const json = await res.json()
-  if (!res.ok) throw new Error((json as { error: string }).error)
-  return json as T
-}
+/** Owners' STOPs that approved this normal recall. */
+export const approvalsOf = (recall: RecallRow, view: PublicView): RecallRow[] =>
+  view.recalls.filter((r) => r.level === "STOP" && r.approves && lower(r.approves) === lower(recall.key))
 
-export type CallVerdict = "ALLOW" | "NEEDS_APPROVAL" | "BLOCK"
+/** Votes on a normal recall, one per person, within its window. */
+export const votesOn = (recall: RecallRow, view: PublicView) => countConfirmations(recall, view.endorsements, view.block, trustForRecall(recall))
 
-export interface FeedItem {
-  id: number
-  at: number
-  kind: "job" | "allowed" | "blocked" | "approved" | "refused" | "said" | "problem" | "update"
-  text: string
-  requestId?: string
-}
-
-export interface DemoAgent {
-  id: string
-  company: string
-  address: Hex
-  owner: Hex
-  status: AgentStatus
-  online: boolean
-  tools: { file: LoadedFile; verdict: CallVerdict }[]
-  followsMaker?: boolean
-  jobs: number
-  sent: number
-  stolen: number
-  drafts: number
-  feed: FeedItem[]
-  approval?: { tool: string; version: string; action: string; reason: string; since: number; expiresAt: number; pass?: { userCode: string; url: string } }
-  approvalNote?: string
-  fixAvailable: boolean
-  vanished: Hex[]
-  diary: { entries: number; waiting: number; parts: { root: string }[]; lastError?: string }
-  problem?: string
-}
-
-export interface StolenMail {
-  company: string
-  to: string
-  subject: string
-  body: string
-  at: number
-}
-
-export interface DemoState {
-  brainSource: "model" | "dev"
-  model: string
-  timers: { checkIntervalMs: number }
-  idle: boolean
-  stolenMail: StolenMail[]
-  tools: { bad: LoadedFile; fixed: LoadedFile; files: LoadedFile }
-  swarm: { on: boolean; evidenceReady: boolean }
-  worldIdApprovals: boolean
-  agents: DemoAgent[]
+/** Enough people agree that the owner can approve it. */
+export const enoughVotes = (recall: RecallRow, view: PublicView): boolean => {
+  const v = votesOn(recall, view)
+  return v.effective >= CONFIRMATION_THRESHOLD
 }

@@ -2,18 +2,20 @@ import { execFileSync, spawn } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { agentFingerprint, arkivPublicClient, type Hex, readAgent, readDiaryIndex, readLatestLoadout } from "@ceasenet/core"
+import { agentFingerprint, arkivPublicClient, type Hex, openRecallMessage, readAgent, readDiaryIndex, readLatestLoadout } from "@ceasenet/core"
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
 import { decodePart, verifyPart } from "@ceasenet/guard"
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { sweepHome } from "./sweep-home"
 
 /**
- * Checks, on the live networks, that what an agent did can be looked up afterwards, and that people can report one.
+ * Checks, on the live networks, that what an agent did can be looked up afterwards, and that nobody but its owner can
+ * stop it.
  *
  * Real diaries go to 0G Storage with their index on Arkiv, and are read back the way a stranger would: plain web
- * requests, with no wallet and nothing of ours. Reports go through the real verifier, with simulated people in place of
- * World ID, because World's simulator can only ever be one identity. They are marked as simulated on the record.
+ * requests, with no wallet and nothing of ours. The real verifier refuses anyone who has not logged in with World. A
+ * login itself needs a real person with World App, so it is not part of this check.
  *
  *   npm run records-check -- [--model <name>] [--shots <folder>]
  *
@@ -68,7 +70,7 @@ console.log(`     ${script("scripts/fund-owner.ts", "0.3", config.owner.address)
 console.log(`     ${script("scripts/fund-owner.ts", "--0g", "0.03", config.owner.address).split("\n")[0]}`)
 
 const verifierProcess = spawn(process.execPath, ["--import", "tsx", "--env-file=.env", "apps/verifier/src/server.ts"], {
-  env: { ...process.env, VERIFIER_PORT: String(VERIFIER_PORT), VERIFIER_ALLOW_SIMULATED: "1" },
+  env: { ...process.env, VERIFIER_PORT: String(VERIFIER_PORT) },
   stdio: "ignore",
   windowsHide: true,
 })
@@ -79,8 +81,8 @@ const verifierPost = async (path: string, body: unknown): Promise<any> => {
   if (!res.ok) throw new Error((json as { error: string }).error)
   return json
 }
-const worldConfig = (await until("the verifier", async () => (await fetch(`${verifierUrl}/api/world-config`)).json(), 60_000)) as { environment: string; simulated: boolean } | undefined
-check("the verifier is running, and says it is in test mode", worldConfig?.simulated === true, worldConfig?.environment)
+const worldConfig = (await until("the verifier", async () => (await fetch(`${verifierUrl}/api/world-config`)).json(), 60_000)) as { environment: string } | undefined
+check("the verifier is running", Boolean(worldConfig?.environment), worldConfig?.environment)
 
 const daemon = spawn(process.execPath, [PROGRAM, "daemon", "--stay"], { env, stdio: "ignore", windowsHide: true })
 const info = (await until("the console", () => JSON.parse(readFileSync(join(HOME, "daemon.json"), "utf8")) as { port: number; token: string }))!
@@ -205,32 +207,22 @@ check("the Arkiv page shows it all", arkivView.agents.some((a: any) => a.address
 picture("records-arkiv.png", `${base}/#/arkiv`)
 picture("records-diary.png", `${base}/#/diary`)
 
-// ---- People reporting an agent ----
+// ---- People opening a recall ----
 
-section("A normal person reports an agent")
+// Logging in needs a real person scanning with World App, which a script cannot do. What it can check is that nobody
+// gets past the verifier without one: a wallet that has not logged in can neither open a recall nor vote.
+section("Opening a recall needs a login with World")
+const stranger2 = privateKeyToAccount(generatePrivateKey())
 const REASON = "It keeps telling customers they have been refunded when they have not"
-const filed = await verifierPost("/api/simulated/report", { target: { kind: "agent", address: support.address }, reason: REASON })
-console.log(`     filed on Arkiv: ${filed.key}`)
-const reportOf = async () => (await api("/api/reports")).reports.find((r: any) => r.key === filed.key)
-const seen = await until("the owner's console to see it", reportOf, 90_000)
-check("the owner's console sees it, as one vote so far", seen?.state === "collecting" && seen?.votes === 1, seen && `${seen.votes} of ${seen.votesNeeded}`)
-check("nobody is told to decide yet", (await api("/api/state")).reportsWaiting.length === 0)
-await assertAgentRunning("one vote stops nothing")
-
-await expectRefused("someone cannot file a second report on the same agent", () => verifierPost("/api/simulated/report", { target: { kind: "agent", address: support.address }, reason: "A second report about the same agent" }))
-
-section("Others vote, each checked as a different person")
-await verifierPost("/api/simulated/vote", { recall: filed.key })
-await verifierPost("/api/simulated/vote", { recall: filed.key })
-const reached = await until("the votes to reach the owner", async () => {
-  const r = await reportOf()
-  return r?.state === "waiting" ? r : undefined
-}, 120_000)
-check("at enough votes, the owner is told", Boolean(reached), reached && `${reached.votes} votes, ${reached.simulated} simulated`)
-const notified = await api("/api/state")
-check("every page of the console now says so", notified.reportsWaiting.some((r: any) => r.key === filed.key))
-await assertAgentRunning("and votes alone still stop nothing")
-picture("records-reports.png", `${base}/#/reports`)
+const signedAt = Date.now()
+const openSignature = await stranger2.signMessage({ message: openRecallMessage(`agent:${support.address.toLowerCase()}`, REASON, signedAt) })
+await expectRefused("a wallet that has not logged in cannot open a recall", () =>
+  verifierPost("/api/report", { target: { kind: "agent", address: support.address }, reason: REASON, address: stranger2.address, signature: openSignature, at: signedAt }),
+)
+await expectRefused("nor sign for someone else's wallet", () =>
+  verifierPost("/api/report", { target: { kind: "agent", address: support.address }, reason: REASON, address: config.owner.address, signature: openSignature, at: signedAt }),
+)
+await assertAgentRunning("and nothing reached the agent")
 
 async function assertAgentRunning(what: string): Promise<void> {
   const t = await api("/api/team")
@@ -252,31 +244,21 @@ if (SHOTS) {
   // Loading it once lets it finish preparing, so the picture is of the page rather than of a loading screen.
   picture("site-warm.png", "http://localhost:5199/#/report", 20_000)
   picture("site-report.png", "http://localhost:5199/#/report", 15_000)
-  picture("site-votes.png", `http://localhost:5199/#/recall/${filed.key}`, 15_000)
+  picture("site-login.png", "http://localhost:5199/#/login", 15_000)
   site.kill()
 }
 
 // ---- The owner decides ----
 
-section("The owner decides")
+section("The owner decides, and needs no votes")
 const others = ["momentum", "reversion"]
-const recalled = await api(`/api/reports/${filed.key}/recall`, {})
+const direct = await api("/api/kill", { agent: named(await api("/api/team"), "risk").address, reason: "It keeps telling customers they have been refunded" })
 const closed = await until("the agent to close", async () => {
   const t = await api("/api/team")
   return named(t, "risk").state?.phase === "closed" ? t : undefined
 }, 90_000)
-check("the owner's recall closed that agent", Boolean(closed), named(closed, "risk")?.state?.closed?.reason)
-check("the recall says where it came from", String(named(closed, "risk")?.state?.closed?.reason).includes("Reported by 3 people"))
+check("the owner's own STOP closes that agent straight away", Boolean(closed), direct.entityKey)
 check("the other agents kept working", others.every((id) => named(closed, id).alive))
-check("the report is marked as dealt with", (await reportOf())?.state === "recalled", recalled.recall)
-
-section("An owner needs no votes")
-const direct = await api("/api/kill", { agent: named(closed, "reversion").address, reason: "I saw it myself" })
-const closedDirect = await until("it to close", async () => {
-  const t = await api("/api/team")
-  return named(t, "reversion").state?.phase === "closed" ? t : undefined
-}, 90_000)
-check("the owner's own recall closes an agent straight away, with no report at all", Boolean(closedDirect), direct.entityKey)
 
 section("Looking back at what the faulty agent did")
 const afterwards = await until("its last moments to be stored", async () => {

@@ -1,9 +1,9 @@
 import { asc, desc, eq, gt, gte, lte, or } from "@arkiv-network/sdk/query"
-import { addr, key, u64 } from "@arkiv-network/sdk/schema"
+import { addr, key, str, u64 } from "@arkiv-network/sdk/schema"
 import { hexToString } from "viem"
 import type { ArkivPublic } from "./arkiv"
 import { lower } from "./gate"
-import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Lift, Loadout, Recall, TrustList } from "./schema"
+import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Human, Lift, Loadout, Recall, TrustList } from "./schema"
 import type {
   AckAction,
   AckRow,
@@ -14,6 +14,7 @@ import type {
   EndorseRow,
   HeartbeatRow,
   Hex,
+  HumanRow,
   LiftKind,
   LiftRow,
   LoadedFile,
@@ -66,7 +67,27 @@ export function toRecallRow(r: any): RecallRow {
     sealedEvidence: optUtf8(r.sealedEvidence),
     pkg: opt(r.pkg),
     versions: opt(r.versions),
+    opener: opt(r.opener) as Hex | undefined,
+    approves: opt(r.approves) as Hex | undefined,
   }
+}
+
+function toHuman(r: any): HumanRow {
+  return { key: r.$key, address: r.address.value, human: r.human.value, creator: r.$creator, createdAt: r.$createdAt }
+}
+
+/** The person behind an address, if the verifier has seen them log in with it. Anyone else's record proves nothing. */
+export async function readHuman(client: ArkivPublic, address: string, verifier: string): Promise<HumanRow | undefined> {
+  const res = await client.select().from(Human).where(eq("address", addr(address)), eq("$creator", addr(verifier))).orderBy(asc("$key")).limit(1).fetch()
+  const r = res.entities[0]
+  return r ? toHuman(r) : undefined
+}
+
+/** The address a person logged in with, found by the value that stays the same for them. */
+export async function readHumanById(client: ArkivPublic, human: string, verifier: string): Promise<HumanRow | undefined> {
+  const res = await client.select().from(Human).where(eq("human", str(human)), eq("$creator", addr(verifier))).orderBy(asc("$key")).limit(1).fetch()
+  const r = res.entities[0]
+  return r ? toHuman(r) : undefined
 }
 
 function toEndorse(r: any): EndorseRow {

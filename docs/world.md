@@ -1,14 +1,14 @@
 # World ID in CeaseNet
 
-CeaseNet uses World ID in two places, for two different trust moments.
+CeaseNet uses World ID in two places, for two different trust moments: logging in, so each vote is a different person, and approving a paused call.
 
-## IDKit: one person, one answer on a warning
+## IDKit: log in with World, one person per wallet
 
-**Status: working.** A real proof from World's simulator was accepted by World's real verify API, and the confirmation appeared on Arkiv and on the page.
+**Status: built and unit tested, and the refusals checked live.** The proof checks are the same ones World's real verify API accepted for our earlier confirmations: same action, credential and server code. A full login needs a person with World App or the simulator, so it has not been run by a script.
 
 ### The trust event
 
-A warning about a tool can move every agent using it to "a human must approve each call". That threshold is 3 people. If one person could count three times, anyone could slow down a competitor's tool. So the question at this moment is exactly: **is this a different real human from the others who answered this warning?**
+An agent obeys only its owner. Anyone else can open a normal recall on it, and at 3 votes its owner can approve it. If one person could vote three times, anyone could put a competitor's agent in front of its owner as "reported by 3 people". So the question is exactly: **is this a different real human from the others who voted?** It is asked once, at login, and then every vote and recall is signed by the wallet that person logged in with.
 
 ### Why Proof of Human is the minimum that works
 
@@ -16,25 +16,28 @@ A warning about a tool can move every agent using it to "a human must approve ea
 |---|---|---|
 | **Proof of Human** | **Chosen** | It answers the question, and nothing more. We don't learn who the person is |
 | Selfie Check | Not enough | World describes it as having greater duplicate-account risk than Orb. With a threshold of only 3, a few duplicates would be enough to cross it |
-| Passport / NFC | Too much | It would prove facts about a document, and nothing about a tool warning needs a name or nationality. Asking for it would also stop people from speaking up, which is the opposite of what a warning system needs |
+| Passport / NFC | Too much | It would prove facts about a document, and nothing about a recall needs a name or nationality. Asking for it would also stop people from speaking up, which is the opposite of what a recall system needs |
 
-The harm is capped too: confirmations can only make agents ask a human. Only keys an owner chose can STOP a tool.
+The harm is capped too: votes stop nothing. Only the owner's own STOP reaches an agent.
 
 ### How it works
 
-1. The browser shows the warning, and the person picks confirm or dispute. The signal is `recall:stance`, so a proof can't be replayed on another warning or flipped to the other answer.
-2. The verifier signs the request on the server. The signing key never reaches the browser.
-3. The server checks, in this order: stance, single-use nonce, environment, action, credential, signal hash, that the warning exists, then World's verify API, then that this person hasn't already answered this warning, and only then writes to Arkiv. Code: [apps/verifier/src/verifier.ts](../apps/verifier/src/verifier.ts).
-4. Arkiv stores `human = hash(nullifier, recall)`, never the nullifier, so one person's answers can't be linked across warnings.
+1. The wallet signs a login message with its address and the time. It costs nothing and sends nothing.
+2. The verifier signs the World ID request on the server. The signing key never reaches the browser. The signal is `login:<address>`, so a proof can't be used to log in another wallet.
+3. The server checks the wallet's signature and its age, then the single-use nonce, environment, action, credential and signal hash, then World's verify API. Code: [apps/verifier/src/verifier.ts](../apps/verifier/src/verifier.ts).
+4. It refuses a person who already linked a different wallet, and a wallet already linked to a different person. Then it writes `ceasenet.human` on Arkiv: the address, and `human = hash(nullifier, "login")`, never the nullifier.
+5. From then on, opening a recall and voting are messages the wallet signs. The verifier checks the signature, checks Arkiv for that wallet's login, and writes the recall, with the person's address as `opener`, or the vote, with their address as `human`. One person has one wallet, so one vote on each recall.
 
 ### The other paths
 
 | Path | What happens | Tested |
 |---|---|---|
-| Person cancels | "Cancelled. Nothing was counted." | In Chrome, against the real widget |
-| Same person answers the same warning twice | Refused, and nothing is written | In Chrome, against the real verify API |
-| Proof made for another warning | Refused | Unit test |
-| World says no, or can't be reached | Nothing is counted | Unit test |
+| Voting or opening a recall without logging in | Refused: "Log in with World first" | Live, against the running verifier, and unit test |
+| A signature from another wallet | Refused | Live, and unit test |
+| The same person logging in with a second wallet | Refused, naming the first | Unit test |
+| Voting twice on one recall | Refused | Unit test |
+| A proof made for another wallet, used twice, or too old | Refused | Unit test |
+| World says no, or can't be reached | Nobody is logged in | Unit test |
 
 ### Debrief
 
@@ -43,18 +46,8 @@ The harm is capped too: confirmations can only make agents ask a human. Only key
   - The docs say the action is defined in code, while the skill file says to create it in the portal.
   - The portal's Verification wizard looks like required setup. It is only for the ecosystem listing, and we lost time on it.
   - The simulator's banner says it will change, which makes it hard to know what to rely on.
-- **Missing docs or capabilities:** the plain simulator link is one fixed identity, even across browsers. `/id/<value>` selects another identity, but a new one has no credentials, and we found no way to add them. A team demonstrating "3 different people" can't do it in the simulator. Our demo uses one real proof and labels the other two as simulated.
+- **Missing docs or capabilities:** the plain simulator link is one fixed identity, even across browsers. `/id/<value>` selects another identity, but a new one has no credentials, and we found no way to add them. A team demonstrating "3 different people" can't do it in the simulator, so showing 3 votes needs 3 people with World App.
 - **Top improvement:** a documented way to give simulator identities a credential, so uniqueness can be tested and demonstrated.
-
-## Reports: anyone can raise a problem
-
-**Status: built, and tested against a stand-in for World's verify API.** It uses the same action, credential and server checks as the confirmations above, which have been accepted by World itself. Run the real path with `npm run verifier` and the simulator on the site's Report page.
-
-A person with no connection to an agent can report it. The trust event is the same one: is this a different real human? Filing uses the same action as voting, so World gives one person the same nullifier for both, and filing counts as their vote. Voting on their own report is refused as a second answer. The signal is the hash of what is reported and why, so a proof cannot be replayed to file something else.
-
-Votes never stop anything by themselves. At enough votes the owner is told, and decides.
-
-World's simulator can only ever be one identity, so `npm run verifier:test` adds simulated people, for showing the whole flow. Each one is marked `simulated-` on the public record and shown as simulated on every page, and the verifier refuses them in production.
 
 ## Agent Pass: a real person approves a paused call
 

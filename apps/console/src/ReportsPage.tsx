@@ -94,7 +94,7 @@ export function ReportsPage({ onAsk, run, canSign }: { onAsk: (ask: Ask) => void
         <div>
           <h1>Reports</h1>
           <p className="muted">
-            Anyone can report one of your agents or the tools it uses, and others can vote. World ID proves each one is a different real person, without saying who. At {data.votesNeeded} votes you are told here, and the decision is yours: votes alone never stop anything. You can always recall something yourself, with no votes at all.
+            Anyone logged in with World can open a recall on one of your agents or the tools it uses, and others can vote. One person logs in with one wallet, so each vote is a different real person. At {data.votesNeeded} votes you are told here, and the decision is yours: your agents obey only you, so votes alone never stop anything. You can always stop something yourself, with no votes at all.
           </p>
         </div>
         <div className="page-actions">

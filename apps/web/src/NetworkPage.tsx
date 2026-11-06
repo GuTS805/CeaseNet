@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { DEMO_AGENTS, followersOf, isLive, lower, onlyLive, type PublicView, type RecallRow } from "@ceasenet/core"
-import { client, HOSTED, nameOf, shortHash, statusColour, statusLabel, useNetworkView, usePoll } from "./lib"
+import { CONFIRMATION_THRESHOLD, isLive, lower, onlyLive, type PublicView, type RecallRow } from "@ceasenet/core"
+import { boundBy, client, HOSTED, isNormalRecall, nameOf, shortHash, statusColour, statusLabel, useNetworkView, usePoll, votesOn } from "./lib"
 import { type ChainRecord, recordsIn } from "./warroom/events"
 import { Ticker } from "./warroom/Ticker"
 
-const isDemo = (agent: string) => DEMO_AGENTS.some((a) => lower(a) === lower(agent))
 
 interface Issuer {
   key: string
@@ -14,15 +13,15 @@ interface Issuer {
 
 /** Keys that matter on the record: those someone follows, and those who have issued a recall. */
 function issuersOf(view: PublicView): Issuer[] {
-  const keys = new Set(view.recalls.map((r) => lower(r.creator)))
-  for (const a of view.agents) for (const i of a.policy?.issuers ?? []) keys.add(lower(i))
+  // An agent obeys its owner and nobody else, so the owners are who can stop anything.
+  const keys = new Set(view.agents.map((a) => lower(a.agent.owner)))
   return [...keys]
     .map((key) => ({
       key,
-      recalls: view.recalls.filter((r) => lower(r.creator) === key),
-      followers: new Set(view.agents.filter((a) => a.policy?.issuers.some((i) => lower(i) === key)).map((a) => lower(a.agent.owner))).size,
+      recalls: view.recalls.filter((r) => r.level === "STOP" && lower(r.creator) === key),
+      followers: view.agents.filter((a) => lower(a.agent.owner) === key).length,
     }))
-    .sort((a, b) => b.recalls.length - a.recalls.length || b.followers - a.followers)
+    .sort((a, b) => b.followers - a.followers || b.recalls.length - a.recalls.length)
 }
 
 /** Says what the map is leaving out, and brings it back with one click. */
@@ -46,8 +45,8 @@ export function NetworkMap({ view, shown = view }: { view: PublicView; shown?: P
       <div><span className="eyebrow">RECALL RECORDS</span><b>{view.recalls.length}</b></div>
       <div><span className="eyebrow">LATEST BLOCK</span><b>{String(view.block)}</b></div>
     </div>
-    <div className="card"><h2>Trust, on the record.</h2><p className="muted small">Each owner chooses whose recalls to follow. A recall only binds agents whose owner follows its issuer.</p>
-      {issuers.length === 0 ? <p className="muted">No issuers for the agents currently shown.</p> : <div className="issuer-list">{issuers.map(i => <div className="issuer-record" key={i.key}><div><b>{nameOf(i.key)}</b><span className="mono muted">{shortHash(i.key)}</span></div><span>{i.recalls.length} recall records</span><span>{i.followers} following owners</span></div>)}</div>}
+    <div className="card"><h2>Owners, on the record.</h2><p className="muted small">Each agent obeys its owner and nobody else. A STOP binds only the agents of the owner who signed it. A normal recall needs {CONFIRMATION_THRESHOLD} votes, then the owner's approval.</p>
+      {issuers.length === 0 ? <p className="muted">No owners for the agents currently shown.</p> : <div className="issuer-list">{issuers.map(i => <div className="issuer-record" key={i.key}><div><b>{nameOf(i.key)}</b><span className="mono muted">{shortHash(i.key)}</span></div><span>{i.followers} {i.followers === 1 ? "agent" : "agents"}</span><span>{i.recalls.length} {i.recalls.length === 1 ? "STOP" : "STOPs"} signed</span></div>)}</div>}
     </div>
   </section>
 }
@@ -77,7 +76,7 @@ export function NetworkPage() {
     <div className="page network">
       <h1>The network, live</h1>
       <p className="muted">
-        Every agent and record here comes straight from Arkiv, read independently by your browser. {view.agents.length} agents on record, {liveCount} with a live heartbeat, {view.recalls.length} recalls. Each owner decides which issuers to follow. <a href="#/protect">Add your own.</a>
+        Every agent and record here comes straight from Arkiv, read independently by your browser. {view.agents.length} agents on record, {liveCount} with a live heartbeat, {view.recalls.length} recalls. Each agent obeys only its owner. <a href="#/register">Register yours.</a>
       </p>
       <LiveToggle view={view} everyone={everyone} onChange={setEveryone} />
       <NetworkMap view={view} shown={shown} />
@@ -99,7 +98,7 @@ export function NetworkPage() {
             {shown.agents.map((a) => (
               <tr key={a.agent.key}>
                 <td>
-                  <a href={`#/agent/${a.agent.agent}`}>{a.agent.name}</a> {isDemo(a.agent.agent) && <span className="status grey">demo</span>}
+                  <a href={`#/agent/${a.agent.agent}`}>{a.agent.name}</a>
                 </td>
                 <td>{nameOf(a.agent.owner)}</td>
                 <td>
@@ -124,11 +123,11 @@ export function NetworkPage() {
             {shown.recalls.slice(0, 50).map((r) => (
               <tr key={r.key}>
                 <td>
-                  <a href={`#/recall/${r.key}`}>{r.level === "STOP" ? "STOP" : "Warning"}</a>
+                  <a href={`#/recall/${r.key}`}>{r.level === "STOP" ? "STOP" : isNormalRecall(r) ? "Normal recall" : "Warning"}</a>
                 </td>
                 <td>{r.reason}</td>
                 <td>{nameOf(r.creator)}</td>
-                <td>{followersOf(r, view.agents)} following</td>
+                <td>{r.level === "STOP" ? `binds ${boundBy(r, view).length}` : `${votesOn(r, view).confirms} of ${CONFIRMATION_THRESHOLD} votes`}</td>
               </tr>
             ))}
           </tbody>

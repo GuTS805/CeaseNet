@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { followersOf, isDismissed, isWithdrawn, recallCovers, type LoadedFile, type RecallRow } from "@ceasenet/core"
+import { isDismissed, isWithdrawn, recallCovers, type LoadedFile, type RecallRow } from "@ceasenet/core"
 import { MeasureNpm } from "./IssuePage"
-import { nameOf, trustForRecall, useNetworkView } from "./lib"
+import { boundBy, isNormalRecall, nameOf, trustForRecall, useNetworkView } from "./lib"
 
 /** Answers one question for anyone, with no account: is this tool recalled? */
 export function CheckPage() {
@@ -23,8 +23,8 @@ export function CheckPage() {
   const fromIssuer = (r: RecallRow) => !issuer.trim() || r.creator.toLowerCase() === issuer.trim().toLowerCase()
   const asked = Boolean(file.name || hash.trim())
   const matches = asked ? view.recalls.filter((r) => recallCovers(r, file) && live(r) && fromIssuer(r)) : []
-  const stops = matches.filter((r) => r.level === "STOP" && followersOf(r, view.agents) > 0)
-  const unfollowed = matches.filter((r) => r.level === "STOP" && followersOf(r, view.agents) === 0)
+  const stops = matches.filter((r) => r.level === "STOP" && boundBy(r, view).length > 0)
+  const unfollowed = matches.filter((r) => r.level === "STOP" && boundBy(r, view).length === 0)
 
   return (
     <div className="page" style={{ display: "grid", gap: 12 }}>
@@ -78,18 +78,18 @@ export function CheckPage() {
       {matches.map((r) => (
         <div className="card" key={r.key}>
           <a className="big" href={`#/recall/${r.key}`}>
-            {r.level === "STOP" ? "STOP" : "Warning"}
+            {r.level === "STOP" ? "STOP" : isNormalRecall(r) ? "Normal recall" : "Warning"}
           </a>
           <p style={{ margin: "6px 0" }}>{r.reason}</p>
           {r.advice && <div className="notice">What to do: {r.advice}</div>}
           <div className="small muted" style={{ marginTop: 6 }}>
-            Issued by {nameOf(r.creator)}, a key {followersOf(r, view.agents)} owner(s) follow
+            {r.level === "STOP" ? `Signed by ${nameOf(r.creator)}. It binds ${boundBy(r, view).length} agent(s) that key owns.` : "Opened by a person logged in with World. It binds nobody until an owner approves it."}
           </div>
         </div>
       ))}
       {asked && (
         <p className="small muted">
-          Anyone can publish a recall, so what matters is who issued it: it binds an agent only if its owner follows that key. And nothing on the list does not prove a tool is safe.
+          Anyone can publish a recall, so what matters is who signed it: an agent obeys only its own owner. And nothing on the list does not prove a tool is safe.
         </p>
       )}
     </div>

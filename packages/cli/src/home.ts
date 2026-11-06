@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { CONFIRMATION_THRESHOLD, type Hex, identityFiles, type LoadedFile, teamFile, type TrustPolicy } from "@ceasenet/core"
+import { type Hex, identityFiles, type LoadedFile, ownerOnlyPolicy, teamFile, type TrustPolicy } from "@ceasenet/core"
 import { writeAtomic } from "@ceasenet/guard"
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
 
@@ -117,19 +117,16 @@ export function initHome(options: InitOptions): { config: Config; created: boole
 }
 
 /**
- * The trust list that applies until the owner has published one.
- * An owner always obeys themselves, and until they say otherwise nobody else: no key of ours is on it.
+ * Whom an agent obeys: its owner, and nobody else. No key of ours is on it, and nobody else's either.
+ * People's votes reach an agent only when its owner approves them with a STOP of their own.
  */
-export const startingPolicy = (owner: Hex): TrustPolicy => ({
-  issuers: [owner],
-  regulators: [],
-  verifier: owner,
-  threshold: CONFIRMATION_THRESHOLD,
-})
+export const startingPolicy = (owner: Hex): TrustPolicy => ownerOnlyPolicy(owner)
 
-/** An owner's own STOP always counts, whatever their list says, so an owner cannot lose the power to stop their agent. */
-export const obeyingOwner = (policy: TrustPolicy, owner: string): TrustPolicy =>
-  policy.issuers.some((i) => i.toLowerCase() === owner.toLowerCase()) ? policy : { ...policy, issuers: [owner, ...policy.issuers] }
+/**
+ * An agent obeys only its owner, whatever list was published for it before. A list naming other keys used to let
+ * their STOPs through as well. Now an agent matches its owner's wallet and nothing else counts.
+ */
+export const obeyingOwner = (_policy: TrustPolicy, owner: string): TrustPolicy => ownerOnlyPolicy(owner)
 
 /** Safe to use as a file name on any system. */
 export const safeName = (name: string): string => name.replace(/[^\w.@-]/g, "_")

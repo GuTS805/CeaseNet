@@ -63,6 +63,20 @@ export const Recall = defineSchema(ns("recall"), {
   pkg: str().indexed().optional(),
   /** Version range, checked locally because queries cannot compare ranges. */
   versions: str().optional(),
+  /** On a normal recall, the logged-in person who opened it. The verifier writes it, having checked their signature. */
+  opener: addr().indexed().optional(),
+  /** On an owner's STOP, the normal recall it approves after people voted for it. */
+  approves: key().indexed().optional(),
+})
+
+/**
+ * A wallet address that one real person logged in with. The verifier writes it after World ID has shown a unique
+ * human, and the wallet has signed to show it belongs to them. One person can link only one address.
+ */
+export const Human = defineSchema(ns("human"), {
+  address: addr().indexed(),
+  /** The same for one person every time they log in, and says nothing else about them. */
+  human: str().indexed(),
 })
 
 /** One human's confirmation or dispute of a warning. Created and kept by the verifier. */

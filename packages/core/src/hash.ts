@@ -35,3 +35,21 @@ export function recallContentHash(c: RecallContent): Hex {
     canonicalJson({ artifact: c.artifact.toLowerCase(), level: c.level, severity: c.severity, reason: c.reason }),
   )
 }
+
+/** Ties a World ID login to one wallet address, so the proof cannot be used to log in with another. */
+export const loginSignal = (address: string): string => `login:${address.toLowerCase()}`
+
+/** How long a signed request stays good. Long enough to finish, short enough that an old one is useless. */
+export const SIGNED_REQUEST_MS = 10 * 60_000
+
+/** What a wallet signs to log in. Signing costs nothing and sends nothing. */
+export const loginMessage = (address: string, at: number): string =>
+  `CeaseNet login\nAddress: ${address.toLowerCase()}\nAt: ${at}\n\nThis proves the wallet is yours. It costs nothing and sends nothing.`
+
+/** What a logged-in wallet signs to vote on a normal recall. */
+export const voteMessage = (recall: string, stance: string, at: number): string =>
+  `CeaseNet vote\nRecall: ${recall.toLowerCase()}\nVote: ${stance}\nAt: ${at}`
+
+/** What a logged-in wallet signs to open a normal recall. */
+export const openRecallMessage = (artifact: string, reason: string, at: number): string =>
+  `CeaseNet open a recall\nOn: ${artifact.toLowerCase()}\nReason hash: ${hashBytes(reason)}\nAt: ${at}`

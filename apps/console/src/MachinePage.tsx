@@ -310,42 +310,19 @@ function Recalls({ recalls, block, run, canSign }: { recalls?: Recall[]; block?:
   )
 }
 
-function Trust({ state, run }: { state: State; run: Run }) {
-  const [address, setAddress] = useState("")
-  const issuers = state.trust?.issuers ?? [state.owner.address]
-  const others = issuers.filter((i) => i.toLowerCase() !== state.owner.address.toLowerCase())
-  const add = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (await run(() => post("/api/follow", { address: address.trim(), follow: true }))) setAddress("")
-  }
+function Trust({ state }: { state: State; run: Run }) {
   return (
     <section className="panel">
       <header>
-        <h2>Whom you obey</h2>
+        <h2>Whom your agents obey</h2>
       </header>
       <div className="pad-body">
-        <p className="muted small">Agents obey STOPs from these keys and nobody else. A STOP from any other key is ignored.</p>
+        <p className="muted small">Only you. A STOP from any other key is ignored. Anyone can open a recall on your agents on the website, and others vote. At enough votes it shows up under Reports, and you decide.</p>
         <ul className="plain">
           <li>
-            <Copyable value={state.owner.address} /> <span className="muted small">You, always</span>
+            <Copyable value={state.owner.address} /> <span className="muted small">You, the owner</span>
           </li>
-          {others.map((i) => (
-            <li key={i}>
-              <Copyable value={i} />
-              <button className="link" disabled={!state.owner.canSign} onClick={() => void run(() => post("/api/follow", { address: i, follow: false }))}>
-                Remove
-              </button>
-            </li>
-          ))}
         </ul>
-        {state.owner.canSign && (
-          <form className="inline" onSubmit={(e) => void add(e)}>
-            <input value={address} placeholder="0x… a maker, registry or researcher" spellCheck={false} onChange={(e) => setAddress(e.target.value)} />
-            <button type="submit" disabled={!address.trim()}>
-              Add
-            </button>
-          </form>
-        )}
       </div>
     </section>
   )

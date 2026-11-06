@@ -1,25 +1,53 @@
 import { useState } from "react"
 import {
-  countConfirmations,
+  ADDRESSES,
+  CONFIRMATION_THRESHOLD,
   decodeBundle,
   endedByIssuer,
-  followersOf,
   type Hex,
   isDismissed,
   isKillRecall,
   isWithdrawn,
   type LiftRow,
+  lower,
   measureFiles,
   type PublicView,
   type RecallRow,
 } from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
 import { MeasureNpm } from "./IssuePage"
-import { explorerAddress, forgetView, HOSTED, nameOf, shortHash, SWARM_GATEWAY, swarmLink, trustForRecall, useNetworkView } from "./lib"
-import { useWallet, walletMessage } from "./wallet"
-import { WorldConfirm } from "./WorldConfirm"
+import {
+  approvalsOf,
+  boundBy,
+  explorerAddress,
+  forgetView,
+  isNormalRecall,
+  nameOf,
+  ownersFor,
+  shortHash,
+  SWARM_GATEWAY,
+  swarmLink,
+  trustForRecall,
+  useNetworkView,
+  votesOn,
+} from "./lib"
+import { VoteButtons } from "./Vote"
+import { useWallet, WalletCard, walletMessage } from "./wallet"
 
-const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : r.severity === "REPORT" ? "Report" : "Warning")
+const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : isNormalRecall(r) ? "Normal recall" : "Warning")
+
+/** Where a recall stands, in a few words. */
+function standing(r: RecallRow, view: PublicView): string {
+  if (r.level === "STOP") {
+    const n = boundBy(r, view).length
+    return `Binds ${n} agent${n === 1 ? "" : "s"} of its owner`
+  }
+  if (isNormalRecall(r) && approvalsOf(r, view).length > 0) return "Approved by the owner"
+  return `${votesOn(r, view).confirms} of ${CONFIRMATION_THRESHOLD} votes`
+}
+
+/** Who a recall came from: the person who opened a normal one, or the key that signed a STOP. */
+const openerOf = (r: RecallRow) => (isNormalRecall(r) ? (r.opener ? shortHash(r.opener) : "A person checked by World ID") : nameOf(r.creator))
 
 /** What a recall is aimed at, in a few words. */
 const targetOf = (r: RecallRow) => {
@@ -28,29 +56,29 @@ const targetOf = (r: RecallRow) => {
   return r.pkg ? `${r.pkg}${r.versions && r.versions !== "*" ? ` ${r.versions}` : ""}` : shortHash(r.artifact)
 }
 
-/** Every recall on record, newest first. On the demo's pages, only those from keys its owners follow. */
+/** Every recall on record, newest first. Ended ones are hidden until asked for. */
 export function RecallList({ view }: { view: PublicView }) {
   const [everyone, setEveryone] = useState(false)
   if (view.recalls.length === 0) return <p className="muted">No recalls on record.</p>
-  const followed = view.recalls.filter((r) => !endedByIssuer(r, view.lifts) && followersOf(r, view.agents) > 0)
-  const hidden = view.recalls.length - followed.length
-  const shown = everyone ? view.recalls : followed
+  const current = view.recalls.filter((r) => !endedByIssuer(r, view.lifts))
+  const hidden = view.recalls.length - current.length
+  const shown = everyone ? view.recalls : current
   return (
     <div className="card">
-      {shown.length === 0 && <p className="muted">No recall is in force right now.</p>}
+      {shown.length === 0 && <p className="muted">No recall is open right now.</p>}
       {hidden > 0 && (
         <label className="small muted check-line">
-          <input type="checkbox" checked={everyone} onChange={(e) => setEveryone(e.target.checked)} /> Also show {hidden} recall{hidden === 1 ? "" : "s"} that {hidden === 1 ? "has" : "have"} ended or {hidden === 1 ? "comes" : "come"} from keys nobody follows. Anyone can write one, and those bind nobody.
+          <input type="checkbox" checked={everyone} onChange={(e) => setEveryone(e.target.checked)} /> Also show {hidden} recall{hidden === 1 ? "" : "s"} that {hidden === 1 ? "has" : "have"} ended.
         </label>
       )}
       <table>
         <thead>
           <tr>
-            <th>Level</th>
+            <th>Kind</th>
             <th>Aimed at</th>
             <th>Reason</th>
-            <th>Issued by</th>
-            <th>Following</th>
+            <th>From</th>
+            <th>Where it stands</th>
             <th>Block</th>
           </tr>
         </thead>
@@ -62,8 +90,8 @@ export function RecallList({ view }: { view: PublicView }) {
               </td>
               <td>{targetOf(r)}</td>
               <td>{r.reason}</td>
-              <td>{nameOf(r.creator)}</td>
-              <td>{followersOf(r, view.agents)}</td>
+              <td>{openerOf(r)}</td>
+              <td>{standing(r, view)}</td>
               <td className="mono muted">{String(r.createdAt)}</td>
             </tr>
           ))}
@@ -81,13 +109,102 @@ export function RecallsPage() {
     <div className="page">
       <h1 style={{ marginBottom: 4 }}>Recalls</h1>
       <p style={{ marginTop: 0 }}>
-        <a href="#/report">Report an agent or a tool</a>
+        <a href="#/report">Open a recall</a>
       </p>
       <p className="muted" style={{ marginTop: 0 }}>
-        Read straight from Arkiv in your browser. No server of ours is involved.
-        {HOSTED && " Anyone can publish a recall, so this list shows them all with who issued each one. A recall binds only the agents whose owners follow that key."}
+        A normal recall is opened by someone logged in with World, and needs {CONFIRMATION_THRESHOLD} votes from different people. Then the owner of the agent it names can approve it, and only then does the agent stop. An owner can also stop their own agents at once. An agent obeys nobody but its owner. Read
+        straight from Arkiv in your browser.
       </p>
       <RecallList view={view} />
+    </div>
+  )
+}
+
+/**
+ * The owner's decision on a normal recall. Votes alone stop nothing: once enough people agree, the owner of an agent
+ * it covers can approve it, which is a STOP signed by the owner's own wallet. Their agents obey that, and nothing else.
+ */
+function OwnerApproval({ recall, view }: { recall: RecallRow; view: PublicView }) {
+  const { address, writer } = useWallet()
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string>()
+  const owners = ownersFor(recall, view)
+  const approvals = approvalsOf(recall, view)
+  const votes = votesOn(recall, view)
+  const enough = votes.effective >= CONFIRMATION_THRESHOLD
+  const mine = address ? owners.get(lower(address)) : undefined
+  const approvedByMe = Boolean(address && approvals.some((a) => lower(a.creator) === lower(address)))
+
+  const approve = async () => {
+    if (!writer) return
+    setBusy(true)
+    setProblem(undefined)
+    try {
+      const { entityKey } = await writer.stop({
+        artifact: recall.artifact,
+        severity: "HIGH",
+        reason: `Approved by the owner after ${votes.confirms} ${votes.confirms === 1 ? "vote" : "votes"}: ${recall.reason}`,
+        pkg: recall.pkg,
+        versions: recall.versions,
+        approves: recall.key,
+      })
+      forgetView()
+      window.location.hash = `#/recall/${entityKey}`
+    } catch (e) {
+      setProblem(walletMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2>The owner's decision</h2>
+      {approvals.map((a) => (
+        <div key={a.key} className="notice" style={{ marginBottom: 8 }}>
+          Approved by its owner, {shortHash(a.creator)}. Their agents obey it: <a href={`#/recall/${a.key}`}>see the STOP</a>.
+        </div>
+      ))}
+      {owners.size === 0 ? (
+        <p className="muted" style={{ marginTop: 0 }}>
+          No registered agent on the list is covered by this yet, so there is no owner to approve it.
+        </p>
+      ) : (
+        <p style={{ marginTop: 0 }}>
+          Who can approve it:{" "}
+          {[...owners.entries()].map(([owner, agents], i) => (
+            <span key={owner}>
+              {i > 0 && "; "}
+              the owner {shortHash(owner)}, for {agents.map((a) => a.agent.name).join(", ")}
+            </span>
+          ))}
+          .
+        </p>
+      )}
+      {!enough && (
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          At {CONFIRMATION_THRESHOLD} votes, while votes for outnumber votes against, the owner can approve it. Until then it stops nothing.
+        </p>
+      )}
+      {enough && mine && !approvedByMe && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <WalletCard action="approve this recall" />
+          <div className="buttons">
+            <button className="danger" disabled={!writer || busy} onClick={() => void approve()}>
+              {busy ? "Waiting for your wallet and the chain…" : `Approve, and stop it on ${mine.length === 1 ? mine[0]!.agent.name : `my ${mine.length} agents`}`}
+            </button>
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>
+            Your wallet signs a STOP on Arkiv. Your agents obey it within seconds, because it comes from you. You can withdraw it later.
+          </p>
+          {problem && <div className="error">{problem}</div>}
+        </div>
+      )}
+      {enough && !mine && owners.size > 0 && (
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          Enough people agree. It is now up to the owner. If you own one of these agents, connect the wallet you registered it with.
+        </p>
+      )}
     </div>
   )
 }
@@ -237,9 +354,9 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
 
   const trust = trustForRecall(recall)
   const lifts = view.lifts.filter((l) => l.recall === recall.key)
-  const counts = countConfirmations(recall, view.endorsements, view.block, trust)
-  const simulated = new Set(view.endorsements.filter((e) => e.recall === recall.key && e.stance === "CONFIRM" && e.human.startsWith("simulated-")).map((e) => e.human)).size
-  const isReport = recall.severity === "REPORT"
+  const counts = votesOn(recall, view)
+  const isReport = isNormalRecall(recall)
+  const bound = boundBy(recall, view)
   const fix = lifts.find((l) => l.kind === "FIX")
   const ended = recall.level === "STOP" ? isWithdrawn(recall, lifts, trust) : isDismissed(recall, lifts, trust)
   const known = view.artifacts.find((a) => a.hash.toLowerCase() === recall.artifact.toLowerCase())
@@ -283,19 +400,47 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
                 </td>
               </tr>
             )}
+            {isReport ? (
+              <tr>
+                <th>Opened by</th>
+                <td>
+                  {recall.opener ? (
+                    <a className="mono" href={explorerAddress(recall.opener)} target="_blank" rel="noreferrer">
+                      {recall.opener}
+                    </a>
+                  ) : (
+                    "A person checked by World ID"
+                  )}{" "}
+                  <span className="muted small">written to Arkiv by the CeaseNet verifier</span>
+                </td>
+              </tr>
+            ) : (
+              <tr>
+                <th>Signed by</th>
+                <td>
+                  {nameOf(recall.creator)}{" "}
+                  <a className="mono" href={explorerAddress(recall.creator)} target="_blank" rel="noreferrer">
+                    {shortHash(recall.creator)}
+                  </a>
+                </td>
+              </tr>
+            )}
+            {recall.approves && (
+              <tr>
+                <th>Approves</th>
+                <td>
+                  <a href={`#/recall/${recall.approves}`}>the normal recall people voted for</a>
+                </td>
+              </tr>
+            )}
             <tr>
-              <th>Issued by</th>
+              <th>Who must obey</th>
               <td>
-                {nameOf(recall.creator)}{" "}
-                <a className="mono" href={explorerAddress(recall.creator)} target="_blank" rel="noreferrer">
-                  {shortHash(recall.creator)}
-                </a>
-              </td>
-            </tr>
-            <tr>
-              <th>Who obeys this key</th>
-              <td>
-                {followersOf(recall, view.agents)} owner(s) follow it. <a href={`#/protect/${recall.creator}`}>Follow it</a>
+                {recall.level === "STOP"
+                  ? bound.length === 0
+                    ? "No agent owned by this key is covered. An agent obeys only its own owner."
+                    : `${bound.map((a) => a.agent.name).join(", ")}: owned by the key that signed it.`
+                  : "Nobody yet. An agent obeys only its owner, so this binds nobody until the owner approves it."}
               </td>
             </tr>
             <tr>
@@ -322,31 +467,29 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
           <div className="big">
             {counts.confirms} of {trust.threshold}
           </div>
-          {simulated > 0 && (
-            <div className="notice" style={{ margin: "8px 0" }}>
-              {simulated} of these {simulated === 1 ? "is" : "are"} simulated, in test mode, and not real people. Each says so on the public record.
-            </div>
-          )}
           <div className="meter">
             <div style={{ width: `${Math.min(100, (counts.effective / trust.threshold) * 100)}%` }} />
           </div>
           <p className="small muted" style={{ marginBottom: 0 }}>
-            {isReport
-              ? `${counts.disputes} against. At ${trust.threshold} votes within 72 hours, while votes for outnumber votes against, its owner is told, and they decide whether to issue a recall. Votes alone stop nothing. World ID shows each vote is a different real person, without saying who.`
-              : `${counts.disputes} disputed. At ${trust.threshold} confirmations within 72 hours, while confirmations outnumber disputes, agents must ask a human before using this tool. Only the keys an owner follows can stop it outright.`}
+            {counts.disputes} against. Each vote is from a different person logged in with World, and is public. At {trust.threshold} votes within 72 hours, while votes for outnumber votes against, the owner can approve it. Votes alone stop nothing.
           </p>
-          <div style={{ marginTop: 10 }}>
-            <WorldConfirm
-              recall={recall.key}
-              onCounted={() => {
-                // The vote is written. Give the network a block to show it.
-                forgetView()
-                setTimeout(() => void refresh(), 2500)
-              }}
-            />
-          </div>
+          {lower(recall.creator) === lower(ADDRESSES.verifier) && (
+            <div style={{ marginTop: 10 }}>
+              <VoteButtons
+                recall={recall.key}
+                onCounted={() => {
+                  // The vote is written. Give the network a few seconds to show it.
+                  forgetView()
+                  setTimeout(() => void refresh(), 2500)
+                  setTimeout(() => void refresh(), 6000)
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
+
+      {isReport && <OwnerApproval recall={recall} view={view} />}
 
       {fix && (
         <div className="card">
@@ -377,8 +520,8 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
 
       <IssuerActions recall={recall} hasFix={Boolean(fix)} ended={ended} />
 
-      {/* A report is not an order, so there is nothing for anyone to obey until its owner issues a recall. */}
-      {!isReport && <RecallBoardCard recall={recall} view={view} />}
+      {/* A normal recall is not an order, so there is nothing for anyone to obey until an owner approves it. */}
+      {recall.level === "STOP" && <RecallBoardCard recall={recall} view={view} />}
     </div>
   )
 }

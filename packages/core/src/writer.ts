@@ -4,7 +4,7 @@ import { stringToBytes } from "viem"
 import type { ArkivWallet } from "./arkiv"
 import { recallContentHash } from "./hash"
 import { agentFingerprint } from "./killSwitch"
-import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Lift, Loadout, Recall, TrustList } from "./schema"
+import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Human, Lift, Loadout, Recall, TrustList } from "./schema"
 import { assertPublicRef, SEALED_ON_SWARM } from "./swarmRef"
 import type { AckAction, AgentStatus, Hex, LiftKind, LoadedFile, Stance, TrustPolicy } from "./types"
 
@@ -33,6 +33,10 @@ export interface RecallInput {
   advice?: string
   pkg?: string
   versions?: string
+  /** Who opened a normal recall. */
+  opener?: Hex
+  /** The normal recall an owner's STOP approves. */
+  approves?: Hex
 }
 
 /**
@@ -87,6 +91,8 @@ export class ArkivWriter {
         advice: text(input.advice),
         pkg: input.pkg,
         versions: input.versions,
+        opener: input.opener ? addr(input.opener) : undefined,
+        approves: input.approves ? key(input.approves) : undefined,
       }) as any,
       level === "STOP"
         ? { expiration: ExpirationTime.max(), flags: STOP_FLAGS }
@@ -106,6 +112,13 @@ export class ArkivWriter {
 
   deleteRecord(entityKey: Hex) {
     return this.enqueue(() => this.wallet.deleteEntity({ entityKey }))
+  }
+
+  /** Only the verifier's are believed: it writes one after checking World ID and the wallet's signature. */
+  human(input: { address: Hex; human: string }) {
+    return this.enqueue(() =>
+      this.wallet.createEntity(Human, { address: addr(input.address), human: input.human }, { expiration: LONG(), flags: READ_ONLY }),
+    )
   }
 
   endorse(input: { recall: Hex; stance: Stance; human: string }) {

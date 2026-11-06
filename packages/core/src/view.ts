@@ -1,6 +1,6 @@
 import type { ArkivPublic } from "./arkiv"
 import { type BoardAgent, follows, isLive } from "./board"
-import { lower, recallCovers } from "./gate"
+import { lower, ownerOnlyPolicy, recallCovers } from "./gate"
 import { ADDRESSES, DEMO_OWNERS, demoPolicy } from "./deployment"
 import {
   type DisclosureRow,
@@ -19,7 +19,6 @@ import {
   readLatestLoadouts,
   readLifts,
   readRecallsBy,
-  readTrustPolicies,
   readTrustPolicy,
 } from "./reader"
 import type { AckRow, ArtifactRow, EndorseRow, LiftRow, RecallRow } from "./types"
@@ -60,25 +59,22 @@ export function onlyLive(view: PublicView): PublicView {
 /**
  * The whole public list, from anyone, for pages that show it to anyone.
  *
- * Anyone can write a record, so nothing here says a recall is binding, only who issued it. Whether it binds an
- * agent depends on whether that agent's owner follows that key. Each recall can be ended only by its own issuer.
+ * Anyone can write a record, so nothing here says a recall is binding, only who issued it. A STOP binds an agent only
+ * when the agent's owner signed it. Each recall can be ended only by its own issuer.
  */
 export async function readWholeList(client: ArkivPublic): Promise<PublicView> {
   const [passports, { rows, block }, artifacts] = await Promise.all([readAllAgents(client, PUBLIC_AGENT_LIMIT), readAllRecalls(client), readAllArtifacts(client)])
   // One read of each kind for all the agents. One each per agent ran through an access key's quota in an afternoon.
   const addresses = passports.map((p) => p.agent)
-  const [loadouts, heartbeats, policies] = await Promise.all([
-    readLatestLoadouts(client, addresses),
-    readHeartbeats(client, addresses),
-    readTrustPolicies(client, [...new Set(passports.map((p) => p.owner.toLowerCase()))]),
-  ])
+  const [loadouts, heartbeats] = await Promise.all([readLatestLoadouts(client, addresses), readHeartbeats(client, addresses)])
   const agents = passports.map(
     (agent) =>
       ({
         agent,
         loadout: loadouts.get(agent.agent.toLowerCase()),
         heartbeat: heartbeats.get(agent.agent.toLowerCase()),
-        policy: policies.get(agent.owner.toLowerCase()),
+        // An agent obeys its owner and nobody else, whatever list was published for it before.
+        policy: ownerOnlyPolicy(agent.owner),
       }) satisfies BoardAgent,
   )
   // A STOP says who issued it and binds only those who follow that key. A report means nothing unless a verifier

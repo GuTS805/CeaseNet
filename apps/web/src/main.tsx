@@ -7,9 +7,10 @@ import "../../shared/theme.css"
 import "./after-hours.css"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
+import { LoginProvider } from "./login"
 import { WalletProvider } from "./wallet"
 import { WebApp } from "./WebApp"
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><WalletProvider><WebApp /></WalletProvider></StrictMode>,
+  <StrictMode><WalletProvider><LoginProvider><WebApp /></LoginProvider></WalletProvider></StrictMode>,
 )

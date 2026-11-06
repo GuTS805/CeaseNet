@@ -2,7 +2,7 @@
 
 The user's selected reference guides the public website and local console: warm black, ivory typography, copper accents, brushed metal artwork, and layered command cards. The network uses records and tables without a flowchart.
 
-The design changes how pages look, not which pages there are or how you move between them. The site keeps its own flow: the header lists Home (Live demo when connected to the demo), Network, Recalls, Check a tool, Report, Protect an agent and Recall a tool, in that order, and an unknown address shows the home page.
+The design changes how pages look, not which pages there are or how you move between them. The site keeps its own flow: the header lists Home, Network, Recalls, Check a tool, Open a recall and Register an agent, in that order, with Log in with World beside them, and an unknown address shows the home page.
 
 ## Coverage
 

@@ -63,14 +63,12 @@ Stop things
                                   Ask a person before each call to this tool, or stop asking.
 
 Whom you obey
-  ceasenet follow <0x...>         Obey STOPs from this key as well as your own.
-  ceasenet unfollow <0x...>       Stop obeying them.
   ceasenet enroll <0x...> --name <name>
                                   Add an agent running on another machine to the ones you own.
 
 Look things up
-  ceasenet recalls                Recalls from everyone you follow.
-  ceasenet check <tool>@<version> Is this version recalled by anyone you follow?
+  ceasenet recalls                Recalls your agents obey: yours.
+  ceasenet check <tool>@<version> Is this version recalled by you?
   ceasenet check <folder>         The same for a package on disk, and prints its exact hash, which a recall names.
   ceasenet activity [-n <count>]  The latest calls your agents made, and what was decided.
   ceasenet update <spec>          Forget the pinned version of a tool, so its next start looks for a new one.

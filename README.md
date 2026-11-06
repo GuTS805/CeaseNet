@@ -2,7 +2,7 @@
 
 **Stop your AI agents, recall the tools they use, and see exactly what they did.**
 
-CeaseNet sits between an AI agent and its tools, with no change to either. Press Stop and the next call is refused, the agent is told why, and the tool's process is ended. Everything the agent did goes in a diary nobody can quietly change. Anyone can report a bad agent, and its owner decides what to do.
+CeaseNet sits between an AI agent and its tools, with no change to either. Press Stop and the next call is refused, the agent is told why, and the tool's process is ended. Everything the agent did goes in a diary nobody can quietly change. An agent obeys only its owner. Anyone who logs in with World can open a recall on a bad agent, others vote, and at enough votes its owner approves it.
 
 It doesn't depend on us. Each gate reads a public recall list on [Arkiv](https://arkiv.network) by itself, so a STOP works from another machine and keeps working if everything we run disappears. It runs on test networks today.
 
@@ -16,7 +16,7 @@ It doesn't depend on us. Each gate reads a public recall list on [Arkiv](https:/
 | **Watch it work** | Three real AI trading agents work on live prices with paper money, each in its own terminal, keep checking the recall list, and close themselves when a recall covers them |
 | **Look back** | Every call is saved to a diary on 0G Storage, with its index on Arkiv. Anyone can check it hasn't been changed |
 | **Know what an agent is** | Arkiv holds who answers for each agent, and a fingerprint of its exact tools, model and instructions |
-| **Report a problem** | Anyone can report an agent or a tool. World ID shows each vote is a different real person. At enough votes, the owner is told and decides |
+| **Open a recall** | Anyone logged in with World can open a recall on an agent or a tool. One person logs in with one wallet, so each vote is a different real person. At enough votes, the owner approves it, and only then does the agent stop |
 
 ## Start
 
@@ -79,8 +79,9 @@ They think with the model in your settings, which can be any service that speaks
 
 None of this needs the demo, our keys or the program. You need a browser wallet on the Rabdi testnet, with free tGLM from the [faucet](https://hub.arkiv.network/faucet).
 
-- **Protect an agent:** choose whose recalls your agents obey, and register an agent. Your choices go on Arkiv, signed by your wallet. An agent set up with `ceasenet init --owner <your wallet>` obeys that list, and your key never goes near its machine.
-- **Recall a tool:** measure any version on npm in your browser, then sign a STOP. Nothing is installed or run, and it binds only owners who follow your key. For something not on npm, `ceasenet check ./folder` prints its exact hash.
+- **Log in with World:** your wallet's address, linked to one real person by World ID. You need it to open a recall, vote, or register an agent.
+- **Register an agent:** its passport on Arkiv, signed by your wallet, with its address, name, framework and what it does. An agent set up with `ceasenet init --owner <your wallet>` obeys only you, and your key never goes near its machine.
+- **Open a recall:** a normal recall on any agent or tool, which needs 3 votes and then its owner's approval. If you own the agent, **stop it as the owner** instead: the whole agent, or one tool on all your agents, at once. For a tool, measure any version on npm in your browser. Nothing is installed or run. For something not on npm, `ceasenet check ./folder` prints its exact hash.
 - **Network:** every agent, key and recall on Arkiv, drawn live from the records, with no list of keys to start from.
 - **The recall's own page:** whoever issued a STOP can connect the same wallet there to withdraw it, or to publish the exact fixed version.
 
@@ -90,10 +91,10 @@ None of this needs the demo, our keys or the program. You need a browser wallet 
 |---|---|---|
 | **Stop an agent** | `ceasenet kill --reason "..."` | Every MCP tool call is refused and those tools' processes are ended. In Claude Code, its own tools such as Bash and file edits are refused too |
 | **Stop all your agents** | `ceasenet kill --all --reason "..."` | The same, for every agent you own, on any machine |
-| **Recall a tool** | `ceasenet stop some-tool@1.2.3 --reason "..."` | Only that tool is refused and ended, on every agent that obeys you. A tool already recalled is never started, and an npm package recalled by name and version is never even downloaded |
+| **Recall a tool** | `ceasenet stop some-tool@1.2.3 --reason "..."` | Only that tool is refused and ended, on every agent you own. A tool already recalled is never started, and an npm package recalled by name and version is never even downloaded |
 | **Ask first** | `ceasenet hold some-tool` | Each call waits until you approve it at the console, which shows exactly what it would do. With nobody answering, it does not run |
 | **Undo it** | `ceasenet lift <key>` | What was stopped carries on, in the same session, with nothing for the agent to do |
-| **Choose whom to obey** | `ceasenet follow 0x...` | You obey yourself, and nobody else until you say so. A STOP from any other key is ignored, even one aimed straight at your agent |
+| **Whom it obeys** | Nothing to do | Only you. A STOP from any other key is ignored, even one aimed straight at your agent. Others open a recall, and you approve it |
 | **Stop an agent elsewhere** | `ceasenet init --owner 0x...` on that machine, `ceasenet enroll 0x...` on yours | Its gate obeys your key from wherever you are, and your key never goes near that machine |
 
 `ceasenet help` lists everything, and `ceasenet status` shows what is protected, what is not, and what is running.
@@ -118,18 +119,19 @@ You can change this with `DIARY_MODE` in your settings (`public`, `sealed` or `h
 
 Arkiv holds, for each agent, who answers for it and its **fingerprint**: one value for its exact tools, model and instructions. Any change gives a new fingerprint, anyone can recompute it, and you can search by it. So it is always possible to say exactly what an agent was running when it did something. The console's Arkiv page shows every agent with its owner, fingerprint and diary.
 
-## Report a problem, as someone who doesn't own the agent
+## Open a recall, as someone who doesn't own the agent
 
-![The Reports page: a report that has reached enough votes, waiting for its owner to decide](docs/images/reports.png)
+![The Reports page: a recall that has reached enough votes, waiting for its owner to decide](docs/images/reports.png)
 
-An owner can recall anything of theirs directly, with no votes. Anyone else can **report** an agent or a tool, on the public site's Report page:
+An agent matches its owner's wallet and obeys only that wallet. A STOP from anyone else does nothing to it. The owner can stop anything of theirs directly, with no votes. Anyone else goes through a **normal recall**, on the public site:
 
-1. **They file it,** with World ID showing they are a real person, without saying who. That counts as their vote.
-2. **Others vote,** the same way. Each person counts once on each report.
-3. **At 3 votes, while votes for outnumber votes against, the owner is told:** on every page of the console, and with a browser notification if they turned that on. `REPORT_VOTES_NEEDED` in your settings changes the number.
-4. **The owner decides.** They can issue a recall with one press, or dismiss it.
+1. **Log in with World.** The wallet gives an address and signs a message to show it is yours, which costs nothing. World ID shows a real, unique person is behind it, without saying who. The verifier checks both and writes a `ceasenet.human` record on Arkiv. One person can link only one wallet.
+2. **Open a recall** on an agent or a tool. The wallet signs it, and the verifier writes it to Arkiv with your address as its `opener`. That counts as your vote.
+3. **Others vote,** each logged in the same way. The wallet signs each vote. Each person counts once on each recall, and votes are public.
+4. **At 3 votes, while votes for outnumber votes against, the owner can approve it:** on the recall's page on the site, or in the console's Reports page, which also tells them. `REPORT_VOTES_NEEDED` in your settings changes the number for the console.
+5. **The owner approves** with one press. That is a STOP signed by the owner's own wallet, with `approves` naming the normal recall, so their agents obey it within seconds.
 
-Votes alone stop nothing, because a crowd must not be able to switch off someone's agent. Only reports and votes checked by a verifier count, and anything else anyone writes on the chain is ignored.
+Votes alone stop nothing, because a crowd must not be able to switch off someone's agent. Only logins, recalls and votes written by the verifier count, and anything else anyone writes on the chain is ignored.
 
 To run this yourself:
 
@@ -139,7 +141,7 @@ npm run verifier        # needs WORLD_APP_ID, WORLD_RP_ID and WORLD_RP_SIGNING_K
 npm run web             # the public site, on http://localhost:5173
 ```
 
-World's simulator can only ever be one identity, so to show the whole flow use `npm run verifier:test` in place of `npm run verifier`. It adds simulated people, each marked as simulated on the public record and on every page, and production refuses them.
+There are no simulated people: every vote is from a different person logged in with a real World ID. In test mode, World's simulator stands in for World App, and it is one identity.
 
 ## The console
 

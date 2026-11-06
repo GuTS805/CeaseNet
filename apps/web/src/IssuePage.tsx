@@ -1,5 +1,6 @@
 import { useState } from "react"
-import { fetchNpmPackage, type LoadedFile, parseSpec } from "@ceasenet/core"
+import { agentArtifact, fetchNpmPackage, type LoadedFile, lower, parseSpec } from "@ceasenet/core"
+import { forgetView, useNetworkView } from "./lib"
 import { useWallet, WalletCard, walletMessage } from "./wallet"
 
 /** Measures one version of a package in this browser: nothing is installed or run. */
@@ -32,9 +33,17 @@ export function MeasureNpm({ onMeasured, label = "Measure from npm" }: { onMeasu
 
 const SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 
-/** Issue a real STOP, signed by your own wallet and written straight to Arkiv. */
+/**
+ * An owner stops their own agent, or a tool on their own agents, at once. No votes are needed: the agent obeys its
+ * owner's wallet. The STOP is signed by that wallet and written straight to Arkiv.
+ */
 export function IssuePage() {
   const { address, writer } = useWallet()
+  const { data: view } = useNetworkView(6000)
+  const mine = view && address ? view.agents.filter((a) => lower(a.agent.owner) === lower(address)) : []
+  const [target, setTarget] = useState<"agent" | "tool">("agent")
+  const [picked, setPicked] = useState("")
+  const agentPicked = mine.find((a) => a.agent.agent === picked) ?? mine[0]
   const [file, setFile] = useState<LoadedFile>({ kind: "tool", name: "", version: "", hash: "" })
   const [fileCount, setFileCount] = useState<number>()
   const [reason, setReason] = useState("")
@@ -45,21 +54,26 @@ export function IssuePage() {
   const [problem, setProblem] = useState<string>()
 
   const hashOk = /^0x[0-9a-fA-F]{64}$/.test(file.hash.trim())
-  const ready = Boolean(writer && hashOk && file.name.trim() && reason.trim())
+  const ready = Boolean(writer && reason.trim() && (target === "agent" ? agentPicked : hashOk && file.name.trim()))
 
   const issue = async () => {
     if (!writer) return
     setBusy(true)
     setProblem(undefined)
     try {
-      const { entityKey } = await writer.stop({
-        artifact: file.hash.trim(),
-        severity,
-        reason: reason.trim(),
-        pkg: file.name.trim(),
-        versions: versions.trim() || undefined,
-        advice: advice.trim() || undefined,
-      })
+      const { entityKey } = await writer.stop(
+        target === "agent" && agentPicked
+          ? { artifact: agentArtifact(agentPicked.agent.agent), severity, reason: reason.trim(), advice: advice.trim() || undefined }
+          : {
+              artifact: file.hash.trim(),
+              severity,
+              reason: reason.trim(),
+              pkg: file.name.trim(),
+              versions: versions.trim() || undefined,
+              advice: advice.trim() || undefined,
+            },
+      )
+      forgetView()
       window.location.hash = `#/recall/${entityKey}`
     } catch (e) {
       setProblem(walletMessage(e))
@@ -71,16 +85,41 @@ export function IssuePage() {
   return (
     <div className="page" style={{ display: "grid", gap: 12 }}>
       <div>
-        <h1 style={{ marginBottom: 4 }}>Recall a tool</h1>
+        <h1 style={{ marginBottom: 4 }}>Stop it as the owner</h1>
         <p className="muted" style={{ marginTop: 0 }}>
-          Anyone can issue a STOP. It binds only the agents whose owners chose to follow your key, so nobody can stop a tool on someone else's machine. It goes straight to Arkiv, with no server of ours.
+          An agent obeys only its owner, so your STOP binds your own agents, at once, with no votes. A STOP from anyone else does nothing to them. It goes straight to Arkiv, signed by your wallet, with no server of ours. Not the owner? <a href="#/report">Open a normal recall</a> instead.
         </p>
       </div>
 
-      <WalletCard action="issue a recall" />
+      <WalletCard action="stop your agent" />
 
       <div className="card form">
-        <h2>1. Which exact version?</h2>
+        <label>
+          What to stop
+          <select value={target} onChange={(e) => setTarget(e.target.value as "agent" | "tool")}>
+            <option value="agent">One of my agents, entirely</option>
+            <option value="tool">A tool, on all my agents</option>
+          </select>
+        </label>
+        {target === "agent" ? (
+          mine.length === 0 ? (
+            <div className="notice">
+              {address ? `No agent on the list answers to ${address.slice(0, 10)}… yet.` : "Connect your wallet to see your agents."} <a href="#/register">Register one</a>.
+            </div>
+          ) : (
+            <label>
+              Which agent
+              <select value={agentPicked?.agent.agent ?? ""} onChange={(e) => setPicked(e.target.value)}>
+                {mine.map((a) => (
+                  <option key={a.agent.agent} value={a.agent.agent}>
+                    {a.agent.name} ({a.agent.agent.slice(0, 10)}…)
+                  </option>
+                ))}
+              </select>
+            </label>
+          )
+        ) : (
+          <>
         <MeasureNpm
           onMeasured={(measured, count) => {
             setFile(measured)
@@ -105,8 +144,10 @@ export function IssuePage() {
           {fileCount ? `Measured ${fileCount} files, in this browser. Nothing was installed or run. ` : ""}
           For something not on npm, run <code>ceasenet check ./folder</code> and paste the hash it prints.
         </p>
+          </>
+        )}
 
-        <h2>2. Why?</h2>
+        <h2>Why?</h2>
         <label>
           What is wrong with it
           <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
@@ -120,29 +161,29 @@ export function IssuePage() {
               ))}
             </select>
           </label>
-          <label>
-            Also covers these versions (optional)
-            <input value={versions} onChange={(e) => setVersions(e.target.value)} placeholder=">=1.0.0 <1.1.0" spellCheck={false} />
-          </label>
+          {target === "tool" && (
+            <label>
+              Also covers these versions (optional)
+              <input value={versions} onChange={(e) => setVersions(e.target.value)} placeholder=">=1.0.0 <1.1.0" spellCheck={false} />
+            </label>
+          )}
         </div>
         <label>
-          What should owners do? (optional)
+          What should be done about it? (optional)
           <input value={advice} onChange={(e) => setAdvice(e.target.value)} />
         </label>
 
-        <h2>3. Sign it</h2>
+        <h2>Sign it</h2>
         <div className="buttons">
           <button className="danger" disabled={!ready || busy} onClick={() => void issue()}>
             {busy ? "Waiting for your wallet and the chain…" : "Sign and publish this STOP"}
           </button>
         </div>
-        {!hashOk && file.hash.trim() !== "" && <div className="error">A file hash is 0x followed by 64 characters.</div>}
+        {target === "tool" && !hashOk && file.hash.trim() !== "" && <div className="error">A file hash is 0x followed by 64 characters.</div>}
         {problem && <div className="error">{problem}</div>}
-        {address && (
-          <p className="small muted" style={{ marginBottom: 0 }}>
-            A STOP can't be edited, and you can only delete or withdraw it in public. Owners can follow your key at <a href={`#/protect/${address}`}>this link</a>.
-          </p>
-        )}
+        <p className="small muted" style={{ marginBottom: 0 }}>
+          A STOP can't be edited. You can withdraw it later, in public, from its page, and your agents start again.
+        </p>
       </div>
     </div>
   )

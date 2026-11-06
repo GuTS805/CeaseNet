@@ -1,5 +1,5 @@
 import semver from "semver"
-import { CONFIRMATION_WINDOW_BLOCKS, type Timers } from "./timers"
+import { CONFIRMATION_THRESHOLD, CONFIRMATION_WINDOW_BLOCKS, type Timers } from "./timers"
 import type { AckAction, EndorseRow, Hex, LiftRow, LoadedFile, Mode, RecallRow, TrustPolicy } from "./types"
 
 /** Keys a gate listens to. All comparisons are done on lowercase addresses. */
@@ -31,6 +31,17 @@ export function makeTrust(input: {
     windowBlocks: input.windowBlocks,
   }
 }
+
+/**
+ * An agent obeys its owner and nobody else. A STOP binds it only when its owner's wallet signed it, and a normal
+ * recall only reaches it once the owner approves it with such a STOP.
+ */
+export const ownerOnlyPolicy = (owner: string): TrustPolicy => ({
+  issuers: [owner],
+  regulators: [],
+  verifier: owner,
+  threshold: CONFIRMATION_THRESHOLD,
+})
 
 export const trustFromPolicy = (policy: TrustPolicy): TrustConfig =>
   makeTrust({

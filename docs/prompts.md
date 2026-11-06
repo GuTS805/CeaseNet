@@ -131,3 +131,6 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 22:53 | [chose "Dono" (both): one part per time window, and times on each part so a span can be looked up] |
 | 11-06 23:15 | dekho anirudh ne ek branch me push kiya / poora flow waisa hi rkho ditto bs ui and design jaisa hai waisa rhne do / i mean every option from page to page has to be like on the branch of anirudh / do not make any mistakes |
 | 11-06 23:17 | [chose: the page flow of the swarm-diary branch, with the new design] |
+| 11-06 23:25 | now what u to do is that this flow is good demo but now dont want demo data / so what we will do is that there should be first login with world for address / then the user can open the recall by itself / for normal oit want votes / agent should match its owner wallet themself and only obey them / for normal use recalls if they gfet enough recnosition then owner can approve it / also give the regisster agent route to for new agent to register with relevent things / keep the three agent as i have to show something vids tooo |
+| 11-06 23:33 | [chose: keep the three trading agents; log in with World ID plus a wallet; 3 votes, real World ID only] |
+| 11-07 00:20 | continue |

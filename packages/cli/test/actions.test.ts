@@ -150,16 +150,18 @@ describe("whom an owner obeys", () => {
     expect(await decide()).toEqual({ "real-tool": "ALLOW", "other-tool": "ALLOW" })
   })
 
-  it("obeys someone after following them, and not after unfollowing", async () => {
+  it("obeys only its owner: nobody else's STOP counts, and nobody else can be followed", async () => {
     const maker = ledger().writer("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d")
     await maker.stop({ artifact: TOOL.hash, severity: "HIGH", reason: "the maker says so" })
     expect((await decide())["real-tool"]).toBe("ALLOW")
 
-    await setFollowing(ledger(), config, maker.address, true)
-    expect((await decide())["real-tool"]).toBe("BLOCK")
-
-    await setFollowing(ledger(), config, maker.address, false)
+    await expect(setFollowing(ledger(), config, maker.address, true)).rejects.toThrow(/obey only you/)
     expect((await decide())["real-tool"]).toBe("ALLOW")
+  })
+
+  it("ignores other keys on a list published before, and obeys only its owner", () => {
+    const owner = config.owner.address
+    expect(obeyingOwner({ ...startingPolicy(owner), issuers: [owner, OUTSIDER] }, owner).issuers).toEqual([owner])
   })
 
   it("cannot stop obeying itself", async () => {

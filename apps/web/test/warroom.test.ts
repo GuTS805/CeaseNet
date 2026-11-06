@@ -1,55 +1,8 @@
 import { describe, expect, it } from "vitest"
 import type { AckRow, Hex, LiftRow, PublicView, RecallRow } from "@ceasenet/core"
-import type { DemoAgent, DemoState } from "../src/lib"
-import { everyoneObeyed, mailLine, orphanReceipts, recordsIn, StateTracker, ViewTracker } from "../src/warroom/events"
+import { orphanReceipts, recordsIn, ViewTracker } from "../src/warroom/events"
 
 const BAD = "0xbad"
-const GOOD = "0x900d"
-const FILES = "0xf11e"
-
-const file = (hash: string, name = "demo-mail-tool", version = "1.0.16") => ({ kind: "tool", name, version, hash })
-
-const agent = (over: Partial<DemoAgent> = {}): DemoAgent =>
-  ({
-    id: "a",
-    company: "Asha Exports",
-    address: "0xa1" as Hex,
-    owner: "0xb1" as Hex,
-    status: "RUNNING",
-    online: true,
-    tools: [
-      { file: file(BAD), verdict: "ALLOW" },
-      { file: file(FILES, "demo-files-tool", "2.1.0"), verdict: "ALLOW" },
-    ],
-    followsMaker: true,
-    jobs: 0,
-    sent: 0,
-    stolen: 0,
-    drafts: 0,
-    feed: [],
-    fixAvailable: false,
-    vanished: [],
-    diary: { entries: 0, waiting: 0, parts: [] },
-    ...over,
-  }) as DemoAgent
-
-const state = (...agents: DemoAgent[]): DemoState =>
-  ({
-    brainSource: "model",
-    model: "m",
-    timers: { checkIntervalMs: 2000 },
-    idle: false,
-    stolenMail: [],
-    tools: { bad: file(BAD), fixed: file(GOOD, "demo-mail-tool", "1.0.17"), files: file(FILES) },
-    swarm: { on: false, evidenceReady: false },
-    worldIdApprovals: false,
-    agents,
-  }) as DemoState
-
-const blocked = () => [
-  { file: file(BAD), verdict: "BLOCK" as const },
-  { file: file(FILES, "demo-files-tool", "2.1.0"), verdict: "ALLOW" as const },
-]
 
 const view = (over: Partial<PublicView> = {}): PublicView => ({
   block: 100n,
@@ -68,95 +21,6 @@ const stop = (key: Hex = "0xs1"): RecallRow =>
 
 const ack = (key: Hex, recall: Hex = "0xs1", action: AckRow["action"] = "BLOCKED"): AckRow =>
   ({ key, recall, recallHash: "0xh", agent: "0xa1", artifact: BAD, action, issuer: "0xm", creator: "0xa1", createdAt: 95n }) as AckRow
-
-describe("what the mail line shows", () => {
-  it("follows the guard's own verdict", () => {
-    expect(mailLine(agent(), BAD)).toBe("leaking")
-    expect(mailLine(agent({ tools: [{ file: file(BAD), verdict: "NEEDS_APPROVAL" }] }), BAD)).toBe("asks")
-    expect(mailLine(agent({ tools: blocked() }), BAD)).toBe("cut")
-  })
-
-  it("is fixed only when the bad version is gone", () => {
-    expect(mailLine(agent({ tools: [{ file: file(GOOD, "demo-mail-tool", "1.0.17"), verdict: "ALLOW" }] }), BAD)).toBe("fixed")
-  })
-
-  it("does not care about the letter case of a hash", () => {
-    expect(mailLine(agent({ tools: [{ file: file("0xBAD"), verdict: "BLOCK" }] }), BAD)).toBe("cut")
-  })
-})
-
-describe("when everyone has obeyed", () => {
-  it("waits for every connected follower", () => {
-    expect(everyoneObeyed(state(agent({ id: "a", tools: blocked() }), agent({ id: "b" })))).toBe(false)
-    expect(everyoneObeyed(state(agent({ id: "a", tools: blocked() }), agent({ id: "b", tools: blocked() })))).toBe(true)
-  })
-
-  it("does not wait for an agent that is cut off, or whose owner does not follow the maker", () => {
-    expect(everyoneObeyed(state(agent({ id: "a", tools: blocked() }), agent({ id: "b", online: false }), agent({ id: "c", followsMaker: false })))).toBe(true)
-  })
-
-  it("is never true when nobody could obey", () => {
-    expect(everyoneObeyed(state(agent({ online: false, tools: blocked() })))).toBe(false)
-  })
-})
-
-describe("events from the demo server", () => {
-  it("treats the first reading as a starting point, not as news", () => {
-    expect(new StateTracker().next(state(agent({ sent: 9, stolen: 9, tools: blocked() })))).toEqual([])
-  })
-
-  it("reports nothing when nothing changed", () => {
-    const t = new StateTracker()
-    t.next(state(agent({ sent: 1, stolen: 1 })))
-    expect(t.next(state(agent({ sent: 1, stolen: 1 })))).toEqual([])
-  })
-
-  it("reports an email and the stolen copy only when their files grew", () => {
-    const t = new StateTracker()
-    t.next(state(agent()))
-    expect(t.next(state(agent({ sent: 1, stolen: 1 })))).toEqual([
-      { kind: "email", agent: "a" },
-      { kind: "leak", agent: "a" },
-    ])
-  })
-
-  it("reports an email with no stolen copy after the fix", () => {
-    const fixed = [{ file: file(GOOD, "demo-mail-tool", "1.0.17"), verdict: "ALLOW" as const }]
-    const t = new StateTracker()
-    t.next(state(agent({ tools: fixed, sent: 5, stolen: 3 })))
-    expect(t.next(state(agent({ tools: fixed, sent: 6, stolen: 3 })))).toEqual([{ kind: "email", agent: "a" }])
-  })
-
-  it("snaps once, at the moment the guard blocks the tool", () => {
-    const t = new StateTracker()
-    t.next(state(agent()))
-    expect(t.next(state(agent({ tools: blocked() })))).toEqual([{ kind: "snap", agent: "a" }])
-    expect(t.next(state(agent({ tools: blocked() })))).toEqual([])
-  })
-
-  it("reports each refused call it has not seen, once", () => {
-    const line = (id: number) => ({ id, at: 1, kind: "blocked" as const, text: "BLOCKED send_email" })
-    const t = new StateTracker()
-    t.next(state(agent({ tools: blocked(), feed: [line(1)] })))
-    expect(t.next(state(agent({ tools: blocked(), feed: [line(1), line(2)] })))).toEqual([{ kind: "refused", agent: "a" }])
-    expect(t.next(state(agent({ tools: blocked(), feed: [line(1), line(2)] })))).toEqual([])
-  })
-
-  it("reports the move to the fix, and a draft", () => {
-    const t = new StateTracker()
-    t.next(state(agent({ tools: blocked() })))
-    expect(t.next(state(agent({ tools: [{ file: file(GOOD, "demo-mail-tool", "1.0.17"), verdict: "ALLOW" }], drafts: 1 })))).toEqual([
-      { kind: "draft", agent: "a" },
-      { kind: "moved", agent: "a" },
-    ])
-  })
-
-  it("reports when a human has to approve each call", () => {
-    const t = new StateTracker()
-    t.next(state(agent()))
-    expect(t.next(state(agent({ tools: [{ file: file(BAD), verdict: "NEEDS_APPROVAL" }] })))).toEqual([{ kind: "asks", agent: "a" }])
-  })
-})
 
 describe("events from Arkiv", () => {
   it("does not replay what was already there when the page opened", () => {

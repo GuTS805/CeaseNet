@@ -1,6 +1,6 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import { arkivBrowserWallet, arkivChain, ArkivWriter, type Eip1193Provider, type Hex } from "@ceasenet/core"
-import { formatEther, numberToHex } from "viem"
+import { formatEther, numberToHex, toHex } from "viem"
 import { ACCESS_KEY, client, shortHash, usePoll } from "./lib"
 
 export const FAUCET = "https://hub.arkiv.network/faucet"
@@ -20,10 +20,16 @@ interface Wallet {
   /** Only present when signing would work. */
   writer?: ArkivWriter
   connect: () => Promise<void>
+  /** Signs a plain message. It costs nothing, sends nothing, and works on any network. */
+  sign: (message: string) => Promise<Hex>
   problem?: string
 }
 
-const WalletContext = createContext<Wallet>({ missing: true, wrongNetwork: false, connect: async () => undefined })
+const noWallet = async (): Promise<never> => {
+  throw new Error("There is no wallet in this browser.")
+}
+
+const WalletContext = createContext<Wallet>({ missing: true, wrongNetwork: false, connect: async () => undefined, sign: noWallet })
 const ARKIV_CHAIN_ID = arkivChain("").id
 
 export const useWallet = () => useContext(WalletContext)
@@ -96,12 +102,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [provider, takeAccount])
 
+  const sign = useCallback(
+    async (message: string): Promise<Hex> => {
+      if (!provider || !address) throw new Error("Connect your wallet first.")
+      return (await provider.request({ method: "personal_sign", params: [toHex(message), address] })) as Hex
+    },
+    [provider, address],
+  )
+
   const wrongNetwork = Boolean(address) && chainId !== undefined && chainId !== ARKIV_CHAIN_ID
   const writer = useMemo(
     () => (provider && address && !wrongNetwork ? new ArkivWriter(arkivBrowserWallet(provider, address, ACCESS_KEY)) : undefined),
     [provider, address, wrongNetwork],
   )
-  const value = useMemo(() => ({ missing: !provider, address, wrongNetwork, writer, connect, problem }), [provider, address, wrongNetwork, writer, connect, problem])
+  const value = useMemo(() => ({ missing: !provider, address, wrongNetwork, writer, connect, sign, problem }), [provider, address, wrongNetwork, writer, connect, sign, problem])
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
 }
 

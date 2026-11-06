@@ -1,81 +1,19 @@
 import type { AckAction, AckRow, Hex, LiftRow, PublicView, RecallRow } from "@ceasenet/core"
-import type { DemoAgent, DemoState } from "../lib"
 
 /**
  * Everything that moves on the live screen comes from here.
  *
- * Each event is a difference between two real readings: one from the demo server, or one from Arkiv.
+ * Each event is a difference between two real readings from Arkiv.
  * Nothing is scheduled or made up, so if nothing happened, nothing moves.
  */
-
-/** What an agent's mail tool is doing. "fixed" means the bad version is no longer loaded. */
-export type MailLine = "leaking" | "asks" | "cut" | "fixed"
-
-export function mailLine(agent: DemoAgent, badHash: string): MailLine {
-  const bad = agent.tools.find((t) => t.file.hash.toLowerCase() === badHash.toLowerCase())
-  if (!bad) return "fixed"
-  if (bad.verdict === "BLOCK") return "cut"
-  return bad.verdict === "NEEDS_APPROVAL" ? "asks" : "leaking"
-}
-
-/** Agents the STOP should reach: connected, and whose owner follows the maker. */
-export const followers = (agents: readonly DemoAgent[]) => agents.filter((a) => a.online && a.followsMaker !== false)
-
-/** True once every agent that should obey has stopped using the bad version. */
-export function everyoneObeyed(state: DemoState): boolean {
-  const reached = followers(state.agents)
-  return reached.length > 0 && reached.every((a) => ["cut", "fixed"].includes(mailLine(a, state.tools.bad.hash)))
-}
-
-export type StateEvent =
-  | { kind: "email"; agent: string }
-  | { kind: "leak"; agent: string }
-  | { kind: "draft"; agent: string }
-  | { kind: "refused"; agent: string }
-  | { kind: "snap"; agent: string }
-  | { kind: "asks"; agent: string }
-  | { kind: "moved"; agent: string }
-
-const newestFeedId = (agent: DemoAgent) => agent.feed.reduce((most, f) => Math.max(most, f.id), 0)
-
-/** Compares each reading from the demo server with the one before. The first reading is only a starting point. */
-export class StateTracker {
-  private prev: DemoState | undefined
-
-  next(state: DemoState): StateEvent[] {
-    const prev = this.prev
-    this.prev = state
-    if (!prev) return []
-    const events: StateEvent[] = []
-    const bad = state.tools.bad.hash
-    for (const agent of state.agents) {
-      const before = prev.agents.find((a) => a.id === agent.id)
-      if (!before) continue
-      if (agent.sent > before.sent) events.push({ kind: "email", agent: agent.id })
-      if (agent.stolen > before.stolen) events.push({ kind: "leak", agent: agent.id })
-      if (agent.drafts > before.drafts) events.push({ kind: "draft", agent: agent.id })
-      const lastSeen = newestFeedId(before)
-      for (const item of agent.feed) {
-        if (item.id > lastSeen && (item.kind === "blocked" || item.kind === "refused")) events.push({ kind: "refused", agent: agent.id })
-      }
-      const was = mailLine(before, bad)
-      const is = mailLine(agent, bad)
-      if (is !== was) {
-        if (is === "cut") events.push({ kind: "snap", agent: agent.id })
-        else if (is === "asks") events.push({ kind: "asks", agent: agent.id })
-        else if (is === "fixed") events.push({ kind: "moved", agent: agent.id })
-      }
-    }
-    return events
-  }
-}
-
-const RECEIPTS_OF_A_STOP: readonly AckAction[] = ["BLOCKED", "UPDATED"]
 
 /**
  * Receipts that point at a STOP which is no longer on Arkiv, by recall.
  * This needs nobody's memory: the receipts are public, and so is the STOP's absence.
  */
+/** Receipts that say an agent obeyed a STOP. Other receipts can outlive their recall for ordinary reasons. */
+const RECEIPTS_OF_A_STOP: readonly AckAction[] = ["BLOCKED", "UPDATED"]
+
 export function orphanReceipts(view: PublicView): Map<Hex, AckRow[]> {
   const live = new Set(view.recalls.map((r) => r.key))
   const orphans = new Map<Hex, AckRow[]>()

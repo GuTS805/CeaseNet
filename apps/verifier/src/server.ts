@@ -8,6 +8,8 @@ import {
   lower,
   readAgent,
   readEndorsements,
+  readHuman,
+  readHumanById,
   readRecallsBy,
 } from "@ceasenet/core"
 import { accountFor } from "../../../scripts/roles"
@@ -46,8 +48,10 @@ const verifier = new Verifier({
     return rows.filter((r) => r.level === "ADVISORY" && lower(r.artifact) === lower(artifact))
   },
   agentExists: async (address) => Boolean(await readAgent(client, address)),
-  fileReport: (input) => writer.advisory({ artifact: input.artifact, severity: "REPORT", reason: input.reason, pkg: input.pkg, versions: input.versions }),
-  allowSimulated: process.env.VERIFIER_ALLOW_SIMULATED === "1",
+  fileReport: (input) => writer.advisory({ artifact: input.artifact, severity: "REPORT", reason: input.reason, pkg: input.pkg, versions: input.versions, opener: input.opener }),
+  readHuman: (address) => readHuman(client, address, ADDRESSES.verifier),
+  readHumanById: (human) => readHumanById(client, human, ADDRESSES.verifier),
+  writeHuman: (input) => writer.human(input),
 })
 
 function send(res: ServerResponse, status: number, body: unknown) {
@@ -80,31 +84,25 @@ const server = createServer(async (req, res) => {
   const route = `${req.method} ${new URL(req.url ?? "/", "http://x").pathname}`
   try {
     // Only public values. The signing key stays here.
-    if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment, simulated: verifier.simulatedAllowed })
+    if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment })
     if (route === "POST /api/rp-signature") return send(res, 200, verifier.rpSignature())
+    if (route === "POST /api/login") {
+      const body = await readBody(req)
+      const done = await verifier.login({ address: body.address, signature: body.signature, at: body.at, result: body.result })
+      log(`${done.already ? "logged in again" : "logged in"}: ${done.address}`)
+      return send(res, 200, done)
+    }
     if (route === "POST /api/confirm") {
       const body = await readBody(req)
-      const done = await verifier.confirm({ recall: body.recall as Hex, stance: body.stance, result: body.result })
-      log(`${body.stance} counted on ${body.recall}: ${done.key}`)
+      const done = await verifier.confirm({ recall: body.recall as Hex, stance: body.stance, address: body.address, signature: body.signature, at: body.at })
+      log(`${body.stance} from ${done.human} on ${body.recall}: ${done.key}`)
       return send(res, 200, done)
     }
     if (route === "POST /api/report") {
       const body = await readBody(req)
-      const done = await verifier.report({ target: body.target, reason: body.reason, result: body.result })
-      log(`report filed: ${done.key}`)
+      const done = await verifier.report({ target: body.target, reason: body.reason, address: body.address, signature: body.signature, at: body.at })
+      log(`recall opened by ${body.address}: ${done.key}`)
       return send(res, 200, done)
-    }
-    if (route === "POST /api/simulated/report") {
-      const body = await readBody(req)
-      const done = await verifier.simulatedReport({ target: body.target, reason: body.reason })
-      log(`simulated report filed: ${done.key}`)
-      return send(res, 200, { ...done, simulated: true })
-    }
-    if (route === "POST /api/simulated/vote") {
-      const body = await readBody(req)
-      const done = await verifier.simulatedVote(body.recall as Hex, body.stance)
-      log(`simulated vote on ${body.recall}`)
-      return send(res, 200, { ...done, simulated: true })
     }
     return send(res, 404, { error: "not found" })
   } catch (e) {

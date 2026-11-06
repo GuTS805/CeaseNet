@@ -56,6 +56,8 @@ export interface StopToolInput {
   reason: string
   severity?: string
   advice?: string
+  /** The normal recall people voted for, when this STOP approves one. */
+  approves?: Hex
 }
 
 /** Stops one tool: that exact file, or a package across a range of versions. */
@@ -69,16 +71,17 @@ export function stopTool(ledger: Ledger, config: Config, input: StopToolInput): 
       severity: input.severity ?? "HIGH",
       reason: input.reason.trim(),
       advice: input.advice,
+      approves: input.approves,
       ...(input.name ? { pkg: input.name, versions: input.versions ?? "*" } : {}),
     }),
   )
 }
 
 /** Stops a whole agent, whichever tools it has. It needs the key of the owner it answers to. */
-export function stopAgent(ledger: Ledger, config: Config, agent: string, reason: string): Promise<{ entityKey: Hex }> {
+export function stopAgent(ledger: Ledger, config: Config, agent: string, reason: string, approves?: Hex): Promise<{ entityKey: Hex }> {
   if (!reason.trim()) throw new Error("Stopping an agent needs a reason, because that is what it will be told.")
   const writer = ownerWriter(ledger, config)
-  return speaking(ledger, writer, () => writer.stop({ artifact: agentArtifact(agent), severity: "CRITICAL", reason: reason.trim() }))
+  return speaking(ledger, writer, () => writer.stop({ artifact: agentArtifact(agent), severity: "CRITICAL", reason: reason.trim(), approves }))
 }
 
 /** Stops every agent this owner answers for, wherever they run. */
@@ -120,11 +123,17 @@ export async function currentPolicy(ledger: Ledger, config: Config): Promise<Tru
   return obeyingOwner((await ledger.publishedPolicy(owner)) ?? startingPolicy(owner), owner)
 }
 
-/** Changes whose STOPs this owner's agents obey. An owner cannot remove themselves. */
+/**
+ * Changes the list an owner once published of whose STOPs to obey. An agent now obeys only its owner, so nobody can be
+ * added: others open a recall, people vote, and the owner approves it. Removing a key from an old list still works.
+ */
 export async function setFollowing(ledger: Ledger, config: Config, address: string, follow: boolean): Promise<TrustPolicy> {
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new Error(`${address} is not an address.`)
   const owner = config.owner.address
   if (!follow && address.toLowerCase() === owner.toLowerCase()) throw new Error("You always obey your own STOPs, so you can stop your own agents.")
+  if (follow && address.toLowerCase() !== owner.toLowerCase()) {
+    throw new Error("Your agents obey only you, so they cannot follow another key. Anyone can open a recall on them instead, and at enough votes you decide.")
+  }
   const writer = ownerWriter(ledger, config)
   const current = await currentPolicy(ledger, config)
   const others = current.issuers.filter((i) => i.toLowerCase() !== address.toLowerCase())

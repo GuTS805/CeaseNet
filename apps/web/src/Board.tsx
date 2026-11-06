@@ -6,7 +6,7 @@ const STATE: Record<AgentRecallState, { label: string; colour: string }> = {
   SUPERVISED: { label: "Asks a human, receipt posted", colour: "amber" },
   SILENT: { label: "Silent", colour: "grey" },
   NO_RECEIPT: { label: "Running, no receipt", colour: "amber" },
-  NOT_FOLLOWING: { label: "Owner does not follow this issuer", colour: "grey" },
+  NOT_FOLLOWING: { label: "Not from its owner, so it does not apply", colour: "grey" },
 }
 
 function Row({ row }: { row: BoardRow }) {
@@ -29,7 +29,7 @@ export function RecallBoardCard({ recall, view }: { recall: RecallRow; view: Pub
   const extras = [
     board.silent > 0 ? `${board.silent} silent` : "",
     board.noReceipt > 0 ? `${board.noReceipt} with no receipt` : "",
-    board.notFollowing > 0 ? `${board.notFollowing} not following` : "",
+    board.notFollowing > 0 ? `${board.notFollowing} owned by someone else` : "",
   ].filter(Boolean)
   return (
     <div className="card">

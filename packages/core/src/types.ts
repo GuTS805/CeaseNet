@@ -48,6 +48,19 @@ export interface RecallRow {
   sealedEvidence?: string
   pkg?: string
   versions?: string
+  /** On a normal recall, the logged-in person who opened it. */
+  opener?: Hex
+  /** On an owner's STOP, the normal recall it approves. */
+  approves?: Hex
+}
+
+/** A wallet address one real person logged in with, as the verifier recorded it. */
+export interface HumanRow {
+  key: Hex
+  address: Hex
+  human: string
+  creator: Hex
+  createdAt: bigint
 }
 
 export interface EndorseRow {

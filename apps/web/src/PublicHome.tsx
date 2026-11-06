@@ -23,15 +23,18 @@ export function PublicHome() {
       <section className="home-hero">
         <h1>Stop your AI agents, and recall the tools they use</h1>
         <p className="home-lead">
-          CeaseNet sits between your agent and its MCP tools. Press Stop and the next call is refused, with the reason, and the tool's process is ended. Every call goes in a diary nobody can quietly change, and anyone can report a bad agent. It works from another machine, and it keeps working if we disappear, because each
+          CeaseNet sits between your agent and its MCP tools. Press Stop and the next call is refused, with the reason, and the tool's process is ended. Every call goes in a diary nobody can quietly change. Anyone logged in with World can open a recall on a bad agent, others vote, and its owner approves it. An agent obeys only its owner. It works from another machine, and it keeps working if we disappear, because each
           gate reads a public list on Arkiv by itself.
         </p>
         <div className="buttons home-actions">
-          <a className="button primary" href="#/protect">
-            Protect an agent
+          <a className="button primary" href="#/login">
+            Log in with World
           </a>
-          <a className="button" href="#/issue">
-            Recall a tool
+          <a className="button" href="#/register">
+            Register an agent
+          </a>
+          <a className="button" href="#/report">
+            Open a recall
           </a>
           <a className="button" href="#/network">
             See the network
@@ -96,7 +99,7 @@ export function PublicHome() {
           <LiveToggle view={view} everyone={everyone} onChange={setEveryone} />
           <NetworkMap view={view} shown={shown} />
           <RecallList view={view} />
-          <p className="small muted">Anyone can publish a recall, so this shows all of them with who issued each one. A recall binds only the agents whose owners follow that key.</p>
+          <p className="small muted">Anyone can publish a recall, so this shows all of them with who it came from. A STOP binds only the agents of the owner who signed it.</p>
           {shown.agents.length > 0 && (
             <div className="card">
               <h2>Agents that have registered in public</h2>

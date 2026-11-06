@@ -65,7 +65,7 @@ async function revealAll(page) {
 
 try {
   const { context, page } = await contextFor(publicURL)
-  const routes = ["", "network", "recalls", "check", "report", "protect", "issue", `agent/${address}`, `recall/${hash}`, "missing-page"]
+  const routes = ["", "network", "recalls", "check", "report", "issue", "register", "login", `agent/${address}`, `recall/${hash}`, "missing-page"]
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 960 })
     for (const route of routes) await check(`Public /${route || "home"} at ${width}px`, async () => {
@@ -75,14 +75,14 @@ try {
       const size = await overflow(page)
       assert.ok(size.content <= size.width + 1, `Horizontal overflow: ${size.content} > ${size.width}`)
       assert.equal(await page.locator(".net-map,.map svg").count(), 0, "A flowchart remains")
-      if (width === 1440 && ["", "network", "protect", "check"].includes(route)) {
+      if (width === 1440 && ["", "network", "register", "check"].includes(route)) {
         await revealAll(page)
         await page.screenshot({ path: `.design-review/public-${route || "home"}.png`, fullPage: route !== "" })
       }
     })
   }
   // The pages, in order, as the header lists them. Every one is reachable from every page.
-  const pages = [["Home", ""], ["Network", "network"], ["Recalls", "recalls"], ["Check a tool", "check"], ["Report", "report"], ["Protect an agent", "protect"], ["Recall a tool", "issue"]]
+  const pages = [["Home", ""], ["Network", "network"], ["Recalls", "recalls"], ["Check a tool", "check"], ["Open a recall", "report"], ["Register an agent", "register"]]
   await check("The header lists every page, in order, and each link opens it", async () => {
     await page.setViewportSize({ width: 1440, height: 960 })
     await page.goto(`${publicURL}/#/network`)
@@ -104,7 +104,7 @@ try {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(publicURL)
     await page.getByRole("button", { name: "Open navigation" }).click()
-    assert.deepEqual((await page.locator("#mobile-nav a").allInnerTexts()).map(t => t.trim()), pages.map(([label]) => label))
+    assert.deepEqual((await page.locator("#mobile-nav a").allInnerTexts()).map(t => t.trim()), [...pages.map(([label]) => label), "Log in with World"])
     await page.locator("#mobile-nav").getByRole("link", { name: "Check a tool", exact: true }).click()
     await page.waitForURL("**/#/check")
     await page.locator("#mobile-nav").waitFor({ state: "hidden" })

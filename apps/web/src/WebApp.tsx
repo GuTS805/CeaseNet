@@ -5,13 +5,12 @@ import { Icon, PageTransition } from "../../shared/design"
 import { AgentPage } from "./AgentPage"
 import { CheckPage } from "./CheckPage"
 import { IssuePage } from "./IssuePage"
-import { LivePage } from "./LivePage"
+import { LoginBadge, LoginPage } from "./login"
 import { NetworkPage } from "./NetworkPage"
-import { ProtectPage } from "./ProtectPage"
 import { PublicHome } from "./PublicHome"
 import { RecallPage, RecallsPage } from "./RecallPages"
+import { RegisterPage } from "./RegisterPage"
 import { ReportPage } from "./ReportPage"
-import { HOSTED } from "./lib"
 
 function useHash() {
   const [hash, setHash] = useState(window.location.hash)
@@ -29,13 +28,12 @@ function useHash() {
 
 /** The pages, in order. Each says whether it is the one showing. */
 const NAV: { href: string; label: string; on: (page: string) => boolean }[] = [
-  { href: "#/", label: HOSTED ? "Home" : "Live demo", on: (page) => page === "" },
+  { href: "#/", label: "Home", on: (page) => page === "" },
   { href: "#/network", label: "Network", on: (page) => page === "network" },
   { href: "#/recalls", label: "Recalls", on: (page) => page.startsWith("recall") },
   { href: "#/check", label: "Check a tool", on: (page) => page === "check" },
-  { href: "#/report", label: "Report", on: (page) => page === "report" },
-  { href: "#/protect", label: "Protect an agent", on: (page) => page === "protect" },
-  { href: "#/issue", label: "Recall a tool", on: (page) => page === "issue" },
+  { href: "#/report", label: "Open a recall", on: (page) => page === "report" || page === "issue" },
+  { href: "#/register", label: "Register an agent", on: (page) => page === "register" },
 ]
 
 const TITLES: Record<string, string> = {
@@ -43,10 +41,11 @@ const TITLES: Record<string, string> = {
   recalls: "Recalls",
   recall: "Recall record",
   check: "Check a tool",
-  report: "Report",
+  report: "Open a recall",
   network: "Network",
-  protect: "Protect an agent",
-  issue: "Recall a tool",
+  issue: "Stop it as the owner",
+  register: "Register an agent",
+  login: "Log in with World",
 }
 
 export function WebApp() {
@@ -55,7 +54,7 @@ export function WebApp() {
   const [menu, setMenu] = useState(false)
   useEffect(() => setMenu(false), [route])
   useEffect(() => {
-    document.title = `CeaseNet — ${TITLES[page] ?? (HOSTED ? "Recalls for AI agents" : "Live demo")}`
+    document.title = `CeaseNet — ${TITLES[page] ?? "Recalls for AI agents"}`
   }, [page])
   useEffect(() => {
     if (!menu) return
@@ -79,14 +78,14 @@ export function WebApp() {
       <ReportPage key={arg} agent={arg || undefined} />
     ) : page === "network" ? (
       <NetworkPage />
-    ) : page === "protect" ? (
-      <ProtectPage key={arg} suggested={arg} />
     ) : page === "issue" ? (
       <IssuePage />
-    ) : HOSTED ? (
-      <PublicHome />
+    ) : page === "register" ? (
+      <RegisterPage />
+    ) : page === "login" ? (
+      <LoginPage next={route.split("/").slice(1).join("/")} />
     ) : (
-      <LivePage />
+      <PublicHome />
     )
 
   return (
@@ -115,6 +114,7 @@ export function WebApp() {
             </a>
           ))}
         </nav>
+        <LoginBadge route={route} />
         <button className="mobile-toggle" aria-label={menu ? "Close navigation" : "Open navigation"} aria-expanded={menu} aria-controls="mobile-nav" onClick={() => setMenu(!menu)}>
           <Icon name={menu ? "close" : "menu"} />
         </button>
@@ -127,6 +127,9 @@ export function WebApp() {
                 {n.label}
               </a>
             ))}
+            <a href="#/login" className={page === "login" ? "active" : ""} aria-current={page === "login" ? "page" : undefined} onClick={() => setMenu(false)}>
+              Log in with World
+            </a>
           </motion.nav>
         )}
       </AnimatePresence>

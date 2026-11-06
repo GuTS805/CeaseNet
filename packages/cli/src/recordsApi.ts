@@ -255,13 +255,14 @@ export function recordsService(ctx: RecordsContext) {
       const reason = recallReasonFor(report)
       const { entityKey } = await ctx.timed(() =>
         report.kind === "agent"
-          ? stopAgent(ledger, config, report.about[0]!.address, reason)
+          ? stopAgent(ledger, config, report.about[0]!.address, reason, report.key)
           : stopTool(ledger, config, {
               ...(report.artifact.startsWith("0x") ? { hash: report.artifact } : {}),
               name: report.pkg ?? report.target,
               versions: report.versions ?? "*",
               reason,
               severity: "HIGH",
+              approves: report.key,
             }),
       )
       markHandled(report.key, "recalled", entityKey)
