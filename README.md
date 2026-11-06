@@ -71,7 +71,7 @@ From a terminal, `ceasenet stop trade-broker-tool --reason "It fills orders at t
 
 Each card then shows how long closing took, that the system confirms the process has gone, and whether its receipt is on the list. In our runs they decided to close in about 0.3 s on this machine, and about 5 s on the public list, where the recall's transaction has to confirm first.
 
-They think with the model in your settings, which can be any service that speaks the OpenAI chat API (Groq's free tier works), or with Claude Code if there is none. You can switch at the top of the page. Each terminal runs for 20 minutes. Started from the console alone, with no terminal, they pause after 2 minutes with nobody looking and shut down after 15. A free-tier key has a daily allowance for each model, and the page says when one is used up. On Groq's free tier that is 200,000 tokens a day for each model, and one 20-minute session with three agents uses roughly half of it, so switch model if one runs out.
+They think with the model in your settings, which can be any service that speaks the OpenAI chat API (Groq's free tier works), or with Claude Code if there is none. You can switch at the top of the page. Each terminal runs for 20 minutes. Started from the console alone, with no terminal, they pause after 2 minutes with nobody looking and shut down after 15. A free-tier key has a daily allowance for each model, and the page says when one is used up. On Groq's free tier the default model gets 200,000 tokens a day, and one 20-minute session with three agents uses roughly half of that, so switch model if it runs out.
 
 ## Stop agents and recall tools
 
