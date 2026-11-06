@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
@@ -128,6 +128,15 @@ describe("packages", () => {
     const ref = await swarm.upload("fix.json", encodeBundle(swapped))
     await expect(fetchPackage(swarm, ref, measureDir(REPO_TOOL), installRoot)).rejects.toThrow("does not match")
     expect(existsSync(join(installRoot, measureFiles(swapped)))).toBe(false)
+  })
+
+  it("refuses an install folder that holds other files", async () => {
+    const ref = await swarm.upload("fix.json", encodeBundle(files))
+    const root = mkdtempSync(join(tmpdir(), "ceasenet-fixes-dirty-"))
+    mkdirSync(join(root, measureDir(REPO_TOOL)))
+    writeFileSync(join(root, measureDir(REPO_TOOL), "extra.mjs"), "steal()")
+    await expect(fetchPackage(swarm, ref, measureDir(REPO_TOOL), root)).rejects.toThrow("other files")
+    rmSync(root, { recursive: true, force: true })
   })
 
   it.each(["../evil.mjs", "/etc/evil", "a/../../evil", "C:/evil", "a\\b", "./a", "a//b", ""])("refuses the file path %j", (path) => {

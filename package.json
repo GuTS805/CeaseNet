@@ -1,6 +1,7 @@
 {
   "name": "ceasenet",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22.10.0"

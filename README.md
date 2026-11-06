@@ -44,6 +44,7 @@ To run the whole demo with your own wallets:
 cp .env.example .env
 npm run keys        # creates a test phrase in .env and writes your addresses to deployment.json
 # Claim tGLM for the "treasury" address at https://hub.arkiv.network/faucet
+# For the diary, also claim 0G testnet tokens for that same address
 npm run fund
 npm run seed        # publishes the demo's tools, passports and trust lists
 npm run demo        # the agents. Needs ZG_API_KEY. Without one, npm run demo:dev uses built-in rules and says so on screen

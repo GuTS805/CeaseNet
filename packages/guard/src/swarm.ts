@@ -10,6 +10,7 @@ import {
   type LoadedFile,
   measureFiles,
 } from "@ceasenet/core"
+import { measureDir } from "./measure"
 
 const TIMEOUT_MS = 60_000
 const MAX_READ_BYTES = 20 * 1024 * 1024
@@ -93,6 +94,8 @@ export async function fetchPackage(
     mkdirSync(dirname(path), { recursive: true })
     writeFileSync(path, f.content)
   }
+  // Anything left in that folder from before would run too, so what is on disk has to measure the same.
+  if (measureDir(dir).toLowerCase() !== actual.toLowerCase()) throw new Error(`${dir} holds other files, so the fix was not installed`)
   return { dir, file }
 }
 
