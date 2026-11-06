@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs"
-import { basename, dirname, isAbsolute, join, resolve as resolvePath } from "node:path"
+import { basename, dirname, isAbsolute, join, resolve as resolvePath, win32 } from "node:path"
 import { hashBytes, type LoadedFile, measureFiles } from "@ceasenet/core"
 import { measurePackage, readPackage } from "@ceasenet/guard"
 import spawn from "cross-spawn"
@@ -28,9 +28,12 @@ export interface NpxCommand {
   rest: string[]
 }
 
+/** The program's own name, lower case. It splits on both slashes, so a Windows path reads the same on any system. */
+const programName = (command: string): string => win32.basename(command).toLowerCase()
+
 /** Clients on Windows often start a server through cmd. What matters is the command inside. */
 export function unwrapShell(command: string, args: readonly string[]): { command: string; args: string[] } {
-  const name = basename(command).toLowerCase()
+  const name = programName(command)
   const flag = args[0]?.toLowerCase()
   if ((name === "cmd" || name === "cmd.exe") && (flag === "/c" || flag === "/k") && args[1]) {
     return { command: args[1], args: args.slice(2) }
@@ -42,7 +45,7 @@ const NPX_FLAGS_WITH_VALUE = new Set(["-p", "--package", "-c", "--call", "--cach
 
 /** Reads what an `npx` line is asking for. Undefined when it is not one, or when it is something too unusual to pin safely. */
 export function parseNpx(command: string, args: readonly string[]): NpxCommand | undefined {
-  const name = basename(command).toLowerCase().replace(/\.(cmd|exe|ps1)$/, "")
+  const name = programName(command).replace(/\.(cmd|exe|ps1)$/, "")
   if (name !== "npx") return undefined
   let spec: string | undefined
   let pkg: string | undefined
@@ -251,7 +254,7 @@ const COMMAND_VERSION = "0.0.0"
 
 /** A short name for a tool known only by how it is started. */
 export function nameFromCommand(command: string, args: readonly string[]): string {
-  const base = basename(command).toLowerCase().replace(/\.(cmd|exe|ps1)$/, "")
+  const base = programName(command).replace(/\.(cmd|exe|ps1)$/, "")
   const words = args.filter((a) => !a.startsWith("-"))
   if (base === "uvx" || base === "pipx" || base === "bunx") return parseSpec(words[base === "pipx" && words[0] === "run" ? 1 : 0] ?? base).name
   if (base === "docker") return words[words.length - 1]?.split(":")[0] ?? base
