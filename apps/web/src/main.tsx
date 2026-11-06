@@ -17,6 +17,7 @@ import { HOSTED } from "./lib"
 import { LivePage } from "./LivePage"
 import { PublicHome } from "./PublicHome"
 import { RecallPage, RecallsPage } from "./RecallPages"
+import { ReportPage } from "./ReportPage"
 
 function useHash() {
   const [hash, setHash] = useState(window.location.hash)
@@ -48,6 +49,9 @@ function App() {
           <a className={page === "check" ? "on" : ""} href="#/check">
             Check a tool
           </a>
+          <a className={page === "report" ? "on" : ""} href="#/report">
+            Report
+          </a>
         </nav>
       </header>
       {page === "agent" ? (
@@ -58,6 +62,8 @@ function App() {
         <RecallPage key={arg} recallKey={arg as Hex} />
       ) : page === "check" ? (
         <CheckPage />
+      ) : page === "report" ? (
+        <ReportPage key={arg} agent={arg || undefined} />
       ) : HOSTED ? (
         <PublicHome />
       ) : (

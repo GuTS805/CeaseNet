@@ -3,8 +3,12 @@ import type { BoardAgent } from "./board"
 import { ADDRESSES, DEMO_OWNERS, demoPolicy } from "./deployment"
 import {
   type DisclosureRow,
+  readAcks,
   readAcksByAgents,
   readAgents,
+  readAllAgents,
+  readAllArtifacts,
+  readAllRecalls,
   readArtifacts,
   readDisclosures,
   readEndorsements,
@@ -15,6 +19,8 @@ import {
   readTrustPolicy,
 } from "./reader"
 import type { AckRow, ArtifactRow, EndorseRow, LiftRow, RecallRow } from "./types"
+
+const PUBLIC_AGENT_LIMIT = 50
 
 export interface PublicView {
   block: bigint
@@ -28,7 +34,57 @@ export interface PublicView {
   disclosures: DisclosureRow[]
 }
 
-/** Everything the public pages show. Read straight from Arkiv, with no server of ours in between. */
+/**
+ * The whole public list, from anyone, for pages that show it to anyone.
+ *
+ * Anyone can write a record, so nothing here says a recall is binding, only who issued it. Whether it binds an
+ * agent depends on whether that agent's owner follows that key. Each recall can be ended only by its own issuer.
+ */
+export async function readWholeList(client: ArkivPublic): Promise<PublicView> {
+  const [passports, { rows, block }, artifacts] = await Promise.all([readAllAgents(client, PUBLIC_AGENT_LIMIT), readAllRecalls(client), readAllArtifacts(client)])
+  const agents = await Promise.all(
+    passports.map(async (agent) => {
+      const [loadout, heartbeat, policy] = await Promise.all([
+        readLatestLoadout(client, agent.agent),
+        readHeartbeat(client, agent.agent),
+        readTrustPolicy(client, agent.owner),
+      ])
+      return { agent, loadout, heartbeat, policy } satisfies BoardAgent
+    }),
+  )
+  // A STOP says who issued it and binds only those who follow that key. A report means nothing unless a verifier
+  // checked the people behind it, so one from any other key is not shown at all.
+  const recalls = rows.filter((r) => r.level === "STOP" || r.creator.toLowerCase() === ADDRESSES.verifier.toLowerCase()).sort((a, b) => Number(b.createdAt - a.createdAt))
+  const keys = recalls.map((r) => r.key)
+  const advisoryIssuers = [...new Set(recalls.filter((r) => r.level === "ADVISORY").map((r) => r.creator))]
+  const [acks, lifts, endorsements, disclosures] = await Promise.all([
+    readAcks(client, keys),
+    readLifts(client, keys),
+    Promise.all(
+      advisoryIssuers.map((issuer) =>
+        readEndorsements(
+          client,
+          recalls.filter((r) => r.level === "ADVISORY" && r.creator === issuer).map((r) => r.key),
+          issuer,
+        ),
+      ),
+    ).then((groups) => groups.flat()),
+    readDisclosures(client, keys),
+  ])
+  const issuerOf = new Map(recalls.map((r) => [r.key, r.creator.toLowerCase()]))
+  return {
+    block,
+    agents,
+    recalls,
+    acks,
+    lifts,
+    endorsements,
+    artifacts,
+    disclosures: disclosures.filter((d) => d.creator.toLowerCase() === issuerOf.get(d.recall)),
+  }
+}
+
+/** What the scripted demo's pages show: only its own companies, and the keys they follow. */
 export async function readPublicView(client: ArkivPublic, owners: readonly string[] = DEMO_OWNERS): Promise<PublicView> {
   const defaults = demoPolicy()
   const passports = await readAgents(client, owners)

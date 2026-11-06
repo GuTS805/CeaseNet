@@ -2,25 +2,29 @@ import { useState } from "react"
 import {
   countConfirmations,
   decodeBundle,
-  demoPolicy,
   type Hex,
   isDismissed,
+  isKillRecall,
   isWithdrawn,
   type LiftRow,
   measureFiles,
   type PublicView,
   type RecallRow,
-  trustFromPolicy,
 } from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
-import { explorerAddress, nameOf, shortHash, SWARM_GATEWAY, swarmLink, usePublicView } from "./lib"
+import { explorerAddress, HOSTED, nameOf, shortHash, SWARM_GATEWAY, swarmLink, trustForRecall, usePublicView } from "./lib"
 import { WorldConfirm } from "./WorldConfirm"
 
-const trust = trustFromPolicy(demoPolicy())
+const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : r.severity === "REPORT" ? "Report" : "Warning")
 
-const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : "Warning")
+/** What a recall is aimed at, in a few words. */
+const targetOf = (r: RecallRow) => {
+  if (r.artifact.startsWith("agent:")) return `Agent ${shortHash(r.artifact.slice(6))}`
+  if (r.artifact.startsWith("fleet:")) return `All agents of ${shortHash(r.artifact.slice(6))}`
+  return r.pkg ? `${r.pkg}${r.versions && r.versions !== "*" ? ` ${r.versions}` : ""}` : shortHash(r.artifact)
+}
 
-/** Every recall from a key the demo's owners follow, newest first. */
+/** Every recall on record, newest first. On the demo's pages, only those from keys its owners follow. */
 export function RecallList({ view }: { view: PublicView }) {
   if (view.recalls.length === 0) return <p className="muted">No recalls on record.</p>
   return (
@@ -29,6 +33,7 @@ export function RecallList({ view }: { view: PublicView }) {
         <thead>
           <tr>
             <th>Level</th>
+            <th>Aimed at</th>
             <th>Reason</th>
             <th>Issued by</th>
             <th>Block</th>
@@ -40,6 +45,7 @@ export function RecallList({ view }: { view: PublicView }) {
               <td>
                 <a href={`#/recall/${r.key}`}>{levelName(r)}</a>
               </td>
+              <td>{targetOf(r)}</td>
               <td>{r.reason}</td>
               <td>{nameOf(r.creator)}</td>
               <td className="mono muted">{String(r.createdAt)}</td>
@@ -58,8 +64,12 @@ export function RecallsPage() {
   return (
     <div className="page">
       <h1 style={{ marginBottom: 4 }}>Recalls</h1>
+      <p style={{ marginTop: 0 }}>
+        <a href="#/report">Report an agent or a tool</a>
+      </p>
       <p className="muted" style={{ marginTop: 0 }}>
         Read straight from Arkiv in your browser. No server of ours is involved.
+        {HOSTED && " Anyone can publish a recall, so this list shows them all with who issued each one. A recall binds only the agents whose owners follow that key."}
       </p>
       <RecallList view={view} />
     </div>
@@ -122,14 +132,17 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
         <div className="notice bad">
           {receipt
             ? `This recall is no longer on Arkiv, but agents posted receipts for it, which proves it existed. Issued by ${nameOf(receipt.issuer)} (${receipt.issuer}), content hash ${receipt.recallHash}.`
-            : "No key the demo's owners follow has issued a recall with this key."}
+            : "There is no recall with this key on the list."}
         </div>
       </div>
     )
   }
 
+  const trust = trustForRecall(recall)
   const lifts = view.lifts.filter((l) => l.recall === recall.key)
   const counts = countConfirmations(recall, view.endorsements, view.block, trust)
+  const simulated = new Set(view.endorsements.filter((e) => e.recall === recall.key && e.stance === "CONFIRM" && e.human.startsWith("simulated-")).map((e) => e.human)).size
+  const isReport = recall.severity === "REPORT"
   const fix = lifts.find((l) => l.kind === "FIX")
   const ended = recall.level === "STOP" ? isWithdrawn(recall, lifts, trust) : isDismissed(recall, lifts, trust)
   const known = view.artifacts.find((a) => a.hash.toLowerCase() === recall.artifact.toLowerCase())
@@ -157,8 +170,8 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
               </tr>
             )}
             <tr>
-              <th>Exact file</th>
-              <td className="mono">{recall.artifact}</td>
+              <th>{isKillRecall(recall.artifact) ? "Aimed at" : "Exact file"}</th>
+              <td className="mono">{recall.artifact.startsWith("agent:") ? <a href={`#/agent/${recall.artifact.slice(6)}`}>{recall.artifact}</a> : recall.artifact}</td>
             </tr>
             {recall.pkg && recall.versions && (
               <tr>
@@ -197,16 +210,22 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
 
       {recall.level === "ADVISORY" && (
         <div className="card">
-          <h2>Confirmed by real people</h2>
+          <h2>{isReport ? "Votes" : "Confirmed by real people"}</h2>
           <div className="big">
             {counts.confirms} of {trust.threshold}
           </div>
+          {simulated > 0 && (
+            <div className="notice" style={{ margin: "8px 0" }}>
+              {simulated} of these {simulated === 1 ? "is" : "are"} simulated, in test mode, and not real people. Each says so on the public record.
+            </div>
+          )}
           <div className="meter">
             <div style={{ width: `${Math.min(100, (counts.effective / trust.threshold) * 100)}%` }} />
           </div>
           <p className="small muted" style={{ marginBottom: 0 }}>
-            {counts.disputes} disputed. At {trust.threshold} confirmations within 72 hours, while confirmations outnumber disputes,
-            agents must ask a human before using this tool. Only the keys an owner follows can stop it outright.
+            {isReport
+              ? `${counts.disputes} against. At ${trust.threshold} votes within 72 hours, while votes for outnumber votes against, its owner is told, and they decide whether to issue a recall. Votes alone stop nothing. World ID shows each vote is a different real person, without saying who.`
+              : `${counts.disputes} disputed. At ${trust.threshold} confirmations within 72 hours, while confirmations outnumber disputes, agents must ask a human before using this tool. Only the keys an owner follows can stop it outright.`}
           </p>
           <div style={{ marginTop: 10 }}>
             <WorldConfirm recall={recall.key} />
@@ -241,7 +260,8 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
         </div>
       )}
 
-      <RecallBoardCard recall={recall} view={view} />
+      {/* A report is not an order, so there is nothing for anyone to obey until its owner issues a recall. */}
+      {!isReport && <RecallBoardCard recall={recall} view={view} />}
     </div>
   )
 }

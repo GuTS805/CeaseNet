@@ -9,7 +9,7 @@ Rules for the video: your own voice (no AI voice or text-to-speech), no speed-up
 ```bash
 npm run reset && npm run seed
 npm run demo        # the real model. Check the page does NOT say "built-in rules"
-npm run web
+npm run web:demo
 npm run verifier
 ```
 

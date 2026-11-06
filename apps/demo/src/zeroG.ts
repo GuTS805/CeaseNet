@@ -36,6 +36,11 @@ export class ZeroGStore implements DiaryStore {
     return this.signer.address
   }
 
+  /** What this wallet has left for storing things, in the smallest unit. */
+  async balance(): Promise<bigint> {
+    return this.signer.provider!.getBalance(this.signer.address)
+  }
+
   put(bytes: Uint8Array): Promise<{ root: string }> {
     const run = this.queue.then(() => this.upload(bytes))
     this.queue = run.catch(() => undefined)

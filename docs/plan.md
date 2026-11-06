@@ -38,6 +38,34 @@ Existing products leave a gap. Runtime gateways are run per company, with no sha
 10. Documents, demo and submission
 11. The live screen: the map, the stranger's inbox, the strip of blocks, the erase moment and sound
 
+## From a demo to a product
+
+After the event's build, the project moved from a scripted demo to something people can put in front of their own agents. The gate did not change, and these were added around it:
+
+| Decision | Why |
+|---|---|
+| One program, `ceasenet`, installed in one step | Everything else assumed a clone of this repository and the demo's keys |
+| `protect` rewrites a client's settings, and `unprotect` undoes it exactly | Nobody adopts something that needs code changes, or that they can't take back out |
+| You obey only yourself until you say otherwise | The demo's keys had no business being trusted on anyone's machine |
+| A STOP ends the tool's process, and a recalled tool is never started | Refusing calls left a recalled tool running, free to do what it liked in the background |
+| Stopping an agent is a STOP aimed at the agent itself | It needed no new path through the gate, so every existing rule applies to it, including lifts, receipts and deleted STOPs |
+| A hook covers Claude Code's own tools | Its Bash tool never passes through MCP, so a stop that missed it was not a stop |
+| Gates decide alone, and one background process does all the writing | Writes from one key must go out one at a time, and nothing about reporting should be able to let a call through |
+| Local mode, on a file | So it works in the first minute, and can be tested end to end with no wallet |
+
+## Keeping a record, and letting people report
+
+| Decision | Why |
+|---|---|
+| Every call goes in the diary, with its contents | The question after something goes wrong is what exactly did it do, and a hash alone cannot answer that |
+| Contents are sealed to the owner's key on real agents | Storage is public and permanent, and a call can hold a customer's details. The three sample agents stay in the open, because they work on sample files |
+| A guard only writes to a local file, and one service stores it | A guard holds no keys and must not depend on a network, and uploads from one wallet have to go one at a time |
+| One part per agent every 2 minutes, and at once on closing | A part costs real tokens, and what an agent did just before closing is what people will want to see |
+| The owner's wallet pays, and the index may be written by the owner | So an owner funds one wallet. Readers accept the agent's key or its owner's, and nobody else's |
+| Votes tell the owner, and stop nothing | A crowd must not be able to switch off someone's agent, so the old rule that confirmations make every call wait for a person is not used here. An owner can still follow a verifier for that, in the gate's trust list |
+| Reports are read from the chain whatever the owner's mode | A person with no connection to the owner has to be able to reach them |
+| Filing counts as the filer's vote, using the same World ID action | So the same person cannot file a report and then vote on it as well |
+
 ## What we cut
 
 - Robots and physical AI: on the `robots` branch.

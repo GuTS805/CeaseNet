@@ -71,7 +71,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   const env = { ...process.env }
   delete env.CEASENET_AGENT_KEY
   delete env.WORLD_IDP_CLIENT_SECRET
-  const child = runProxy({
+  const proxy = runProxy({
     guard,
     file,
     command,
@@ -81,8 +81,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     output: process.stdout,
     log: (line) => console.error(`ceasenet-guard: ${line}`),
   })
-  child.on("exit", (code) => process.exit(code ?? 1))
-  child.on("error", (e) => {
+  proxy.on("exit", (code: number | null) => process.exit(code ?? 1))
+  proxy.on("error", (e: Error) => {
     console.error(`ceasenet-guard: could not start the tool: ${e.message}`)
     process.exit(1)
   })

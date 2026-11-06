@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest"
 import {
+  agentArtifact,
   decodeMemory,
   encodeMemory,
+  fleetArtifact,
   GateRunner,
   type GateView,
+  identityFiles,
   memoryStore,
+  verdictFor,
 } from "../src/index"
 import type { Hex, LiftRow, LoadedFile, RecallRow, TrustPolicy } from "../src/types"
 
@@ -64,6 +68,84 @@ const make = (store = memoryStore()) => {
 const fail = async (): Promise<GateView> => {
   throw new Error("no network")
 }
+
+describe("restarting during an outage", () => {
+  it("does not get a new grace period", async () => {
+    const first = make()
+    await first.runner.check([file(H)], async () => view())
+
+    // A long way into an outage, the agent restarts and Arkiv is still out of reach.
+    const clock = { t: 5000 }
+    const restarted = new GateRunner({ policy, timers: { graceMs: 1000, offlineSupervisedMs: 1000 }, store: first.store, now: () => clock.t })
+    const after = await restarted.check([file(H)], fail)
+    expect(after.decision.tools[0]!.decision.mode).toBe("STOPPED")
+  })
+
+  it("keeps the time across a save to disk", async () => {
+    const store = memoryStore()
+    const { runner } = make(store)
+    await runner.check([file(H)], async () => view())
+    expect(decodeMemory(encodeMemory(store.load()!)).lastReadOk).toBe(0)
+  })
+})
+
+describe("stopping a whole agent", () => {
+  const AGENT = "0x00000000000000000000000000000000000000EE"
+  const OWNER = "0x00000000000000000000000000000000000000FF"
+  const ownerPolicy: TrustPolicy = { ...policy, issuers: [OWNER] }
+  const run = () => new GateRunner({ policy: ownerPolicy, timers: { graceMs: 1000, offlineSupervisedMs: 1000 }, store: memoryStore() })
+  const files = [file(H), file(FIXED), ...identityFiles(AGENT, OWNER)]
+  const stopping = (artifact: string, creator: Hex = OWNER): RecallRow => ({ ...STOP, artifact, creator })
+
+  const modes = (result: Awaited<ReturnType<GateRunner["check"]>>) => [result.decision.core.mode, verdicts(result)]
+  const verdicts = (result: Awaited<ReturnType<GateRunner["check"]>>) => result.decision.tools.map((t) => verdictFor(result.decision, t.file.hash))
+
+  it("leaves everything running until its owner says so", async () => {
+    const result = await run().check(files, async () => view())
+    expect(modes(result)).toEqual(["RUNNING", ["ALLOW", "ALLOW"]])
+  })
+
+  it("refuses every tool once its owner stops the agent", async () => {
+    const result = await run().check(files, async () => view({ stops: [stopping(agentArtifact(AGENT))] }))
+    expect(modes(result)).toEqual(["STOPPED", ["BLOCK", "BLOCK"]])
+  })
+
+  it("refuses every tool once its owner stops the fleet", async () => {
+    const result = await run().check(files, async () => view({ stops: [stopping(fleetArtifact(OWNER))] }))
+    expect(modes(result)).toEqual(["STOPPED", ["BLOCK", "BLOCK"]])
+  })
+
+  it("is not stopped by a STOP aimed at a different agent", async () => {
+    const result = await run().check(files, async () => view({ stops: [stopping(agentArtifact("0x00000000000000000000000000000000000000AB"))] }))
+    expect(modes(result)).toEqual(["RUNNING", ["ALLOW", "ALLOW"]])
+  })
+
+  it("is not stopped by anyone but a key its owner trusts", async () => {
+    const result = await run().check(files, async () => view({ stops: [stopping(agentArtifact(AGENT), OUTSIDER)] }))
+    expect(modes(result)).toEqual(["RUNNING", ["ALLOW", "ALLOW"]])
+  })
+
+  it("starts again when its owner lifts the STOP", async () => {
+    const stop = stopping(agentArtifact(AGENT))
+    const lift: LiftRow = { key: "0x03", recall: stop.key, artifact: stop.artifact, kind: "WITHDRAWN", creator: OWNER, createdAt: 9n }
+    const runner = run()
+    await runner.check(files, async () => view({ stops: [stop] }))
+    const result = await runner.check(files, async () => view({ stops: [stop], lifts: [lift] }))
+    expect(modes(result)).toEqual(["RUNNING", ["ALLOW", "ALLOW"]])
+  })
+
+  it("stays stopped if the owner's STOP is deleted rather than lifted", async () => {
+    const runner = run()
+    await runner.check(files, async () => view({ stops: [stopping(agentArtifact(AGENT))] }))
+    const result = await runner.check(files, async () => view())
+    expect(modes(result)).toEqual(["STOPPED", ["BLOCK", "BLOCK"]])
+  })
+
+  it("owes a receipt for the stop", async () => {
+    const result = await run().check(files, async () => view({ stops: [stopping(agentArtifact(AGENT))] }))
+    expect(result.acks.map((a) => a.action)).toEqual(["BLOCKED"])
+  })
+})
 
 describe("GateRunner", () => {
   it("stops, owes one receipt, and stops owing it once sent", async () => {

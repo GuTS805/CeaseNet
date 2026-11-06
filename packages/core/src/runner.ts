@@ -26,6 +26,8 @@ export interface GateMemory {
   vanished: Hex[]
   /** The owner's trust list as last read, so it still applies while Arkiv cannot be reached. */
   policy?: TrustPolicy
+  /** When the list was last read. Kept so that restarting during an outage cannot buy a new grace period. */
+  lastReadOk?: number
 }
 
 export interface GateStore {
@@ -93,7 +95,7 @@ export class GateRunner {
   ) {
     this.memory = options.store.load() ?? { stops: [], lifts: [], acked: [], supervised: [], vanished: [] }
     this.policy = this.memory.policy ?? options.policy
-    this.lastReadOk = this.now()
+    this.lastReadOk = this.memory.lastReadOk ?? this.now()
   }
 
   private now(): number {
@@ -125,6 +127,7 @@ export class GateRunner {
     const online = view !== undefined
     if (view) {
       this.lastReadOk = this.now()
+      this.memory.lastReadOk = this.lastReadOk
       this.lastBlock = view.block
       if (view.policy) {
         this.policy = view.policy

@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "arkiv_query",
+  "params": [
+    "arkiv.schema = str('ceasenet.diary')",
+    {
+      "select": {
+        "key": true,
+        "creator": true,
+        "createdAt": true,
+        "attributes": { "agent": true, "root": true, "head": true, "entries": true, "firstSeq": true, "lastSeq": true }
+      },
+      "limit": "0x14"
+    }
+  ]
+}

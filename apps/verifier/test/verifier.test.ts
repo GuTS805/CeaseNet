@@ -1,7 +1,7 @@
-import { confirmationSignal as signalFor, type EndorseRow, type Hex, type RecallRow, type Stance } from "@ceasenet/core"
+import { confirmationSignal as signalFor, type EndorseRow, type Hex, type RecallRow, reportSignal, type Stance } from "@ceasenet/core"
 import { hashSignal } from "@worldcoin/idkit-core/hashing"
 import { beforeEach, describe, expect, it } from "vitest"
-import { CONFIRM_ACTION, humanId, Refused, Verifier, type WorldEnvironment } from "../src/verifier"
+import { AlreadyReported, CONFIRM_ACTION, humanId, Refused, reportArtifact, Verifier, type WorldEnvironment } from "../src/verifier"
 
 const RECALL = `0x${"a".repeat(64)}` as Hex
 const OTHER = `0x${"b".repeat(64)}` as Hex
@@ -256,5 +256,122 @@ describe("when World says no", () => {
     const m = make({ world: () => new Response("not json", { status: 200 }) })
     await refusedWith(m.verifier.confirm({ recall: RECALL, stance: "CONFIRM", result: m.result() }), "world_rejected")
     expect(m.written).toEqual([])
+  })
+})
+
+describe("a person filing a report", () => {
+  const AGENT = "0x00000000000000000000000000000000000000ab"
+  const REASON = "It copies every email to a stranger"
+  const FILED = `0x${"c".repeat(64)}` as Hex
+
+  function reporter(over: { environment?: WorldEnvironment; allowSimulated?: boolean; open?: boolean; exists?: boolean; world?: () => Response } = {}) {
+    const environment = over.environment ?? "staging"
+    const reports: { artifact: string; reason: string; pkg?: string; versions?: string }[] = []
+    const votes: { recall: Hex; stance: Stance; human: string }[] = []
+    const verifier = new Verifier({
+      rpId: "rp_test",
+      signingKey: KEY,
+      environment,
+      readWarning: async (recall) => (recall === FILED ? { ...WARNING, key: FILED } : undefined),
+      readEndorsements: async () => [],
+      endorse: async (input) => {
+        votes.push(input)
+        return { entityKey: "0xe1" as Hex, txHash: "0xe2" as Hex }
+      },
+      readOpenReports: async () => (over.open ? [{ ...WARNING, key: FILED }] : []),
+      agentExists: async () => over.exists ?? true,
+      fileReport: async (input) => {
+        reports.push(input)
+        return { entityKey: FILED, txHash: "0xe2" as Hex }
+      },
+      allowSimulated: over.allowSimulated,
+      fetchImpl: (async () => over.world?.() ?? new Response(JSON.stringify({ success: true, environment }), { status: 200 })) as unknown as typeof fetch,
+    })
+    const result = (artifact = `agent:${AGENT}`, reason = REASON, nullifier = "777") => ({
+      protocol_version: "4.0",
+      nonce: verifier.rpSignature().nonce,
+      action: CONFIRM_ACTION,
+      environment,
+      responses: [{ identifier: "proof_of_human", issuer_schema_id: 1, signal_hash: hashSignal(reportSignal(artifact, reason)), nullifier, expires_at_min: 1, proof: ["1", "2", "3", "4", "5"] }],
+    })
+    return { verifier, reports, votes, result }
+  }
+
+  it("files it, and counts it as that person's vote", async () => {
+    const r = reporter()
+    const done = await r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result() })
+    expect(done.key).toBe(FILED)
+    expect(r.reports[0]).toMatchObject({ artifact: `agent:${AGENT}`, reason: REASON })
+    expect(r.votes).toEqual([{ recall: FILED, stance: "CONFIRM", human: humanId("777", FILED) }])
+  })
+
+  it("uses the same identity for the report and any vote, so nobody can count twice", async () => {
+    const r = reporter()
+    await r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result() })
+    // The value kept for voting on this report afterwards, from the same person, is the very same one.
+    expect(r.votes[0]!.human).toBe(humanId("777", FILED))
+  })
+
+  it("will not take a proof made for a different report", async () => {
+    const r = reporter()
+    await expect(r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result(`agent:${AGENT}`, "Something else entirely happened") })).rejects.toMatchObject({ code: "wrong_signal" })
+    expect(r.reports).toEqual([])
+  })
+
+  it("files nothing if World says no", async () => {
+    const r = reporter({ world: () => new Response(JSON.stringify({ success: false, code: "invalid_proof", detail: "no" }), { status: 400 }) })
+    await expect(r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result() })).rejects.toBeInstanceOf(Refused)
+    expect(r.reports).toEqual([])
+    expect(r.votes).toEqual([])
+  })
+
+  it("files nothing with no proof at all", async () => {
+    const r = reporter()
+    await expect(r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: undefined })).rejects.toBeInstanceOf(Refused)
+    expect(r.reports).toEqual([])
+  })
+
+  it("sends someone to the open report, rather than filing another", async () => {
+    const r = reporter({ open: true })
+    await expect(r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result() })).rejects.toBeInstanceOf(AlreadyReported)
+    expect(r.reports).toEqual([])
+  })
+
+  it("will not take a report about an agent nobody has registered", async () => {
+    const r = reporter({ exists: false })
+    await expect(r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result() })).rejects.toMatchObject({ code: "no_such_agent" })
+  })
+
+  it("wants a real reason", async () => {
+    const r = reporter()
+    await expect(r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: "bad", result: r.result() })).rejects.toMatchObject({ code: "bad_reason" })
+  })
+
+  it("limits how many one person can file", async () => {
+    const r = reporter()
+    for (let i = 0; i < 5; i++) await r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result() })
+    await expect(r.verifier.report({ target: { kind: "agent", address: AGENT }, reason: REASON, result: r.result() })).rejects.toMatchObject({ code: "too_many_reports" })
+  })
+
+  it("names a tool by package and version", () => {
+    expect(reportArtifact({ kind: "tool", name: "bad-tool", version: "1.2.3" })).toEqual({ artifact: "package:bad-tool", pkg: "bad-tool", versions: "1.2.3" })
+    expect(reportArtifact({ kind: "tool", name: "bad-tool" })).toMatchObject({ versions: "*" })
+    expect(() => reportArtifact({ kind: "agent", address: "nope" })).toThrow(/address/)
+  })
+
+  it("marks a simulated person as simulated, on the record", async () => {
+    const r = reporter({ allowSimulated: true })
+    await r.verifier.simulatedReport({ target: { kind: "agent", address: AGENT }, reason: REASON })
+    await r.verifier.simulatedVote(FILED)
+    expect(r.votes.every((v) => v.human.startsWith("simulated-"))).toBe(true)
+    expect(new Set(r.votes.map((v) => v.human)).size).toBe(2)
+  })
+
+  it("refuses simulated people unless asked for, and always in production", async () => {
+    await expect(reporter().verifier.simulatedVote(FILED)).rejects.toMatchObject({ code: "not_available" })
+    const production = reporter({ allowSimulated: true, environment: "production" })
+    await expect(production.verifier.simulatedVote(FILED)).rejects.toMatchObject({ code: "not_available" })
+    await expect(production.verifier.simulatedReport({ target: { kind: "agent", address: AGENT }, reason: REASON })).rejects.toMatchObject({ code: "not_available" })
+    expect(production.verifier.simulatedAllowed).toBe(false)
   })
 })

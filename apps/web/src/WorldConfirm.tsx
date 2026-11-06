@@ -8,6 +8,7 @@ interface WorldConfig {
   rpId: string
   action: string
   environment: "production" | "staging" | "sandbox"
+  simulated?: boolean
 }
 
 type Outcome = { kind: "counted"; stance: Stance } | { kind: "stopped"; message: string }
@@ -72,14 +73,26 @@ export function WorldConfirm({ recall }: { recall: Hex }) {
     <div className="world">
       <div className="buttons">
         <button className="primary" disabled={starting} onClick={() => void start("CONFIRM")}>
-          Confirm with World ID
+          Vote for this with World ID
         </button>
         <button disabled={starting} onClick={() => void start("DISPUTE")}>
-          Dispute with World ID
+          Vote against with World ID
         </button>
+        {config.simulated && (
+          <button
+            disabled={starting}
+            onClick={() =>
+              void post("/api/simulated/vote", { recall, stance: "CONFIRM" })
+                .then(() => setOutcome({ kind: "counted", stance: "CONFIRM" }))
+                .catch((e: Error) => setOutcome({ kind: "stopped", message: e.message }))
+            }
+          >
+            Add a simulated person
+          </button>
+        )}
       </div>
       {outcome?.kind === "counted" && (
-        <p className="ok small">{outcome.stance === "CONFIRM" ? "Your confirmation was counted." : "Your dispute was counted."} It shows up on Arkiv in a few seconds.</p>
+        <p className="ok small">{outcome.stance === "CONFIRM" ? "That vote was counted." : "Your vote against was counted."} It shows up on Arkiv in a few seconds.</p>
       )}
       {outcome?.kind === "stopped" && <p className="error">{outcome.message}</p>}
       {config.environment !== "production" && (

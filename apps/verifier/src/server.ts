@@ -6,11 +6,12 @@ import {
   ArkivWriter,
   type Hex,
   lower,
+  readAgent,
   readEndorsements,
   readRecallsBy,
 } from "@ceasenet/core"
 import { accountFor } from "../../../scripts/roles"
-import { CONFIRM_ACTION, Refused, Verifier, type WorldEnvironment } from "./verifier"
+import { AlreadyReported, CONFIRM_ACTION, Refused, Verifier, type WorldEnvironment } from "./verifier"
 
 const PORT = Number(process.env.VERIFIER_PORT ?? 8788)
 const MAX_BODY_BYTES = 64 * 1024
@@ -26,7 +27,7 @@ const appId = required("WORLD_APP_ID")
 const rpId = required("WORLD_RP_ID")
 const environment = (process.env.WORLD_ENVIRONMENT || "staging") as WorldEnvironment
 
-const accessKey = required("ARKIV_ACCESS_KEY")
+const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
 const client = arkivPublicClient(accessKey)
 const writer = new ArkivWriter(arkivWalletClient(accountFor("verifier"), accessKey))
 
@@ -40,6 +41,13 @@ const verifier = new Verifier({
   },
   readEndorsements: (recall) => readEndorsements(client, [recall], ADDRESSES.verifier),
   endorse: (input) => writer.endorse(input),
+  readOpenReports: async (artifact) => {
+    const { rows } = await readRecallsBy(client, [ADDRESSES.verifier])
+    return rows.filter((r) => r.level === "ADVISORY" && lower(r.artifact) === lower(artifact))
+  },
+  agentExists: async (address) => Boolean(await readAgent(client, address)),
+  fileReport: (input) => writer.advisory({ artifact: input.artifact, severity: "REPORT", reason: input.reason, pkg: input.pkg, versions: input.versions }),
+  allowSimulated: process.env.VERIFIER_ALLOW_SIMULATED === "1",
 })
 
 function send(res: ServerResponse, status: number, body: unknown) {
@@ -72,7 +80,7 @@ const server = createServer(async (req, res) => {
   const route = `${req.method} ${new URL(req.url ?? "/", "http://x").pathname}`
   try {
     // Only public values. The signing key stays here.
-    if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment })
+    if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment, simulated: verifier.simulatedAllowed })
     if (route === "POST /api/rp-signature") return send(res, 200, verifier.rpSignature())
     if (route === "POST /api/confirm") {
       const body = await readBody(req)
@@ -80,8 +88,27 @@ const server = createServer(async (req, res) => {
       log(`${body.stance} counted on ${body.recall}: ${done.key}`)
       return send(res, 200, done)
     }
+    if (route === "POST /api/report") {
+      const body = await readBody(req)
+      const done = await verifier.report({ target: body.target, reason: body.reason, result: body.result })
+      log(`report filed: ${done.key}`)
+      return send(res, 200, done)
+    }
+    if (route === "POST /api/simulated/report") {
+      const body = await readBody(req)
+      const done = await verifier.simulatedReport({ target: body.target, reason: body.reason })
+      log(`simulated report filed: ${done.key}`)
+      return send(res, 200, { ...done, simulated: true })
+    }
+    if (route === "POST /api/simulated/vote") {
+      const body = await readBody(req)
+      const done = await verifier.simulatedVote(body.recall as Hex, body.stance)
+      log(`simulated vote on ${body.recall}`)
+      return send(res, 200, { ...done, simulated: true })
+    }
     return send(res, 404, { error: "not found" })
   } catch (e) {
+    if (e instanceof AlreadyReported) return send(res, 409, { code: "already_reported", error: e.message, key: e.key })
     if (e instanceof Refused) {
       log(`refused ${route}: ${e.code}`)
       return send(res, 400, { code: e.code, error: e.message })

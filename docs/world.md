@@ -46,6 +46,16 @@ The harm is capped too: confirmations can only make agents ask a human. Only key
 - **Missing docs or capabilities:** the plain simulator link is one fixed identity, even across browsers. `/id/<value>` selects another identity, but a new one has no credentials, and we found no way to add them. A team demonstrating "3 different people" can't do it in the simulator. Our demo uses one real proof and labels the other two as simulated.
 - **Top improvement:** a documented way to give simulator identities a credential, so uniqueness can be tested and demonstrated.
 
+## Reports: anyone can raise a problem
+
+**Status: built, and tested against a stand-in for World's verify API.** It uses the same action, credential and server checks as the confirmations above, which have been accepted by World itself. Run the real path with `npm run verifier` and the simulator on the site's Report page.
+
+A person with no connection to an agent can report it. The trust event is the same one: is this a different real human? Filing uses the same action as voting, so World gives one person the same nullifier for both, and filing counts as their vote. Voting on their own report is refused as a second answer. The signal is the hash of what is reported and why, so a proof cannot be replayed to file something else.
+
+Votes never stop anything by themselves. At enough votes the owner is told, and decides.
+
+World's simulator can only ever be one identity, so `npm run verifier:test` adds simulated people, for showing the whole flow. Each one is marked `simulated-` on the public record and shown as simulated on every page, and the verifier refuses them in production.
+
 ## Agent Pass: a real person approves a paused call
 
 **Status: built, and tested against a local stand-in for World's service. Not yet run against World, because we couldn't register a client.** See the debrief below. Without credentials, the demo shows stand-in buttons labelled as such.

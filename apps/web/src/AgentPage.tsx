@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { deletedStops, type Hex, type DiaryRow, readDiaries, recallCovers, statusColourOf } from "@ceasenet/core"
+import { deletedStops, type Hex, type DiaryRow, readDiaryIndex, recallCovers, statusColourOf } from "@ceasenet/core"
 import { decodePart, type DiaryCheck, type DiaryEntry, verifyPart } from "@ceasenet/guard/diary"
 import { client, explorerAddress, nameOf, shortHash, statusLabel, usePoll, usePublicView } from "./lib"
 
@@ -51,8 +51,21 @@ function DiaryPart({ part }: { part: DiaryRow }) {
                 <tr key={e.seq}>
                   <td className="mono muted">{e.seq}</td>
                   <td>
-                    {e.kind === "CALL"
-                      ? `${e.action} on ${e.tool} ${e.version}: ${e.allowed ? "allowed" : "refused"}${e.approval ? ` (${e.approval.toLowerCase()})` : ""}`
+                    {e.kind === "CALL" ? (
+                      <>
+                        {`${e.action} on ${e.tool} ${e.version}: ${e.allowed ? "allowed" : "refused"}${e.approval ? ` (${e.approval.toLowerCase()})` : ""}`}
+                        {e.message && <div className="small muted">{e.message}</div>}
+                        {e.args !== undefined ? (
+                          <details>
+                            <summary className="small muted">See what it sent and got back</summary>
+                            <pre className="small">{JSON.stringify({ sent: e.args, got: e.result }, null, 2)}</pre>
+                          </details>
+                        ) : e.sealed ? (
+                          <div className="small muted">Contents sealed to the owner's key. Hash {shortHash(e.argsHash)}</div>
+                        ) : null}
+                      </>
+                    ) : e.kind === "NOTE"
+                      ? e.text
                       : e.kind === "RECEIPT"
                         ? `Receipt posted: ${e.action.toLowerCase()}`
                         : e.kind === "STATUS"
@@ -75,7 +88,8 @@ function DiaryPart({ part }: { part: DiaryRow }) {
 /** What anyone can see about an agent. Only records created by the right keys are shown. */
 export function AgentPage({ address }: { address: Hex }) {
   const { data: view, error } = usePublicView(3000)
-  const { data: diaries } = usePoll<DiaryRow[]>(() => readDiaries(client, address), 8000, [address])
+  const owner = view?.agents.find((a) => a.agent.agent.toLowerCase() === address.toLowerCase())?.agent.owner
+  const { data: diaries } = usePoll<DiaryRow[]>(() => readDiaryIndex(client, address, owner), 8000, [address, owner])
 
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
@@ -115,6 +129,17 @@ export function AgentPage({ address }: { address: Hex }) {
                 {shortHash(entry.agent.owner)}
               </a>
             </div>
+          </div>
+
+          <div className="field">
+            <div className="label">Fingerprint</div>
+            {entry.loadout?.fingerprint ? (
+              <div className="mono" title="What this agent is made of: its exact tools, model and instructions. Any change gives a new one.">
+                {entry.loadout.fingerprint}
+              </div>
+            ) : (
+              <div className="muted">Not published</div>
+            )}
           </div>
 
           <div className="field">
@@ -187,6 +212,8 @@ export function AgentPage({ address }: { address: Hex }) {
             <a href={explorerAddress(address)} target="_blank" rel="noreferrer">
               See this agent's records on the Arkiv explorer
             </a>
+            {" · "}
+            <a href={`#/report/${address}`}>Report this agent</a>
           </div>
         </div>
       </div>

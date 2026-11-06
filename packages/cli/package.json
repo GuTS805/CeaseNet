@@ -1,0 +1,29 @@
+{
+  "name": "ceasenet",
+  "version": "0.1.0",
+  "description": "Stop AI agents and recall the tools they use. A gate in front of any MCP server that obeys a public recall list.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.10.0"
+  },
+  "bin": {
+    "ceasenet": "dist/ceasenet.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "prepack": "node build.mjs"
+  },
+  "devDependencies": {
+    "@ceasenet/core": "*",
+    "@ceasenet/demo": "*",
+    "@ceasenet/guard": "*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "cross-spawn": "^7.0.6",
+    "esbuild": "^0.28.2",
+    "viem": "^2.38.2"
+  }
+}

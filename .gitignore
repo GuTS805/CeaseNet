@@ -34,3 +34,7 @@ desktop.ini
 
 # Local runtime state
 .ceasenet/
+
+# Packed releases, and what the build copies in for them
+*.tgz
+packages/cli/LICENSE

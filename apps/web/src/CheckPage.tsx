@@ -1,15 +1,14 @@
 import { useState } from "react"
-import { isDismissed, isWithdrawn, recallCovers, demoPolicy, trustFromPolicy, type LoadedFile, type RecallRow } from "@ceasenet/core"
-import { nameOf, usePublicView } from "./lib"
-
-const trust = trustFromPolicy(demoPolicy())
+import { isDismissed, isWithdrawn, recallCovers, type LoadedFile, type RecallRow } from "@ceasenet/core"
+import { nameOf, trustForRecall, usePublicView } from "./lib"
 
 /** Answers one question for anyone, with no account: is this tool recalled? */
 export function CheckPage() {
   const { data: view, error } = usePublicView(5000)
-  const [name, setName] = useState("demo-mail-tool")
-  const [version, setVersion] = useState("1.0.16")
+  const [name, setName] = useState("")
+  const [version, setVersion] = useState("")
   const [hash, setHash] = useState("")
+  const [issuer, setIssuer] = useState("")
 
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
@@ -17,9 +16,12 @@ export function CheckPage() {
   const file: LoadedFile = { kind: "tool", name: name.trim(), version: version.trim(), hash: hash.trim() || "0x" }
   const live = (r: RecallRow) => {
     const lifts = view.lifts.filter((l) => l.recall === r.key)
+    const trust = trustForRecall(r)
     return r.level === "STOP" ? !isWithdrawn(r, lifts, trust) : !isDismissed(r, lifts, trust)
   }
-  const matches = view.recalls.filter((r) => recallCovers(r, file) && live(r))
+  const fromIssuer = (r: RecallRow) => !issuer.trim() || r.creator.toLowerCase() === issuer.trim().toLowerCase()
+  const asked = Boolean(file.name || hash.trim())
+  const matches = asked ? view.recalls.filter((r) => recallCovers(r, file) && live(r) && fromIssuer(r)) : []
   const stops = matches.filter((r) => r.level === "STOP")
 
   return (
@@ -43,10 +45,16 @@ export function CheckPage() {
           Exact hash, if you have it
           <input value={hash} onChange={(e) => setHash(e.target.value)} placeholder="0x…" spellCheck={false} />
         </label>
+        <label>
+          Only from this key, if you follow one
+          <input value={issuer} onChange={(e) => setIssuer(e.target.value)} placeholder="0x…" spellCheck={false} />
+        </label>
       </div>
-      <div className={`plate-head ${stops.length ? "red" : matches.length ? "amber" : "green"} result`}>
-        {stops.length ? "Recalled. Do not use this." : matches.length ? "There is a warning about this." : "Nothing on the list covers this."}
-      </div>
+      {asked && (
+        <div className={`plate-head ${stops.length ? "red" : matches.length ? "amber" : "green"} result`}>
+          {stops.length ? `Recalled by ${stops.length === 1 ? "one key" : `${stops.length} keys`}. Check who issued it.` : matches.length ? "There is a warning about this." : "Nothing on the list covers this."}
+        </div>
+      )}
       {matches.map((r) => (
         <div className="card" key={r.key}>
           <a className="big" href={`#/recall/${r.key}`}>
@@ -59,8 +67,10 @@ export function CheckPage() {
           </div>
         </div>
       ))}
-      {matches.length === 0 && (
-        <p className="small muted">This only means no key the demo's owners follow has recalled it. It does not prove a tool is safe.</p>
+      {asked && (
+        <p className="small muted">
+          Anyone can publish a recall, so what matters is who issued it: it binds an agent only if its owner follows that key. And nothing on the list does not prove a tool is safe.
+        </p>
       )}
     </div>
   )

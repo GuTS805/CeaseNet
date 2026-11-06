@@ -47,7 +47,7 @@ The upload is a plain `POST /bzz?name=…` with the `swarm-postage-batch-id` hea
 
 1. Set `BEE_API_URL` and `SWARM_POSTAGE_BATCH_ID` in `.env`.
 2. Run `npm run swarm-check`. It stores a fix and sealed evidence, reads both back, and checks the hash and the seal.
-3. Run `npm run reset`, `npm run seed`, `npm run demo`, and `npm run web`.
+3. Run `npm run reset`, `npm run seed`, `npm run demo`, and `npm run web:demo`.
 4. Press **STOP**, then **Publish fix**. Agents report "downloaded from Swarm, hash checked".
 5. Open the recall and press **Download from Swarm and check**.
 6. Press **Open sealed evidence as the council**, then **Disclose publicly**.

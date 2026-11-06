@@ -19,6 +19,9 @@ export function canonicalJson(value: unknown): string {
 /** Ties a World ID proof to one warning and one answer, so it cannot be replayed on another. */
 export const confirmationSignal = (recall: string, stance: string): string => `${recall.toLowerCase()}:${stance}`
 
+/** Ties a World ID proof to one report, so it cannot be replayed to file a different one. */
+export const reportSignal = (artifact: string, reason: string): string => `report:${hashBytes(`${artifact.toLowerCase()}\n${reason}`)}`
+
 export interface RecallContent {
   artifact: string
   level: string

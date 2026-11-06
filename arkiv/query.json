@@ -3,7 +3,7 @@
   "id": 1,
   "method": "arkiv_query",
   "params": [
-    "arkiv.schema = str('ceasenet.recall') AND level = str('STOP') AND $creator = addr(0xd33611D47a70192F31CBa3Ac161d7061F276485f)",
+    "arkiv.schema = str('ceasenet.recall') AND level = str('STOP')",
     {
       "select": {
         "key": true,

@@ -9,15 +9,15 @@ Anyone can write an entity with any attributes, so labels prove nothing. Every r
 | Entity (`arkiv.schema`) | What it is | Created and owned by | Filtered on by our app | Editable? | Expires after |
 |---|---|---|---|---|---|
 | `ceasenet.recall`, level `STOP` | An order to stop using a tool, skill, model or prompt | A key on an owner's trust list: maker, registry or regulator | `$creator` | No. Read-only, and anyone can extend it | About 182 days (the maximum), and anyone can renew |
-| `ceasenet.recall`, level `ADVISORY` | A warning that real people can confirm | The verifier | `$creator` | No. Read-only | 72 hours, renewed by the verifier while confirmations arrive |
-| `ceasenet.endorse` | One person's confirmation or dispute of a warning. `human` is a hash scoped to that warning | The verifier, after World ID checks the proof | `recall` and `$creator` together | No. Read-only | 72 hours |
+| `ceasenet.recall`, level `ADVISORY` | A warning that real people can confirm, or with severity `REPORT`, a report from a person that others vote on | The verifier | `$creator` | No. Read-only | 72 hours, renewed by the verifier while confirmations arrive |
+| `ceasenet.endorse` | One person's vote on a report or warning. `human` is a hash scoped to that report, or starts `simulated-` for a stand-in in test mode | The verifier, after World ID checks the proof | `recall` and `$creator` together | No. Read-only | 72 hours |
 | `ceasenet.lift` | Ends a recall: `FIX`, `WITHDRAWN` or `DISMISSED`. A fix names `fixedHash`, `fixedVersion` and `fixedRef` (a public Swarm reference) | The key that issued the recall, or a regulator. Readers check this | `recall` | No. Read-only | About 182 days |
 | `ceasenet.ack` | An agent's receipt: `BLOCKED`, `SUPERVISED`, `CLEARED` or `UPDATED`, with the recall's content hash | The agent | `recall`, or `$creator` | No. Read-only | 180 days |
 | `ceasenet.agent` | An agent's passport: who is responsible for it | Its owner | `$creator`, or `agent` | No. Read-only | 180 days |
-| `ceasenet.loadout` | The exact files an agent loaded, one record per change | The agent. Optional | `$creator`, sorted by `seq`, newest first | No. Read-only | 180 days |
+| `ceasenet.loadout` | The exact files an agent loaded, one record per change, with its `fingerprint`: one searchable value for its tools, model and instructions | The agent. Optional | `$creator`, sorted by `seq`, newest first | No. Read-only | 180 days |
 | `ceasenet.heartbeat` | The agent's current status. One per agent, updated in place | The agent. Optional | `$creator` | Yes, by its owner | 30 seconds in the demo, 10 minutes in production. Expired reads as "unknown" |
 | `ceasenet.trust` | Whose STOPs an owner's agents obey. Each change is a new record | The owner | `$creator`, sorted by `seq`, newest first | No. Read-only, and the highest `seq` wins | 180 days |
-| `ceasenet.diary` | Index of one part of an agent's diary: `root` on 0G Storage, and `head`, the hash at the end of the part's chain | The agent | `$creator` | No. Read-only | 180 days |
+| `ceasenet.diary` | Index of one part of an agent's diary: `root` on 0G Storage, and `head`, the hash at the end of the part's chain | The agent, or its owner on its behalf | `agent` and `$creator` together | No. Read-only | 180 days |
 | `ceasenet.artifact` | A published file: hash, kind, name, version | Its maker or a registry | `$creator` | No. Read-only | 180 days |
 | `ceasenet.disclose` | The public description of a recall, with `reproductionRef` (a public Swarm reference) | The key that issued the recall, or a regulator. Readers check this | `recall` | No. Read-only | 180 days |
 

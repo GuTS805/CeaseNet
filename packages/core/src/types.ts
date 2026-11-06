@@ -100,6 +100,7 @@ export interface LoadoutRow {
   agent: Hex
   seq: bigint
   files: LoadedFile[]
+  fingerprint?: string
   creator: Hex
   createdAt: bigint
 }

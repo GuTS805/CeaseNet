@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./brain": "./src/brain.ts",
+    "./zeroG": "./src/zeroG.ts"
+  },
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.13",
     "@ceasenet/core": "*",

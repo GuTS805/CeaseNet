@@ -7,6 +7,7 @@ import {
   type GateStore,
   type GateView,
   type Hex,
+  isKillRecall,
   type LoadedFile,
   type Reason,
   type RecallRow,
@@ -31,6 +32,8 @@ export interface ApprovalRequest {
   file: LoadedFile
   action: string
   reason: string
+  /** What the call would do, for the person deciding. It stays on this machine. */
+  details?: string
 }
 
 /** Asks a human. It must honour the signal and answer EXPIRED if the signal fires. */
@@ -88,6 +91,8 @@ export class Guard {
   private readonly pendingAcks = new Set<string>()
   private lastStatus: AgentStatus = "RUNNING"
   private readonly opts: GuardOptions
+  private readonly checkListeners = new Set<() => void>()
+  private readonly reports = new Set<Promise<void>>()
 
   constructor(opts: GuardOptions) {
     this.opts = opts
@@ -114,6 +119,28 @@ export class Guard {
       .map((file) => ({ file, verdict: this.lastCheck ? verdictFor(this.lastCheck.decision, file.hash) : "BLOCK" }))
   }
 
+  /** The STOP in force on this file or on the agent itself, if any. Being offline is not a STOP. */
+  stopOn(file: LoadedFile): RecallRow | undefined {
+    const decision = this.lastCheck?.decision
+    if (!decision) return undefined
+    const tool = decision.tools.find((t) => lower(t.file.hash) === lower(file.hash))
+    return decision.core.activeStops[0] ?? tool?.decision.activeStops[0]
+  }
+
+  /** Called after every reading of the list. Returns a function that cancels it. */
+  onChecked(listener: () => void): () => void {
+    this.checkListeners.add(listener)
+    return () => void this.checkListeners.delete(listener)
+  }
+
+  /** Replaces what this agent has loaded, and publishes the change. */
+  async setFiles(files: LoadedFile[]): Promise<void> {
+    this.files = [...files]
+    this.seq += 1n
+    await this.opts.net.writeLoadout(this.seq, this.files)
+    await this.check(true)
+  }
+
   /** Publishes what this agent has loaded and takes the first reading. */
   async start(): Promise<void> {
     await this.opts.net.writeLoadout(this.seq, this.files)
@@ -123,7 +150,8 @@ export class Guard {
 
   /** Reads the recall list and applies the result. Runs on a timer and before every call. */
   check(force = false): Promise<void> {
-    if (this.checking) return this.checking
+    // A read already under way may have started before whatever prompted this one, so a forced check waits and reads again.
+    if (this.checking) return force ? this.checking.then(() => this.check(true)) : this.checking
     if (!force && this.now() - this.lastCheckAt < MIN_CHECK_GAP_MS) return Promise.resolve()
     this.lastCheckAt = this.now()
     const run = this.runCheck().finally(() => {
@@ -140,8 +168,9 @@ export class Guard {
     })
     this.lastCheck = result
     this.noteStatus()
+    for (const listener of this.checkListeners) listener()
     if (!result.online) return
-    for (const intent of result.acks) void this.sendAck(intent)
+    for (const intent of result.acks) this.track(this.sendAck(intent))
     for (const key of result.toExtend) this.opts.net.extendRecall(key).catch((e) => this.note(e))
   }
 
@@ -151,6 +180,16 @@ export class Guard {
     this.opts.onEvent?.({ kind: "STATUS", from: this.lastStatus, to })
     this.lastStatus = to
     void this.beat()
+  }
+
+  private track(report: Promise<void>): void {
+    this.reports.add(report)
+    void report.finally(() => this.reports.delete(report))
+  }
+
+  /** Waits for receipts already on their way, so something shutting down does not leave them unsent. */
+  async settle(): Promise<void> {
+    while (this.reports.size > 0) await Promise.allSettled([...this.reports])
   }
 
   private async sendAck(intent: AckIntent): Promise<void> {
@@ -170,13 +209,21 @@ export class Guard {
   }
 
   /** Decides one tool call. Nothing reaches the tool unless this says so. */
-  async beforeCall(file: LoadedFile, action: string): Promise<CallDecision> {
+  async beforeCall(file: LoadedFile, action: string, details?: string): Promise<CallDecision> {
     await this.check()
     let decision = this.decide(file)
 
     if (decision.verdict === "NEEDS_APPROVAL") {
-      decision = await this.askHuman(file, action, decision)
+      decision = await this.askHuman(file, action, decision, details)
     }
+    this.opts.onEvent?.({ kind: "CALL", file, action, decision })
+    return decision
+  }
+
+  /** A call the gate allows, that its owner has asked to approve anyway. A STOP still wins over any answer. */
+  async holdForHuman(file: LoadedFile, action: string, reason: string, details?: string): Promise<CallDecision> {
+    const needed: CallDecision = { allowed: false, verdict: "NEEDS_APPROVAL", message: reason }
+    const decision = await this.askHuman(file, action, needed, details)
     this.opts.onEvent?.({ kind: "CALL", file, action, decision })
     return decision
   }
@@ -205,7 +252,7 @@ export class Guard {
     }
   }
 
-  private async askHuman(file: LoadedFile, action: string, needed: CallDecision): Promise<CallDecision> {
+  private async askHuman(file: LoadedFile, action: string, needed: CallDecision, details?: string): Promise<CallDecision> {
     const approve = this.opts.approve
     if (!approve) return { ...needed, message: `${needed.message} Nobody is set up to approve it, so it is refused.` }
 
@@ -216,7 +263,7 @@ export class Guard {
     }, 500)
     let approval: ApprovalResult
     try {
-      approval = await approve({ file, action, reason: needed.message }, abort.signal)
+      approval = await approve({ file, action, reason: needed.message, details }, abort.signal)
     } finally {
       clearInterval(watch)
     }
@@ -257,10 +304,10 @@ export class Guard {
     return true
   }
 
-  async beat(): Promise<void> {
+  async beat(status: AgentStatus = this.status): Promise<void> {
     if (!this.networkUp) return
     try {
-      await this.opts.net.writeHeartbeat(this.status, this.seq)
+      await this.opts.net.writeHeartbeat(status, this.seq)
     } catch (e) {
       this.note(e)
     }
@@ -303,11 +350,17 @@ export class Guard {
   }
 }
 
+/** People write reasons with or without a full stop. Either way it should read as a sentence. */
+const sentence = (text: string): string => (/[.!?]\s*$/.test(text) ? text.trim() : `${text.trim()}.`)
+
 function describe(name: string, verdict: CallVerdict, reason: Reason | undefined): string {
   const refused = verdict === "BLOCK"
+  if (reason?.type === "STOP" && isKillRecall(reason.recall.artifact)) {
+    return `CeaseNet refused ${name}: the owner of this agent has stopped it. Reason: ${sentence(reason.recall.reason)} Do not try this or any other tool again until a person restarts it.`
+  }
   if (reason?.type === "STOP") {
-    const advice = reason.recall.advice ? ` What to do: ${reason.recall.advice}` : ""
-    return `CeaseNet blocked ${name}: it was recalled by ${reason.recall.creator}. Reason: ${reason.recall.reason}.${advice} Do not use this tool again.`
+    const advice = reason.recall.advice ? ` What to do: ${sentence(reason.recall.advice)}` : ""
+    return `CeaseNet blocked ${name}: it was recalled by ${reason.recall.creator}. Reason: ${sentence(reason.recall.reason)}${advice} Do not use this tool again.`
   }
   if (reason?.type === "CONFIRMED_ADVISORY") {
     return `CeaseNet needs a human to approve ${name}: verified people have confirmed a warning about it. Reason: ${reason.recall.reason}.`

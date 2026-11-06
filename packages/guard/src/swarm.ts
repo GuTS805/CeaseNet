@@ -120,13 +120,18 @@ const keyFrom = (secret: Buffer, ephemeral: Buffer) => Buffer.from(hkdfSync("sha
  */
 export function sealRef(reference: string, recipientPublicKey: Hex): string {
   if (!isPublicSwarmRef(reference) && !isEncryptedSwarmRef(reference)) throw new Error("this is not a Swarm reference")
+  return sealText(reference, recipientPublicKey)
+}
+
+/** Seals any text to one person's public key, so it can sit in a public record that only they can read. */
+export function sealText(text: string, recipientPublicKey: Hex): string {
   const recipient = toBuffer(recipientPublicKey)
   const ephemeral = createECDH("secp256k1")
   const epk = ephemeral.generateKeys()
   const iv = randomBytes(12)
   const cipher = createCipheriv("aes-256-gcm", keyFrom(ephemeral.computeSecret(recipient), epk), iv)
   cipher.setAAD(epk)
-  const ct = Buffer.concat([cipher.update(reference, "utf8"), cipher.final()])
+  const ct = Buffer.concat([cipher.update(text, "utf8"), cipher.final()])
   const sealed: Sealed = {
     v: 1,
     alg: SEAL_ALGORITHM,

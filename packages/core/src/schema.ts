@@ -37,6 +37,8 @@ export const Loadout = defineSchema(ns("loadout"), {
   seq: u64().indexed(),
   /** UTF-8 JSON array of {@link LoadedFile}. */
   files: bytes(),
+  /** What the agent is made of, in one searchable value. Records from before this was added do not have one. */
+  fingerprint: str().indexed().optional(),
 })
 
 /** One per agent, updated in place. Expired means "unknown". */

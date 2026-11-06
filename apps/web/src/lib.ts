@@ -4,10 +4,17 @@ import {
   ARKIV_EXPLORER,
   arkivPublicClient,
   type AgentStatus,
+  CONFIRMATION_THRESHOLD,
+  CONFIRMATION_WINDOW_BLOCKS,
+  demoPolicy,
   type Hex,
   type LoadedFile,
+  makeTrust,
   type PublicView,
   readPublicView,
+  readWholeList,
+  type RecallRow,
+  type TrustConfig,
 } from "@ceasenet/core"
 
 declare const __ARKIV_ACCESS_KEY__: string
@@ -94,7 +101,23 @@ export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknow
 }
 
 /** Everything public, read straight from Arkiv with no server of ours in between. */
-export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(() => readPublicView(client), HOSTED ? Math.max(everyMs, 15_000) : everyMs)
+export const usePublicView = (everyMs = 2500) =>
+  usePoll<PublicView>(() => (HOSTED ? readWholeList(client) : readPublicView(client)), HOSTED ? Math.max(everyMs, 15_000) : everyMs)
+
+/**
+ * How to read one recall on a page that shows everyone's. Only its own issuer can end it, and on the demo's pages
+ * the demo's regulator as well. Whether it binds any agent is up to that agent's owner, not this page.
+ */
+export const trustForRecall = (recall: RecallRow): TrustConfig => {
+  const demo = demoPolicy()
+  return makeTrust({
+    stopKeys: [recall.creator],
+    regulators: HOSTED ? [] : demo.regulators,
+    verifier: recall.creator,
+    threshold: CONFIRMATION_THRESHOLD,
+    windowBlocks: CONFIRMATION_WINDOW_BLOCKS,
+  })
+}
 
 export async function demoGet<T>(path: string): Promise<T> {
   const res = await fetch(DEMO_URL + path)

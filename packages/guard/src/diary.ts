@@ -1,6 +1,12 @@
 import { canonicalJson, hashBytes, type Hex } from "@ceasenet/core"
 
-/** What the diary keeps about one moment. Arguments are stored as a hash, so private content stays private. */
+/**
+ * What the diary keeps about one moment.
+ *
+ * The hashes are always there, so a copy of a call can be proved against the diary. Whether the call's contents are
+ * there too is the owner's choice, because a diary is public and permanent: in the open, sealed so only the owner can
+ * read them, or left out.
+ */
 export type DiaryData =
   | {
       kind: "CALL"
@@ -15,7 +21,21 @@ export type DiaryData =
       /** The model request that asked for this call. */
       requestId?: string
       model?: string
+      /** Which of the agent's servers it went to. */
+      server?: string
+      resultHash?: Hex
+      /** Why it was refused. */
+      message?: string
+      ms?: number
+      /** The call's contents, in the open. */
+      args?: unknown
+      result?: unknown
+      /** The call's contents, sealed to the owner's key. */
+      sealed?: string
+      /** The contents were too long to keep whole. The hashes are of the whole thing. */
+      clipped?: boolean
     }
+  | { kind: "NOTE"; note: string; text: string }
   | { kind: "STATUS"; from: string; to: string }
   | { kind: "RECEIPT"; recall: string; action: string }
   | { kind: "UPDATE"; from: string; to: string; fromHash: string; toHash: string }

@@ -2,6 +2,7 @@ import { asc, desc, eq, gt, or } from "@arkiv-network/sdk/query"
 import { addr, key } from "@arkiv-network/sdk/schema"
 import { hexToString } from "viem"
 import type { ArkivPublic } from "./arkiv"
+import { lower } from "./gate"
 import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Lift, Loadout, Recall, TrustList } from "./schema"
 import type {
   AckAction,
@@ -123,6 +124,23 @@ export async function readRecallsBy(client: ArkivPublic, creators: readonly stri
   return { rows: res.rows.map(toRecallRow), block: res.block }
 }
 
+/**
+ * Every recall on the list, from anyone. For a public page only, which must show who issued each one.
+ * A gate never reads this: anyone can write a recall, so what it obeys comes only from keys its owner follows.
+ */
+export async function readAllRecalls(client: ArkivPublic) {
+  const res = await readAll((after) =>
+    client
+      .select()
+      .from(Recall)
+      .where(afterKey(after))
+      .orderBy(asc("$key"))
+      .limit(PAGE)
+      .fetch() as any,
+  )
+  return { rows: res.rows.map(toRecallRow), block: res.block }
+}
+
 export async function readEndorsements(client: ArkivPublic, recalls: readonly Hex[], verifier: string) {
   if (recalls.length === 0) return [] as EndorseRow[]
   const res = await readAll((after) =>
@@ -208,6 +226,12 @@ export async function readAgents(client: ArkivPublic, owners: readonly string[])
   return res.rows.map(toAgent).filter((a) => a.owner.toLowerCase() === a.creator.toLowerCase())
 }
 
+/** Every passport whose named owner really wrote it, up to a limit, since a public page reads more about each. */
+export async function readAllAgents(client: ArkivPublic, limit = PAGE): Promise<AgentRow[]> {
+  const res: any = await client.select().from(Agent).orderBy(asc("$key")).limit(limit).fetch()
+  return res.entities.map(toAgent).filter((a: AgentRow) => a.owner.toLowerCase() === a.creator.toLowerCase())
+}
+
 /** The passport of one agent, whoever owns it. A passport only counts if the owner it names created it. */
 export async function readAgent(client: ArkivPublic, agent: Hex): Promise<AgentRow | undefined> {
   const res: any = await client.select().from(Agent).where(eq("agent", addr(agent))).limit(50).fetch()
@@ -224,6 +248,7 @@ export async function readLatestLoadout(client: ArkivPublic, agent: Hex): Promis
     agent: r.agent.value,
     seq: BigInt(r.seq.value),
     files: JSON.parse(utf8(r.files)) as LoadedFile[],
+    fingerprint: r.fingerprint?.value,
     creator: r.$creator,
     createdAt: r.$createdAt,
   }
@@ -276,13 +301,42 @@ export async function readArtifacts(client: ArkivPublic, publishers: readonly st
   }))
 }
 
+/** Every published file, from anyone. It describes a file, and says nothing about who to believe. */
+export async function readAllArtifacts(client: ArkivPublic): Promise<ArtifactRow[]> {
+  const res = await readAll<any>((after) =>
+    client
+      .select()
+      .from(Artifact)
+      .where(afterKey(after))
+      .orderBy(asc("$key"))
+      .limit(PAGE)
+      .fetch() as any,
+  )
+  return res.rows.map((r) => ({
+    key: r.$key,
+    hash: r.hash.value,
+    kind: r.kind.value,
+    name: r.name.value,
+    version: r.version.value,
+    creator: r.$creator,
+    source: r.source?.value,
+  }))
+}
+
 /** Index of an agent's diary, newest first. Only its own key can have created these. */
-export async function readDiaries(client: ArkivPublic, agent: Hex): Promise<DiaryRow[]> {
+export const readDiaries = (client: ArkivPublic, agent: Hex): Promise<DiaryRow[]> => readDiaryIndex(client, agent)
+
+/**
+ * Where everything an agent did is stored, newest first, for anyone to look up with no account.
+ * Anyone can write a record claiming to be about an agent, so only the agent's own key or its owner's counts.
+ */
+export async function readDiaryIndex(client: ArkivPublic, agent: Hex, owner?: string): Promise<DiaryRow[]> {
+  const creators = [agent, ...(owner ? [owner] : [])]
   const res = await readAll<any>((after) =>
     client
       .select()
       .from(Diary)
-      .where(eq("$creator", addr(agent)), ...afterKey(after))
+      .where(or(creators.map((c) => eq("$creator", addr(c)))), eq("agent", addr(agent)), ...afterKey(after))
       .orderBy(asc("$key"))
       .limit(PAGE)
       .fetch() as any,
@@ -300,6 +354,27 @@ export async function readDiaries(client: ArkivPublic, agent: Hex): Promise<Diar
       createdAt: r.$createdAt,
     }))
     .sort((a, b) => Number(b.lastSeq - a.lastSeq))
+}
+
+/**
+ * Reports from people, with their votes. Only records a verifier wrote count, because only a verifier has checked
+ * with World ID that each vote is from a different real person.
+ */
+export async function readReports(client: ArkivPublic, verifiers: readonly string[]): Promise<{ reports: RecallRow[]; votes: EndorseRow[]; block: bigint }> {
+  const { rows, block } = await readRecallsBy(client, verifiers)
+  const reports = rows.filter((r) => r.level === "ADVISORY")
+  const votes = (
+    await Promise.all(
+      verifiers.map((verifier) =>
+        readEndorsements(
+          client,
+          reports.filter((r) => lower(r.creator) === lower(verifier)).map((r) => r.key),
+          verifier,
+        ),
+      ),
+    )
+  ).flat()
+  return { reports, votes, block }
 }
 
 export interface DisclosureRow {

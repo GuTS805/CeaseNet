@@ -3,6 +3,7 @@ import { addr, key, u64 } from "@arkiv-network/sdk/schema"
 import { stringToBytes } from "viem"
 import type { ArkivWallet } from "./arkiv"
 import { recallContentHash } from "./hash"
+import { agentFingerprint } from "./killSwitch"
 import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Lift, Loadout, Recall, TrustList } from "./schema"
 import { assertPublicRef } from "./swarmRef"
 import type { AckAction, AgentStatus, Hex, LiftKind, LoadedFile, Stance, TrustPolicy } from "./types"
@@ -174,7 +175,7 @@ export class ArkivWriter {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Loadout,
-        { agent: addr(this.address), seq: u64(input.seq), files: stringToBytes(JSON.stringify(input.files)) },
+        { agent: addr(this.address), seq: u64(input.seq), files: stringToBytes(JSON.stringify(input.files)), fingerprint: agentFingerprint(input.files) } as any,
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )
@@ -235,13 +236,16 @@ export class ArkivWriter {
     )
   }
 
-  /** One part of an agent's diary: where it lives on 0G Storage and the hash its entries must end on. */
-  diary(input: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }) {
+  /**
+   * One part of an agent's diary: where it lives on 0G Storage and the hash its entries must end on.
+   * It is written by the agent, or by its owner on its behalf, and readers accept only those two.
+   */
+  diary(input: { agent?: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }) {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Diary,
         {
-          agent: addr(this.address),
+          agent: addr(input.agent ?? this.address),
           root: input.root,
           head: input.head,
           entries: u64(input.entries),

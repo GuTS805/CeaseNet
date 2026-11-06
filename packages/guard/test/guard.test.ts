@@ -57,6 +57,45 @@ const FIX: LiftRow = {
   createdAt: 8n,
 }
 
+describe("a forced check", () => {
+  it("does not settle for a read that began before it was asked for", async () => {
+    let view: Partial<GateView> = {}
+    let finishSlowRead: () => void = () => undefined
+    let slow = false
+    const net: GuardNet = {
+      readView: async () => {
+        const seen = view
+        if (slow) await new Promise<void>((resolve) => (finishSlowRead = resolve))
+        return { block: 10n, stops: [], advisories: [], endorsements: [], lifts: [], ...seen }
+      },
+      writeLoadout: async () => undefined,
+      writeHeartbeat: async () => undefined,
+      writeAck: async () => undefined,
+      extendRecall: async () => undefined,
+    }
+    const guard = new Guard({
+      policy,
+      timers: { checkIntervalMs: 1000, heartbeatIntervalMs: 1000, heartbeatTtlSeconds: 10, graceMs: 1000, offlineSupervisedMs: 1000 },
+      store: memoryStore(),
+      files: [MAIL],
+      net,
+      startSeq: 1n,
+    })
+    await guard.start()
+
+    // A read starts, and only then does the STOP land.
+    slow = true
+    const underWay = guard.check(true)
+    view = { stops: [STOP] }
+    slow = false
+    const forced = guard.check(true)
+    finishSlowRead()
+    await Promise.all([underWay, forced])
+
+    expect(guard.stopOn(MAIL)?.key).toBe(STOP.key)
+  })
+})
+
 class FakeNet implements GuardNet {
   view: Partial<GateView> = {}
   up = true

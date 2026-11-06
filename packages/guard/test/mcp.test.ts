@@ -47,7 +47,7 @@ const stopFor = (file: LoadedFile): RecallRow => ({
   expiresAt: 7_000_000n,
 })
 
-function guardFor(file: LoadedFile) {
+function guardFor(file: LoadedFile, approve?: any) {
   const net = new FakeNet()
   let t = 0
   const guard = new Guard({
@@ -57,6 +57,7 @@ function guardFor(file: LoadedFile) {
     files: [file],
     net,
     startSeq: 1n,
+    approve,
     now: () => (t += 2000),
   })
   return { guard, net }
@@ -154,8 +155,9 @@ describe("a real MCP tool behind the guard", () => {
 describe("the proxy, in front of a real MCP server", () => {
   const file = measurePackage(TOOL)
 
-  function start(dir: string) {
-    const { guard, net } = guardFor(file)
+  function start(dir: string, extra: Record<string, any> = {}) {
+    const { approve, ...proxyOptions } = extra
+    const { guard, net } = guardFor(file, approve)
     const input = new PassThrough()
     const output = new PassThrough()
     const lines: any[] = []
@@ -164,7 +166,7 @@ describe("the proxy, in front of a real MCP server", () => {
       for (const l of chunk.toString().split("\n").filter(Boolean)) lines.push(JSON.parse(l))
       waiting?.()
     })
-    const child = runProxy({ guard, file, command: process.execPath, args: [join(TOOL, "server.mjs")], env: env(dir), input, output })
+    const proxy = runProxy({ guard, file, command: process.execPath, args: [join(TOOL, "server.mjs")], env: env(dir), input, output, ...proxyOptions })
     const send = (m: unknown) => input.write(`${JSON.stringify(m)}\n`)
     const reply = async (id: number) => {
       for (let i = 0; i < 200; i++) {
@@ -181,9 +183,9 @@ describe("the proxy, in front of a real MCP server", () => {
     }
     const call = (id: number) => send({ jsonrpc: "2.0", id, method: "tools/call", params: { name: "send_email", arguments: email } })
     const stop = () => {
-      child.kill()
+      proxy.kill()
     }
-    return { guard, net, send, reply, initialize, call, stop }
+    return { guard, net, proxy, lines, send, reply, initialize, call, stop }
   }
 
   it("passes the protocol through and forwards an allowed call", async () => {
@@ -213,16 +215,218 @@ describe("the proxy, in front of a real MCP server", () => {
     p.stop()
   })
 
-  it("still answers other requests after refusing a call", async () => {
+  it("still answers other requests after refusing a call, from what the tool said before it was ended", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    await p.guard.start()
+    await p.initialize()
+    p.send({ jsonrpc: "2.0", id: 2, method: "tools/list" })
+    await p.reply(2)
+    p.net.view = { stops: [stopFor(file)] }
+    p.call(3)
+    p.send({ jsonrpc: "2.0", id: 4, method: "tools/list" })
+    expect((await p.reply(3)).result.isError).toBe(true)
+    expect((await p.reply(4)).result.tools).toHaveLength(1)
+    p.stop()
+  })
+
+  const isAlive = (pid: number) => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+  const until = async (test: () => boolean, what: string) => {
+    for (let i = 0; i < 200; i++) {
+      if (test()) return
+      await new Promise((r) => setTimeout(r, 25))
+    }
+    throw new Error(`timed out waiting for ${what}`)
+  }
+
+  it("ends the tool's process when a STOP arrives, not just its calls", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    await p.guard.start()
+    await p.initialize()
+    const pid = p.proxy.pid!
+    expect(isAlive(pid)).toBe(true)
+    p.net.view = { stops: [stopFor(file)] }
+    await p.guard.check(true)
+    expect(p.proxy.pid).toBeUndefined()
+    await until(() => !isAlive(pid), "the tool to end")
+    p.stop()
+  })
+
+  it("never starts a tool that is already under a STOP, and still answers the agent", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    p.net.view = { stops: [stopFor(file)] }
+    await p.guard.start()
+    expect(p.proxy.pid).toBeUndefined()
+    await p.initialize()
+    expect(p.lines.find((l) => l.id === 1).result.instructions).toContain("copies mail")
+    p.send({ jsonrpc: "2.0", id: 2, method: "tools/list" })
+    expect((await p.reply(2)).result.tools).toEqual([])
+    p.call(3)
+    expect((await p.reply(3)).result.content[0].text).toContain("copies mail")
+    expect(existsSync(join(dir, "sent.jsonl"))).toBe(false)
+    p.stop()
+  })
+
+  it("starts the tool again when the STOP is lifted, without the agent having to reconnect", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    await p.guard.start()
+    await p.initialize()
+    const stop = stopFor(file)
+    p.net.view = { stops: [stop] }
+    await p.guard.check(true)
+    expect(p.proxy.pid).toBeUndefined()
+
+    p.net.view = { stops: [stop], lifts: [{ key: "0x02", recall: stop.key, artifact: stop.artifact, kind: "WITHDRAWN", creator: MAKER, createdAt: 6n }] }
+    await p.guard.check(true)
+    expect(p.proxy.pid).toBeDefined()
+    p.call(2)
+    expect((await p.reply(2)).result.isError).toBeFalsy()
+    expect(existsSync(join(dir, "sent.jsonl"))).toBe(true)
+    p.stop()
+  })
+
+  it("tells an agent that started during a STOP to look again once it is lifted", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    const stop = stopFor(file)
+    p.net.view = { stops: [stop] }
+    await p.guard.start()
+    await p.initialize()
+    p.send({ jsonrpc: "2.0", id: 2, method: "tools/list" })
+    await p.reply(2)
+
+    p.net.view = { stops: [stop], lifts: [{ key: "0x02", recall: stop.key, artifact: stop.artifact, kind: "WITHDRAWN", creator: MAKER, createdAt: 6n }] }
+    await p.guard.check(true)
+    await until(() => p.lines.some((l) => l.method === "notifications/tools/list_changed"), "the list to change")
+    p.send({ jsonrpc: "2.0", id: 3, method: "tools/list" })
+    expect((await p.reply(3)).result.tools[0].name).toBe("send_email")
+    p.stop()
+  })
+
+  it("does not let a call through inside a batch", async () => {
     const dir = sandbox()
     const p = start(dir)
     await p.guard.start()
     await p.initialize()
     p.net.view = { stops: [stopFor(file)] }
-    p.call(2)
-    p.send({ jsonrpc: "2.0", id: 3, method: "tools/list" })
+    p.send([{ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "send_email", arguments: email } }])
     expect((await p.reply(2)).result.isError).toBe(true)
-    expect((await p.reply(3)).result.tools).toHaveLength(1)
+    expect(existsSync(join(dir, "sent.jsonl"))).toBe(false)
+    p.stop()
+  })
+
+  it("gates reading a resource and getting a prompt, not only tool calls", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    await p.guard.start()
+    await p.initialize()
+    p.net.view = { stops: [stopFor(file)] }
+    p.send({ jsonrpc: "2.0", id: 2, method: "resources/read", params: { uri: "file:///secret" } })
+    p.send({ jsonrpc: "2.0", id: 3, method: "prompts/get", params: { name: "x" } })
+    expect((await p.reply(2)).error.message).toContain("copies mail")
+    expect((await p.reply(3)).error.message).toContain("copies mail")
+    p.stop()
+  })
+
+  it("refuses a request the tool never got an answer to, when a STOP ends it mid-call", async () => {
+    const dir = sandbox()
+    const p = start(dir)
+    await p.guard.start()
+    await p.initialize()
+    // Asked of the tool, then the tool is ended before anything reads its reply.
+    p.send({ jsonrpc: "2.0", id: 2, method: "not/a/real/method" })
+    p.net.view = { stops: [stopFor(file)] }
+    await p.guard.check(true)
+    const answer = await p.reply(2)
+    expect(answer.error ?? answer.result).toBeDefined()
+    p.stop()
+  })
+
+  it("does not reach a tool the owner has blocked on this machine, whatever the list says", async () => {
+    const dir = sandbox()
+    let blocked: string | undefined
+    const p = start(dir, { localBlock: () => blocked })
+    await p.guard.start()
+    await p.initialize()
+    const pid = p.proxy.pid!
+    blocked = "its files changed after they were measured"
+    p.call(2)
+    expect((await p.reply(2)).result.content[0].text).toContain("its files changed")
+    expect(existsSync(join(dir, "sent.jsonl"))).toBe(false)
+    await until(() => !isAlive(pid), "the tool to end")
+    p.stop()
+  })
+
+  it("asks a person when the owner has asked to approve each call", async () => {
+    const dir = sandbox()
+    let answer: "APPROVED" | "DENIED" = "DENIED"
+    const asked: string[] = []
+    const p = start(dir, {
+      holdReason: () => "The owner approves each call to this tool.",
+      approve: async (request: { action: string; details?: string }) => {
+        asked.push(`${request.action} ${request.details}`)
+        return answer
+      },
+    })
+    await p.guard.start()
+    await p.initialize()
+    p.call(2)
+    expect((await p.reply(2)).result.isError).toBe(true)
+    expect(existsSync(join(dir, "sent.jsonl"))).toBe(false)
+    expect(asked[0]).toContain("send_email")
+    expect(asked[0]).toContain("a@example.com")
+
+    answer = "APPROVED"
+    p.call(3)
+    expect((await p.reply(3)).result.isError).toBeFalsy()
+    expect(existsSync(join(dir, "sent.jsonl"))).toBe(true)
+    p.stop()
+  })
+
+  it("says what each call came back with once it is over, and what each refusal said", async () => {
+    const dir = sandbox()
+    const finished: any[] = []
+    const p = start(dir, { onFinished: (c: any) => finished.push(c) })
+    await p.guard.start()
+    await p.initialize()
+    p.call(2)
+    await p.reply(2)
+    p.net.view = { stops: [stopFor(file)] }
+    p.call(3)
+    await p.reply(3)
+    expect(finished).toHaveLength(2)
+    expect(finished[0]).toMatchObject({ action: "send_email", args: email })
+    expect(JSON.stringify(finished[0].result)).toContain("Email sent")
+    expect(finished[1].decision.allowed).toBe(false)
+    expect(finished[1].result).toBeUndefined()
+    p.stop()
+  })
+
+  it("reports every call and what the gate decided", async () => {
+    const dir = sandbox()
+    const calls: { action: string; allowed: boolean }[] = []
+    const p = start(dir, { onCall: (c: { action: string; decision: { allowed: boolean } }) => calls.push({ action: c.action, allowed: c.decision.allowed }) })
+    await p.guard.start()
+    await p.initialize()
+    p.call(2)
+    await p.reply(2)
+    p.net.view = { stops: [stopFor(file)] }
+    p.call(3)
+    await p.reply(3)
+    expect(calls).toEqual([
+      { action: "send_email", allowed: true },
+      { action: "send_email", allowed: false },
+    ])
     p.stop()
   })
 })
