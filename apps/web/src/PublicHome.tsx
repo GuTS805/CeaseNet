@@ -1,6 +1,8 @@
+import { useMemo, useState } from "react"
+import { onlyLive } from "@ceasenet/core"
 import { RecallList } from "./RecallPages"
 import { nameOf, statusColour, statusLabel, useNetworkView } from "./lib"
-import { NetworkMap } from "./NetworkPage"
+import { LiveToggle, NetworkMap } from "./NetworkPage"
 
 const REPOSITORY = "https://github.com/GuTS805/CeaseNet"
 
@@ -14,6 +16,8 @@ const STEPS = [
 /** The front page. The agents are yours and run on your machines. Everything listed below comes straight from Arkiv. */
 export function PublicHome() {
   const { data: view, error } = useNetworkView()
+  const [everyone, setEveryone] = useState(false)
+  const shown = useMemo(() => view && (everyone ? view : onlyLive(view)), [view, everyone])
   return (
     <div className="page home">
       <section className="home-hero">
@@ -87,12 +91,13 @@ export function PublicHome() {
       {error && !view && <div className="notice bad">Cannot read Arkiv right now: {error}</div>}
       {!view && !error && <div className="muted">Reading Arkiv…</div>}
 
-      {view && (
+      {view && shown && (
         <>
-          <NetworkMap view={view} />
+          <LiveToggle view={view} everyone={everyone} onChange={setEveryone} />
+          <NetworkMap view={view} shown={shown} />
           <RecallList view={view} />
           <p className="small muted">Anyone can publish a recall, so this shows all of them with who issued each one. A recall binds only the agents whose owners follow that key.</p>
-          {view.agents.length > 0 && (
+          {shown.agents.length > 0 && (
             <div className="card">
               <h2>Agents that have registered in public</h2>
               <table>
@@ -105,7 +110,7 @@ export function PublicHome() {
                   </tr>
                 </thead>
                 <tbody>
-                  {view.agents.map((a) => (
+                  {shown.agents.map((a) => (
                     <tr key={a.agent.key}>
                       <td>
                         <a href={`#/agent/${a.agent.agent}`}>{a.agent.name}</a>

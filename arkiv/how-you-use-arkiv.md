@@ -32,7 +32,7 @@ The "Check a tool" page downloads all recalls and matches in the browser, so nob
 
 | Record | Lifetime | What it changes for users |
 |---|---|---|
-| Heartbeat | 30 s in the demo, 10 min in production | Expiry is the signal: an agent that stops reporting turns to "Unknown" with no timeout logic on the page |
+| Heartbeat | 30 s in the demo, 10 min in production | Expiry is the signal: an agent that stops reporting turns to "Unknown" with no timeout logic on the page, and drops off the network map, which leads with the agents running now. One checkbox shows everyone on record |
 | Warning and confirmations | 72 hours | A warning nobody confirms fades away and stops bothering anyone |
 | STOP | The maximum, about 182 days, and anyone can renew | A STOP stays in force until someone ends it |
 | Receipts | 180 days | They outlast the STOP they answer, which is what proves a deleted one existed |

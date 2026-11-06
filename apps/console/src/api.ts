@@ -124,7 +124,7 @@ export interface DiaryAgent {
 }
 
 export interface DiaryList {
-  where: "0g" | "local"
+  where: "swarm" | "0g" | "local"
   wallet?: { address: string; balance?: string; low: boolean }
   problem?: string
   faucet: string
@@ -160,6 +160,8 @@ export interface DiaryPart {
   lastSeq: number
   entries: number
   block: string
+  storage?: string
+  locked?: boolean
   check: { ok: boolean; problem?: string }
   followsOn?: boolean
   items: DiaryItem[]
@@ -170,7 +172,7 @@ export interface DiaryRead {
   name: string
   address: string
   mode: DiaryAgent["mode"]
-  where: "0g" | "local"
+  where: "swarm" | "0g" | "local"
   totalParts: number
   canOpenSealed: boolean
   parts: DiaryPart[]

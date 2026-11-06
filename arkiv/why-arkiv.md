@@ -23,7 +23,7 @@ The website can go down and agents keep obeying, because no server of ours sits 
 
 | Data | Where it lives | Why not Arkiv |
 |---|---|---|
-| The agent's full diary | 0G Storage. Arkiv holds only each part's root and head hash, so a changed part fails the check | Too large to keep on a shared database, and most readers never need it |
+| The agent's full diary | Swarm, encrypted to its owner, or 0G Storage until Swarm is set up. Arkiv holds only each part's reference and head hash, so a changed part fails the check | Too large to keep on a shared database, and it can hold anything, so only its owner should read it |
 | Fixed tool files | Swarm. Arkiv holds the public reference and the hash | Files are big, and the hash makes the host irrelevant |
 | Evidence | Swarm, encrypted. Arkiv holds a sealed copy of the reference | An encrypted Swarm reference contains its own key, and entities are public |
 | What an agent sent to a tool | Only a hash, in the diary | It can hold private customer content |

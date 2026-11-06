@@ -100,9 +100,9 @@ None of this needs the demo, our keys or the program. You need a browser wallet 
 
 ![The Diary page: an agent's calls in order, with a check that they match the hashes on Arkiv](docs/images/diary.png)
 
-Everything an agent does goes in its diary: each call, what it sent, what came back, what the gate decided, and what the model said. Each part is stored on [0G Storage](https://0g.ai), with its index and hash on Arkiv. So anyone can find an agent's history from its address, and a changed entry or a missing part fails the check. The console's Diary page reads it back and checks it, and the public site's agent page does the same with no account.
+Everything an agent does goes in its diary: each call, what it sent, what came back, what the gate decided, and what the model said. Each part is stored on [Swarm](arkiv/swarm.md), encrypted so only the owner can read it, with its index and hash on Arkiv. Until Swarm is set up, parts go to [0G Storage](https://0g.ai) instead. So anyone can find an agent's history from its address, and a changed entry or a missing part fails the check. The console's Diary page reads it back and checks it, and the public site's agent page does the same with no account.
 
-Storage is public and permanent, and a real agent's calls can hold anything, so who can read the contents depends on the agent:
+On Swarm, the whole part is encrypted to your owner key before it leaves your machine, so the table below only applies to parts on 0G. Storage there is public and permanent, and a real agent's calls can hold anything, so who can read the contents depends on the agent:
 
 | Whose diary | What anyone can see | What only the owner can see |
 |---|---|---|
@@ -180,7 +180,7 @@ World's simulator can only ever be one identity, so to show the whole flow use `
 | Data | Where | Why |
 |---|---|---|
 | Recalls, receipts, trust lists, owners, fingerprints, reports, votes and the diary index | [Arkiv](arkiv/schema.md) | Public, can't be edited, and readable with no account |
-| Each agent's diary | 0G Storage, with its hash on Arkiv | Too big for Arkiv, and a changed copy fails the check |
+| Each agent's diary | Swarm, encrypted to its owner, or 0G Storage until Swarm is set up, with its hash on Arkiv | Too big for Arkiv, and a changed copy fails the check |
 | Fixed tools and sealed evidence, in the scripted demo | [Swarm](arkiv/swarm.md), with references on Arkiv | Fixes must survive the maker's site going away |
 
 ## What this does not do
@@ -272,7 +272,7 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 | **World** | IDKit: one person, one vote, on any report. Agent Pass: a real person approves a paused call | [docs/world.md](docs/world.md) |
 | **0G** | Every agent's diary, on 0G Storage. Not entered for a 0G prize | [diaryService.ts](packages/cli/src/diaryService.ts) |
 | **Ethereum Foundation** | The CROPS section above, and the reason the design has no central party | |
-| **Swarm** | Fixed tools and sealed evidence, in the scripted demo | [arkiv/swarm.md](arkiv/swarm.md) |
+| **Swarm** | Every agent's diary, encrypted to its owner. Fixed tools and sealed evidence in the scripted demo | [arkiv/swarm.md](arkiv/swarm.md) |
 
 ## Layout
 

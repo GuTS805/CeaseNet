@@ -143,6 +143,46 @@ export function sealText(text: string, recipientPublicKey: Hex): string {
   return JSON.stringify(sealed)
 }
 
+const SEALED_FILE_START = Buffer.from("CNS1")
+const SEAL_FILE_INFO = "ceasenet.sealed-file.v1"
+const EPK_BYTES = 65
+const IV_BYTES = 12
+const TAG_BYTES = 16
+
+/**
+ * Encrypts a whole file to one person's public key, on this machine, before it goes anywhere.
+ * Only their private key can open it, and whoever stores or serves the file only ever has this.
+ */
+export function sealBytes(data: Uint8Array, recipientPublicKey: Hex): Uint8Array {
+  const ephemeral = createECDH("secp256k1")
+  const epk = ephemeral.generateKeys()
+  const iv = randomBytes(IV_BYTES)
+  const key = Buffer.from(hkdfSync("sha256", ephemeral.computeSecret(toBuffer(recipientPublicKey)), epk, SEAL_FILE_INFO, 32))
+  const cipher = createCipheriv("aes-256-gcm", key, iv)
+  cipher.setAAD(epk)
+  const ct = Buffer.concat([cipher.update(data), cipher.final()])
+  return new Uint8Array(Buffer.concat([SEALED_FILE_START, epk, iv, cipher.getAuthTag(), ct]))
+}
+
+/** Throws if this is not the key it was sealed to, or if the file has been changed in any way. */
+export function openSealedBytes(sealed: Uint8Array, privateKey: Hex): Uint8Array {
+  const file = Buffer.from(sealed)
+  const header = SEALED_FILE_START.length + EPK_BYTES + IV_BYTES + TAG_BYTES
+  if (file.length < header || !file.subarray(0, SEALED_FILE_START.length).equals(SEALED_FILE_START)) throw new Error("this is not a sealed file")
+  let at = SEALED_FILE_START.length
+  const take = (n: number) => file.subarray(at, (at += n))
+  const epk = take(EPK_BYTES)
+  const iv = take(IV_BYTES)
+  const tag = take(TAG_BYTES)
+  const me = createECDH("secp256k1")
+  me.setPrivateKey(toBuffer(privateKey))
+  const key = Buffer.from(hkdfSync("sha256", me.computeSecret(epk), epk, SEAL_FILE_INFO, 32))
+  const decipher = createDecipheriv("aes-256-gcm", key, iv)
+  decipher.setAAD(epk)
+  decipher.setAuthTag(tag)
+  return new Uint8Array(Buffer.concat([decipher.update(file.subarray(header)), decipher.final()]))
+}
+
 /** Throws if this key is not the one the reference was sealed to, or the seal was changed. */
 export function openSealedRef(sealedText: string, privateKey: Hex): string {
   const sealed = JSON.parse(sealedText) as Partial<Sealed>

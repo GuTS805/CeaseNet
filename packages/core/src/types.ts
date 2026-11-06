@@ -123,6 +123,8 @@ export interface DiaryRow {
   entries: bigint
   firstSeq: bigint
   lastSeq: bigint
+  /** How the part is kept. Without one it is a readable file on 0G Storage. */
+  storage?: string
   creator: Hex
   createdAt: bigint
 }

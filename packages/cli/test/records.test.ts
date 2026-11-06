@@ -1,11 +1,11 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { agentArtifact, agentFingerprint, canonicalJson, type DiaryRow, type EndorseRow, hashBytes, type Hex, identityFiles, type LoadedFile, type RecallRow } from "@ceasenet/core"
-import { DIARY_START, decodePart, type DiaryEntry, type DiaryStore, encodePart, openSealedRef, verifyPart } from "@ceasenet/guard"
+import { agentArtifact, agentFingerprint, canonicalJson, type DiaryRow, type EndorseRow, hashBytes, type Hex, identityFiles, isPublicSwarmRef, type LoadedFile, type RecallRow, SEALED_ON_SWARM } from "@ceasenet/core"
+import { DIARY_START, decodePart, type DiaryEntry, type DiaryStore, encodePart, openSealedBytes, openSealedRef, sealBytes, SwarmClient, verifyPart } from "@ceasenet/guard"
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { buildEntries, dataFor, type DiaryTarget, hasWaiting, localDiaryStore, readBack, readDiaryState, storeWaiting, waitingCount } from "../src/diaryService"
+import { buildEntries, dataFor, type DiaryTarget, hasWaiting, localDiaryStore, readBack, readDiaryState, sealedSwarmStore, storeWaiting, waitingCount } from "../src/diaryService"
 import { hashOf, journalPath, keep, KEEP_CHARS, type JournalCall, readJournal, recordFinishedCall, recordNote } from "../src/journal"
 import { loadHandled, markHandled, recallReasonFor, reportsFor, type OwnAgent } from "../src/reports"
 
@@ -57,7 +57,7 @@ function memoryStore() {
 }
 
 const indexRows: DiaryRow[] = []
-const indexWriter = async (agent: Hex, part: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }) => {
+const indexWriter = async (agent: Hex, part: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string }) => {
   indexRows.push({ key: `0x${indexRows.length}`, agent, ...part, creator: OWNER, createdAt: BigInt(indexRows.length + 1) })
 }
 beforeEach(() => void (indexRows.length = 0))
@@ -419,5 +419,111 @@ describe("reports, for an owner", () => {
   it("carry through into a recall's reason, saying where it came from", () => {
     expect(recallReasonFor({ reason: "It leaks", votes: 3, simulated: 2 })).toBe("Reported by 3 people checked by World ID (2 simulated): It leaks")
     expect(recallReasonFor({ reason: "It leaks", votes: 1, simulated: 0 })).toBe("Reported by 1 person checked by World ID: It leaks")
+  })
+})
+
+describe("a diary kept on Swarm", () => {
+  /** A Bee node that keeps what it is given, so a test can see exactly what left this machine. */
+  function fakeBee() {
+    const files = new Map<string, Uint8Array>()
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        const reference = hashBytes(init.body as Uint8Array).slice(2)
+        files.set(reference, init.body as Uint8Array)
+        return new Response(JSON.stringify({ reference }), { status: 201 })
+      }
+      const found = files.get(String(url).split("/bzz/")[1]!)
+      return found ? new Response(found as BodyInit, { status: 200 }) : new Response("{}", { status: 404 })
+    }) as typeof fetch
+    return { files, swarm: new SwarmClient({ url: "http://bee", batch: "ab".repeat(32), fetch: fetchImpl }) }
+  }
+  const ownerKey = generatePrivateKey()
+  const ownerPublic = privateKeyToAccount(ownerKey).publicKey
+
+  it("sends only what cannot be read, and only the owner can open it", async () => {
+    recordFinishedCall(finished(), tool)
+    recordNote("said", "Bought 200 dollars of BTC", dir)
+    const bee = fakeBee()
+    await storeWaiting(target("public"), sealedSwarmStore(bee.swarm, ownerPublic), indexWriter, ownerPublic)
+
+    const [uploaded] = [...bee.files.values()]
+    const text = Buffer.from(uploaded!).toString("latin1")
+    expect(text).not.toContain(SECRET)
+    expect(text).not.toContain("Bought 200 dollars")
+    expect(text).not.toContain("read_text_file")
+    expect(() => openSealedBytes(uploaded!, generatePrivateKey())).toThrow()
+    expect(decodePart(openSealedBytes(uploaded!, ownerKey))).toHaveLength(2)
+  })
+
+  it("puts a reference on the index that holds no key, and says how it is kept", async () => {
+    recordFinishedCall(finished(), tool)
+    await storeWaiting(target(), sealedSwarmStore(fakeBee().swarm, ownerPublic), indexWriter, ownerPublic)
+    expect(indexRows[0]!.storage).toBe(SEALED_ON_SWARM)
+    expect(isPublicSwarmRef(indexRows[0]!.root)).toBe(true)
+    expect(readDiaryState(dir).parts[0]!.storage).toBe(SEALED_ON_SWARM)
+  })
+
+  it("reads back whole for the owner, and matches the hash on the index", async () => {
+    recordFinishedCall(finished(), tool)
+    recordNote("closed", "It was recalled", dir)
+    const bee = fakeBee()
+    const store = sealedSwarmStore(bee.swarm, ownerPublic)
+    await storeWaiting(target("public"), store, indexWriter, ownerPublic)
+    const [part] = await readBack(indexRows, store.get, ownerKey)
+    expect(part!.check.ok).toBe(true)
+    expect(part!.locked).toBeUndefined()
+    expect(part!.items).toHaveLength(2)
+    expect(JSON.stringify(part!.items)).toContain(SECRET)
+  })
+
+  it("says it is locked, not broken, to anyone without the key", async () => {
+    recordFinishedCall(finished(), tool)
+    const store = sealedSwarmStore(fakeBee().swarm, ownerPublic)
+    await storeWaiting(target(), store, indexWriter, ownerPublic)
+    const [part] = await readBack(indexRows, store.get)
+    expect(part).toMatchObject({ locked: true, check: { ok: true }, items: [] })
+  })
+
+  it("says so when the wrong key tries, and when the file has been changed", async () => {
+    recordFinishedCall(finished(), tool)
+    const bee = fakeBee()
+    const store = sealedSwarmStore(bee.swarm, ownerPublic)
+    await storeWaiting(target(), store, indexWriter, ownerPublic)
+    const [wrongKey] = await readBack(indexRows, store.get, generatePrivateKey())
+    expect(wrongKey!.check.ok).toBe(false)
+
+    const changed = new Uint8Array(sealBytes(new Uint8Array([1, 2, 3]), ownerPublic))
+    changed[changed.length - 1]! ^= 1
+    expect(() => openSealedBytes(changed, ownerKey)).toThrow()
+  })
+
+  it("does not lose anything if the upload fails, and does not pay twice if the index does", async () => {
+    recordFinishedCall(finished(), tool)
+    const bee = fakeBee()
+    const store = sealedSwarmStore(bee.swarm, ownerPublic)
+    let uploads = 0
+    let down = true
+    const flaky: DiaryStore = {
+      put: (b) => {
+        if (down) return Promise.reject(new Error("no node"))
+        uploads++
+        return store.put(b)
+      },
+      get: store.get,
+    }
+    await expect(storeWaiting(target(), flaky, indexWriter, ownerPublic)).rejects.toThrow("no node")
+    down = false
+    let indexed = false
+    const index: typeof indexWriter = async (agent, part) => {
+      if (!indexed) {
+        indexed = true
+        throw new Error("no funds")
+      }
+      return indexWriter(agent, part)
+    }
+    await expect(storeWaiting(target(), flaky, index, ownerPublic)).rejects.toThrow("no funds")
+    await storeWaiting(target(), flaky, index, ownerPublic)
+    expect(uploads).toBe(1)
+    expect(indexRows[0]!.storage).toBe(SEALED_ON_SWARM)
   })
 })

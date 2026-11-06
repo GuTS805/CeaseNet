@@ -102,7 +102,7 @@ export const TrustList = defineSchema(ns("trust"), {
   policy: bytes(),
 })
 
-/** Index of a part of an agent's diary. The diary itself lives on 0G Storage. */
+/** Index of a part of an agent's diary. The diary itself is too big for Arkiv, and lives on Swarm or 0G Storage. */
 export const Diary = defineSchema(ns("diary"), {
   agent: addr().indexed(),
   root: str().indexed(),
@@ -111,6 +111,8 @@ export const Diary = defineSchema(ns("diary"), {
   entries: u64(),
   firstSeq: u64().indexed(),
   lastSeq: u64().indexed(),
+  /** How the part is kept. Without one it is a readable file on 0G Storage, as parts were before this was added. */
+  storage: str().indexed().optional(),
 })
 
 /** Public description of a problem, released at the disclosure deadline. */

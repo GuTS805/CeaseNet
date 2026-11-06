@@ -398,6 +398,7 @@ export async function readDiaryIndex(client: ArkivPublic, agent: Hex, owner?: st
       entries: BigInt(r.entries.value),
       firstSeq: BigInt(r.firstSeq.value),
       lastSeq: BigInt(r.lastSeq.value),
+      storage: r.storage?.value,
       creator: r.$creator,
       createdAt: r.$createdAt,
     }))

@@ -5,7 +5,7 @@ import type { ArkivWallet } from "./arkiv"
 import { recallContentHash } from "./hash"
 import { agentFingerprint } from "./killSwitch"
 import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Lift, Loadout, Recall, TrustList } from "./schema"
-import { assertPublicRef } from "./swarmRef"
+import { assertPublicRef, SEALED_ON_SWARM } from "./swarmRef"
 import type { AckAction, AgentStatus, Hex, LiftKind, LoadedFile, Stance, TrustPolicy } from "./types"
 
 const READ_ONLY = { readonly: true } as const
@@ -237,21 +237,23 @@ export class ArkivWriter {
   }
 
   /**
-   * One part of an agent's diary: where it lives on 0G Storage and the hash its entries must end on.
+   * One part of an agent's diary: where it is stored and the hash its entries must end on.
    * It is written by the agent, or by its owner on its behalf, and readers accept only those two.
    */
-  diary(input: { agent?: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }) {
+  diary(input: { agent?: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string }) {
+    if (input.storage === SEALED_ON_SWARM) assertPublicRef(input.root)
     return this.enqueue(() =>
       this.wallet.createEntity(
         Diary,
-        {
+        clean({
           agent: addr(input.agent ?? this.address),
           root: input.root,
           head: input.head,
           entries: u64(input.entries),
           firstSeq: u64(input.firstSeq),
           lastSeq: u64(input.lastSeq),
-        },
+          storage: input.storage,
+        }) as any,
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )

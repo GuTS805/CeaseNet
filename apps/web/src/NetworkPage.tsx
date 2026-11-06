@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { DEMO_AGENTS, followersOf, follows, isWithdrawn, lower, type PublicView, recallCovers, type RecallRow, trustFromPolicy } from "@ceasenet/core"
-import { client, nameOf, shortHash, statusColour, statusLabel, useNetworkView, usePoll } from "./lib"
+import { DEMO_AGENTS, followersOf, follows, isLive, isWithdrawn, lower, onlyLive, type PublicView, recallCovers, type RecallRow, trustFromPolicy } from "@ceasenet/core"
+import { client, HOSTED, nameOf, shortHash, statusColour, statusLabel, useNetworkView, usePoll } from "./lib"
 import { type ChainRecord, recordsIn, ViewTracker } from "./warroom/events"
 import { Ticker } from "./warroom/Ticker"
 import { cometOn } from "./warroom/WarMap"
@@ -39,12 +39,23 @@ const curve = (x1: number, y1: number, x2: number, y2: number) => {
   return `M${x1} ${y1} C${mid} ${y1} ${mid} ${y2} ${x2} ${y2}`
 }
 
+/** Says what the map is leaving out, and brings it back with one click. */
+export function LiveToggle({ view, everyone, onChange }: { view: PublicView; everyone: boolean; onChange: (everyone: boolean) => void }) {
+  const others = view.agents.filter((a) => !isLive(a)).length
+  if (others === 0) return null
+  return (
+    <label className="small muted check-line">
+      <input type="checkbox" checked={everyone} onChange={(e) => onChange(e.target.checked)} /> Also show {others} agent{others === 1 ? "" : "s"} on record that {others === 1 ? "is" : "are"} not running now, such as finished test runs.
+    </label>
+  )
+}
+
 /** The real graph: every line is an owner's public choice, and a red one is a STOP that binds that agent. Nothing here is drawn from a fixed list. */
-export function NetworkMap({ view }: { view: PublicView }) {
+export function NetworkMap({ view, shown = view }: { view: PublicView; shown?: PublicView }) {
   const layer = useRef<SVGGElement>(null)
   const tracker = useRef(new ViewTracker())
-  const issuers = useMemo(() => issuersOf(view), [view])
-  const agents = view.agents.slice(0, MAX_NODES)
+  const issuers = useMemo(() => issuersOf(shown), [shown])
+  const agents = shown.agents.slice(0, MAX_NODES)
   const rows = Math.max(issuers.length, agents.length, 2)
   const height = TOP * 2 + rows * ROW
   const yFor = (i: number, count: number) => TOP + ((rows * ROW) / count) * (i + 0.5)
@@ -98,12 +109,16 @@ export function NetworkMap({ view }: { view: PublicView }) {
             )),
         )}
         <g ref={layer} />
-        <text x={W / 2} y={height / 2 - 6} className="net-hub">
-          ARKIV
-        </text>
-        <text x={W / 2} y={height / 2 + 14} className="net-hub-block">
-          block {String(view.block)}
-        </text>
+        {(issuers.length > 0 || agents.length > 0) && (
+          <>
+            <text x={W / 2} y={height / 2 - 6} className="net-hub">
+              ARKIV
+            </text>
+            <text x={W / 2} y={height / 2 + 14} className="net-hub-block">
+              block {String(view.block)}
+            </text>
+          </>
+        )}
       </svg>
       {issuers.map((i) => (
         <div key={i.key} className={`net-node issuer ${i.recalls.some((r) => r.level === "STOP") ? "hot" : ""}`} style={{ left: `${((ISSUER_X - 150) / W) * 100}%`, top: `${(issuerY(i.key) / height) * 100}%` }}>
@@ -121,7 +136,7 @@ export function NetworkMap({ view }: { view: PublicView }) {
           <span className="mono">{a.loadout?.files.filter((f) => f.kind === "tool").map((f) => `${f.name} ${f.version}`).join(", ") || "Nothing published yet"}</span>
         </a>
       ))}
-      {issuers.length === 0 && agents.length === 0 && <div className="net-empty">Nothing on Arkiv yet.</div>}
+      {issuers.length === 0 && agents.length === 0 && <div className="net-empty">{view.agents.length > 0 ? "No agent is running right now. An agent appears here while its heartbeat is live, and drops off when it stops." : "Nothing on Arkiv yet."}</div>}
     </div>
   )
 }
@@ -129,7 +144,10 @@ export function NetworkMap({ view }: { view: PublicView }) {
 /** Everyone on the record, read from Arkiv by this browser. A new agent shows up here the moment it registers. */
 export function NetworkPage() {
   const { data: view, error } = useNetworkView()
-  const { data: block } = usePoll(() => client.getBlockNumber(), 2000)
+  // Each read counts against an access key's quota. On its own, this one line was nearly half of what this page read.
+  const { data: block } = usePoll(() => client.getBlockNumber(), HOSTED ? 15_000 : 2000)
+  const [everyone, setEveryone] = useState(false)
+  const shown = useMemo(() => view && (everyone ? view : onlyLive(view)), [view, everyone])
   const [records, setRecords] = useState<ReadonlyMap<string, ChainRecord>>(new Map())
   const named = useRef<(address: string) => string>(nameOf)
   useEffect(() => {
@@ -143,8 +161,8 @@ export function NetworkPage() {
   }, [view])
 
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
-  if (!view) return <div className="page muted">Reading Arkiv…</div>
-  const liveCount = view.agents.filter((a) => a.heartbeat).length
+  if (!view || !shown) return <div className="page muted">Reading Arkiv…</div>
+  const liveCount = view.agents.filter(isLive).length
   return (
     <div className="page network">
       <h1>The network, live</h1>
@@ -152,11 +170,13 @@ export function NetworkPage() {
         Every agent, key and line here comes straight from Arkiv, read by your browser with no server of ours. {view.agents.length} agents on record, {liveCount} with a live heartbeat, {view.recalls.length} recalls. A line
         is an owner's public choice to follow a key. Red means a STOP binds that agent. <a href="#/protect">Add your own.</a>
       </p>
-      <NetworkMap view={view} />
+      <LiveToggle view={view} everyone={everyone} onChange={setEveryone} />
+      <NetworkMap view={view} shown={shown} />
       <Ticker latest={block ?? view.block} records={[...records.values()]} erased={new Set()} />
       <div className="card">
         <h2>Agents</h2>
-        <table>
+        {shown.agents.length === 0 && <p className="muted">No agent is running right now.</p>}
+        <table hidden={shown.agents.length === 0}>
           <thead>
             <tr>
               <th>Agent</th>
@@ -167,7 +187,7 @@ export function NetworkPage() {
             </tr>
           </thead>
           <tbody>
-            {view.agents.map((a) => (
+            {shown.agents.map((a) => (
               <tr key={a.agent.key}>
                 <td>
                   <a href={`#/agent/${a.agent.agent}`}>{a.agent.name}</a> {isDemo(a.agent.agent) && <span className="status grey">demo</span>}
@@ -185,9 +205,14 @@ export function NetworkPage() {
       </div>
       <div className="card">
         <h2>Recalls, with who follows each issuer</h2>
+        {shown.recalls.length === 0 && (
+          <p className="muted">
+            None in force for the agents shown here. <a href="#/recalls">See all recalls.</a>
+          </p>
+        )}
         <table>
           <tbody>
-            {view.recalls.slice(0, 50).map((r) => (
+            {shown.recalls.slice(0, 50).map((r) => (
               <tr key={r.key}>
                 <td>
                   <a href={`#/recall/${r.key}`}>{r.level === "STOP" ? "STOP" : "Warning"}</a>

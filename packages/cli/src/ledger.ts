@@ -56,7 +56,7 @@ export interface LedgerWriter {
   trustList(input: { seq: bigint; policy: TrustPolicy }): Promise<{ entityKey: Hex }>
   agent(input: { agent: Hex; name: string; framework: string; purpose: string }): Promise<{ entityKey: Hex }>
   /** One stored part of an agent's diary, written on its behalf. */
-  diary(input: { agent: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }): Promise<{ entityKey: Hex }>
+  diary(input: { agent: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string }): Promise<{ entityKey: Hex }>
   send(to: Hex, amount: bigint): Promise<void>
 }
 

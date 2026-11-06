@@ -1,5 +1,6 @@
 import type { ArkivPublic } from "./arkiv"
-import type { BoardAgent } from "./board"
+import { type BoardAgent, follows, isLive } from "./board"
+import { lower, recallCovers } from "./gate"
 import { ADDRESSES, DEMO_OWNERS, demoPolicy } from "./deployment"
 import {
   type DisclosureRow,
@@ -35,6 +36,25 @@ export interface PublicView {
   artifacts: ArtifactRow[]
   /** Public descriptions of recalls, only from the key that issued the recall or a regulator. */
   disclosures: DisclosureRow[]
+}
+
+/** Its own issuer has taken this recall back. A recall that was fixed still stands against the version it named. */
+export const endedByIssuer = (recall: RecallRow, lifts: readonly LiftRow[]): boolean =>
+  lifts.some((l) => l.recall === recall.key && l.kind === "WITHDRAWN" && lower(l.creator) === lower(recall.creator))
+
+/**
+ * What is happening now: agents with a live heartbeat, and the recalls in force that cover one of them.
+ *
+ * Records stay on Arkiv until they expire, whoever wrote them, so the public list fills up with agents that ran once.
+ * This narrows what a page leads with, by a fact anyone can check. It does not remove anything from the record.
+ */
+export function onlyLive(view: PublicView): PublicView {
+  const agents = view.agents.filter(isLive)
+  return {
+    ...view,
+    agents,
+    recalls: view.recalls.filter((r) => !endedByIssuer(r, view.lifts) && agents.some((a) => a.policy && follows(a.policy, r) && a.loadout?.files.some((f) => recallCovers(r, f)))),
+  }
 }
 
 /**

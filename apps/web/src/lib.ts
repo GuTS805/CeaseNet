@@ -71,7 +71,7 @@ export const statusLabel = (status: AgentStatus | undefined): string =>
           ? "Waiting for its model"
           : "Unknown"
 
-/** Polls while the page is open and keeps the last good result if a read fails. */
+/** Polls while the page is on screen, and keeps the last good result if a read fails. A tab nobody is looking at reads nothing. */
 export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknown[] = [], initial?: T) {
   const [data, setData] = useState<T | undefined>(initial)
   const [error, setError] = useState<string>()
@@ -82,23 +82,36 @@ export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknow
   useEffect(() => {
     let live = true
     let timer: ReturnType<typeof setTimeout>
+    let reading = false
     const tick = async () => {
-      try {
-        const next = await latest.current()
-        if (live) {
-          setData(next)
-          setFresh(true)
-          setError(undefined)
+      if (reading) return
+      reading = true
+      clearTimeout(timer)
+      if (!document.hidden) {
+        try {
+          const next = await latest.current()
+          if (live) {
+            setData(next)
+            setFresh(true)
+            setError(undefined)
+          }
+        } catch (e) {
+          if (live) setError((e as Error).message.split("\n")[0])
         }
-      } catch (e) {
-        if (live) setError((e as Error).message.split("\n")[0])
       }
+      reading = false
       if (live) timer = setTimeout(tick, everyMs)
     }
+    // Coming back to the tab shows what is true now, rather than waiting for the next turn.
+    const onShown = () => {
+      if (!document.hidden) void tick()
+    }
+    document.addEventListener("visibilitychange", onShown)
     void tick()
     return () => {
       live = false
       clearTimeout(timer)
+      document.removeEventListener("visibilitychange", onShown)
     }
   }, [everyMs, ...deps])
   const refresh = async () => {
@@ -147,7 +160,7 @@ const networkView = sharedView(() => readWholeList(client))
 export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(() => publicView.read(), HOSTED ? Math.max(everyMs, 20_000) : everyMs, [], publicView.known)
 
 /** The whole network, from anyone, with no list of keys to start from. */
-export const useNetworkView = (everyMs = 4000) => usePoll<PublicView>(() => networkView.read(), HOSTED ? Math.max(everyMs, 15_000) : everyMs, [], networkView.known)
+export const useNetworkView = (everyMs = 4000) => usePoll<PublicView>(() => networkView.read(), HOSTED ? Math.max(everyMs, 30_000) : everyMs, [], networkView.known)
 
 /** Something has just been written, so what is known is out of date. It stays on screen until the next read. */
 export const forgetView = (): void => {

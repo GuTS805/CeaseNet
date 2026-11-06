@@ -59,6 +59,7 @@ export function DiaryPage({ run }: { run: Run }) {
   const current = read?.id === agent.id ? read : undefined
   const parts = current?.parts ?? []
   const bad = parts.filter((p) => !p.check.ok)
+  const locked = parts.filter((p) => p.locked)
   const gaps = parts.filter((p) => p.followsOn === false)
   const items = parts
     .flatMap((p) => p.items)
@@ -78,7 +79,7 @@ export function DiaryPage({ run }: { run: Run }) {
         <div>
           <h1>Diary</h1>
           <p className="muted">
-            What each agent really did, call by call. Each part is stored {list.where === "0g" ? "on 0G Storage, with its index and hash on Arkiv" : "on this machine for now"}, so if an agent turns out to be faulty you can go back and check, and nobody can quietly change the record afterwards.
+            What each agent really did, call by call. Each part is stored {list.where === "swarm" ? "on Swarm, encrypted so only you can read it, with its index and hash on Arkiv" : list.where === "0g" ? "on 0G Storage, with its index and hash on Arkiv" : "on this machine for now"}, so if an agent turns out to be faulty you can go back and check, and nobody can quietly change the record afterwards.
           </p>
         </div>
         <div className="page-actions">
@@ -107,9 +108,10 @@ export function DiaryPage({ run }: { run: Run }) {
         {list.wallet && <Tile label="Storage wallet" value={`${list.wallet.balance} 0G`} note={<Copyable value={list.wallet.address} />} />}
       </div>
 
-      <p className="small muted">{MODE[agent.mode]}.</p>
+      <p className="small muted">{list.where === "swarm" ? "Encrypted before it leaves this machine: anyone can see on Arkiv that a part exists, how many entries it holds and when, and only your owner key can read what is in it" : MODE[agent.mode]}.</p>
+      {locked.length > 0 && <div className="notice">{locked.length} {locked.length === 1 ? "part is" : "parts are"} encrypted to the owner's key, which is on another machine, so {locked.length === 1 ? "it" : "they"} can only be read there.</div>}
 
-      {parts.length > 0 &&
+      {parts.length > locked.length &&
         (bad.length || gaps.length ? (
           <div className="notice bad">
             {bad.length ? `${bad.length} of ${parts.length} parts do not match what the index recorded: ${bad[0]!.check.problem}. ` : ""}
@@ -117,7 +119,7 @@ export function DiaryPage({ run }: { run: Run }) {
           </div>
         ) : (
           <div className="check-ok">
-            <Status tone="green">Checked</Status> The {parts.length} newest {parts.length === 1 ? "part" : "parts"} read back from storage match the {list.where === "0g" ? "hashes on Arkiv" : "recorded hashes"} and follow on from each other. Nothing has been changed.
+            <Status tone="green">Checked</Status> The {parts.length} newest {parts.length === 1 ? "part" : "parts"} read back from storage match the {list.where === "local" ? "recorded hashes" : "hashes on Arkiv"} and follow on from each other. Nothing has been changed.
           </div>
         ))}
 
@@ -200,7 +202,7 @@ export function DiaryPage({ run }: { run: Run }) {
                     <Copyable value={p.root} />
                   </td>
                   <td className="small tabular">{p.block}</td>
-                  <td>{p.check.ok ? <Status tone="green" small>Matches</Status> : <Status tone="red" small>Does not match</Status>}</td>
+                  <td>{p.locked ? <Status tone="grey" small>Encrypted</Status> : p.check.ok ? <Status tone="green" small>{p.storage ? "Opened, and matches" : "Matches"}</Status> : <Status tone="red" small>Does not match</Status>}</td>
                 </tr>
               ))}
             </tbody>

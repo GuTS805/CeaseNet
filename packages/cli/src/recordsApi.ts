@@ -1,10 +1,10 @@
 import { join } from "node:path"
-import { ADDRESSES, type ArkivPublic, type Hex, identityFiles, type LoadedFile, readReports, teamFile } from "@ceasenet/core"
-import type { DiaryStore } from "@ceasenet/guard"
+import { ADDRESSES, type ArkivPublic, type DiaryRow, type Hex, identityFiles, type LoadedFile, readReports, SEALED_ON_SWARM, teamFile } from "@ceasenet/core"
+import { type DiaryStore, SwarmClient } from "@ceasenet/guard"
 import { privateKeyToAccount } from "viem/accounts"
 import { explainWriteError, stopAgent, stopTool } from "./actions"
 import { liveGuards } from "./activity"
-import { type DiaryMode, type DiaryPartView, type DiaryTarget, hasWaiting, localDiaryStore, readBack, readDiaryState, storeWaiting, waitingCount } from "./diaryService"
+import { type DiaryMode, type DiaryPartView, type DiaryTarget, hasWaiting, localDiaryStore, readBack, readDiaryState, sealedSwarmStore, storeWaiting, waitingCount } from "./diaryService"
 import { memberHome, memberView, readAgentState, TEAM } from "./fleet"
 import { type Config, homeDir, identityOf, type Keys } from "./home"
 import type { Ledger } from "./ledger"
@@ -18,6 +18,7 @@ const REPORTS_EVERY_MS = 30_000
 /** Enough for about one part. Below this, trying would only fail. */
 const LOW_ZERO_G = 2_000_000_000_000_000n
 const ZERO_G_FAUCET = "https://faucet.0g.ai"
+const SWARM_GATEWAY = "https://api.gateway.ethswarm.org"
 
 interface ZeroGLike extends DiaryStore {
   address: string
@@ -63,8 +64,21 @@ export function recordsService(ctx: RecordsContext) {
     zeroG ??= import("@ceasenet/demo/zeroG").then(({ ZeroGStore }) => new ZeroGStore(payerKey))
     return zeroG
   }
+  /** Swarm, if this machine can upload to it and can encrypt for the owner. It reads its settings each time, so setting it up needs no restart. */
+  const swarmStore = (): DiaryStore | undefined => {
+    const { BEE_API_URL: url, SWARM_POSTAGE_BATCH_ID: batch } = readSettings()
+    return onChain && url && batch && ownerPublicKey ? sealedSwarmStore(new SwarmClient({ url, batch }), ownerPublicKey) : undefined
+  }
+  const readFromSwarm = (root: string): Promise<Uint8Array> => {
+    const settings = readSettings()
+    return new SwarmClient({ url: settings.BEE_API_URL || settings.SWARM_GATEWAY_URL || SWARM_GATEWAY }).read(root)
+  }
   const store: DiaryStore = {
-    put: async (bytes) => (onChain ? quietly(async () => (await openZeroG()).put(bytes)) : local.put(bytes)),
+    put: async (bytes) => {
+      const swarm = swarmStore()
+      if (swarm) return swarm.put(bytes)
+      return onChain ? quietly(async () => (await openZeroG()).put(bytes)) : local.put(bytes)
+    },
     get: async (root) => {
       if (!onChain) return local.get(root)
       // Reading needs no wallet and no library: anyone can do this with a plain web request.
@@ -123,7 +137,7 @@ export function recordsService(ctx: RecordsContext) {
     flushing = true
     try {
       const list = targets().filter((t) => due(t, force))
-      if (list.length === 0 || !(await checkWallet())) return
+      if (list.length === 0 || (!swarmStore() && !(await checkWallet()))) return
       const writer = ledger.writer(payerKey)
       for (const target of list) {
         try {
@@ -171,11 +185,11 @@ export function recordsService(ctx: RecordsContext) {
   void refreshReports()
 
   const cache = new Map<string, Uint8Array>()
-  const readPart = async (root: string): Promise<Uint8Array> => {
+  const readPart = async (root: string, row: DiaryRow): Promise<Uint8Array> => {
     // A stored part cannot change, or it would not have this name.
     const known = cache.get(root)
     if (known) return known
-    const bytes = await store.get(root)
+    const bytes = row.storage === SEALED_ON_SWARM ? await readFromSwarm(root) : await store.get(root)
     cache.set(root, bytes)
     return bytes
   }
@@ -183,11 +197,12 @@ export function recordsService(ctx: RecordsContext) {
   type Route = (body: Record<string, unknown>, match: RegExpMatchArray) => Promise<unknown> | unknown
   const routes: Record<string, Route> = {
     "GET /api/diary": async () => {
-      if (onChain && !wallet) await checkWallet()
+      const onSwarm = Boolean(swarmStore())
+      if (onChain && !onSwarm && !wallet) await checkWallet()
       return {
-        where: onChain ? "0g" : "local",
-        wallet,
-        problem: walletProblem,
+        where: onSwarm ? "swarm" : onChain ? "0g" : "local",
+        wallet: onSwarm ? undefined : wallet,
+        problem: onSwarm ? undefined : walletProblem,
         faucet: ZERO_G_FAUCET,
         agents: targets().map((t) => {
           const state = readDiaryState(t.home)

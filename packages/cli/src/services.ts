@@ -1,4 +1,4 @@
-import { accessKeyStatus, ARKIV_EXPLORER, arkivPublicClient, type ArkivPublic, readWholeList } from "@ceasenet/core"
+import { accessKeyStatus, ARKIV_EXPLORER, arkivPublicClient, type ArkivPublic, readWholeList, SEALED_ON_SWARM } from "@ceasenet/core"
 import { chooseThinking, claudeAvailable, type ModelTest, testModel } from "./fleet"
 import type { Config } from "./home"
 import type { Ledger } from "./ledger"
@@ -131,10 +131,10 @@ export async function readServices(_config: Config, env: NodeJS.ProcessEnv): Pro
       id: "swarm",
       name: "Swarm",
       status: swarm.ok ? (swarmConfigured ? "ready" : "not-set-up") : "unreachable",
-      purpose: "Keeps fixed tools and sealed evidence somewhere that survives the maker's site going away. Reading is free. Storing needs a postage batch.",
+      purpose: "Keeps what each agent did, encrypted so only you can read it, with its index on Arkiv. In the scripted demo it also keeps fixed tools and sealed evidence. Reading is free. Storing needs a postage batch.",
       found: [reached("The public gateway", swarm), ...setOrMissing(["BEE_API_URL", "SWARM_POSTAGE_BATCH_ID"], env)],
       todo: swarmConfigured ? undefined : `To store files, run a Bee node with a postage batch, and put both settings in ${settingsFile}`,
-      usedBy: "The scripted demo. Not yet the ceasenet program",
+      usedBy: "Every agent's diary, on the public list, once both settings are here. The scripted demo",
       link: "https://docs.ethswarm.org",
     },
     {
@@ -144,7 +144,7 @@ export async function readServices(_config: Config, env: NodeJS.ProcessEnv): Pro
       purpose: "Holds each agent's tamper-evident diary, with its hash on Arkiv, so a changed copy fails the check. Reading is free. Storing needs 0G test tokens.",
       found: [reached("The network", zeroGRpc), reached("The storage indexer", zeroGIndexer)],
       todo: "Storing needs a wallet with 0G test tokens, which the scripted demo's treasury can hold",
-      usedBy: "The scripted demo. Not yet the ceasenet program",
+      usedBy: "Every agent's diary on the public list, until Swarm is set up. The scripted demo",
       link: "https://docs.0g.ai",
     },
   ]
@@ -356,7 +356,7 @@ export async function readArkiv({ config, ledger, client, agents }: ArkivInputs)
         key: d.key,
         creator: d.creator,
         block: String(d.createdAt),
-        summary: `${a.name}: entries ${d.firstSeq} to ${d.lastSeq}, stored at ${d.root.slice(0, 14)}…`,
+        summary: `${a.name}: entries ${d.firstSeq} to ${d.lastSeq}, ${d.storage === SEALED_ON_SWARM ? "encrypted on Swarm at" : "stored at"} ${d.root.slice(0, 14)}…`,
         link: entityLink(mode, d.key),
       })),
     ),

@@ -98,7 +98,8 @@ export function verifyPart(entries: readonly DiaryEntry[], expectedHead: string,
 
 /** Where diary parts live. */
 export interface DiaryStore {
-  put(bytes: Uint8Array): Promise<{ root: string }>
+  /** `storage` says how the part is kept, when a reader needs to know that to open it. */
+  put(bytes: Uint8Array): Promise<{ root: string; storage?: string }>
   get(root: string): Promise<Uint8Array>
 }
 

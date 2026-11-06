@@ -125,6 +125,9 @@ export function deletedStops(acks: readonly AckRow[], liveRecalls: readonly Reca
   }))
 }
 
+/** Whether an agent is reporting right now. A heartbeat expires by itself, so an agent that has gone away stops being live with nothing to clean up. */
+export const isLive = (entry: BoardAgent): boolean => statusColourOf(entry.agent.agent, entry.heartbeat) !== "grey"
+
 export type StatusColour = "green" | "amber" | "red" | "grey"
 
 /** The colour of an agent's status. Anything other than a live heartbeat from its own key is grey. */

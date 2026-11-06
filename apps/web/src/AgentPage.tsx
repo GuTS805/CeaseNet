@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { deletedStops, type Hex, type DiaryRow, readDiaryIndex, recallCovers, statusColourOf } from "@ceasenet/core"
+import { deletedStops, type Hex, type DiaryRow, readDiaryIndex, recallCovers, SEALED_ON_SWARM, statusColourOf } from "@ceasenet/core"
 import { decodePart, type DiaryCheck, type DiaryEntry, verifyPart } from "@ceasenet/guard/diary"
-import { client, explorerAddress, nameOf, shortHash, statusLabel, useNetworkView, usePoll } from "./lib"
+import { client, explorerAddress, HOSTED, swarmLink, nameOf, shortHash, statusLabel, useNetworkView, usePoll } from "./lib"
 
 const HEAD: Record<string, string> = {
   green: "Running",
@@ -11,6 +11,23 @@ const HEAD: Record<string, string> = {
 }
 
 const INDEXER = "https://indexer-storage-testnet-turbo.0g.ai"
+
+/** Anyone can see that it exists and fetch the file. Only the owner can read it, in their own console. */
+function SealedDiaryPart({ part }: { part: DiaryRow }) {
+  return (
+    <div className="diary-part">
+      <div className="row between">
+        <span>
+          Entries {String(part.firstSeq)} to {String(part.lastSeq)}{" "}
+          <a className="mono" href={swarmLink(part.root)} target="_blank" rel="noreferrer">
+            {shortHash(part.root)}
+          </a>
+        </span>
+        <span className="small muted">Encrypted on Swarm. Only its owner can read it</span>
+      </div>
+    </div>
+  )
+}
 
 function DiaryPart({ part }: { part: DiaryRow }) {
   const [result, setResult] = useState<{ check: DiaryCheck; entries: DiaryEntry[] } | { failed: string }>()
@@ -89,7 +106,7 @@ function DiaryPart({ part }: { part: DiaryRow }) {
 export function AgentPage({ address }: { address: Hex }) {
   const { data: view, error } = useNetworkView(3000)
   const owner = view?.agents.find((a) => a.agent.agent.toLowerCase() === address.toLowerCase())?.agent.owner
-  const { data: diaries } = usePoll<DiaryRow[]>(() => readDiaryIndex(client, address, owner), 8000, [address, owner])
+  const { data: diaries } = usePoll<DiaryRow[]>(() => readDiaryIndex(client, address, owner), HOSTED ? 30_000 : 8000, [address, owner])
 
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
@@ -200,9 +217,9 @@ export function AgentPage({ address }: { address: Hex }) {
           )}
 
           <div className="field">
-            <div className="label">Diary on 0G Storage</div>
+            <div className="label">Diary</div>
             {diaries && diaries.length > 0 ? (
-              diaries.slice(0, 5).map((d) => <DiaryPart key={d.key} part={d} />)
+              diaries.slice(0, 5).map((d) => (d.storage === SEALED_ON_SWARM ? <SealedDiaryPart key={d.key} part={d} /> : <DiaryPart key={d.key} part={d} />))
             ) : (
               <div className="muted">Nothing stored yet</div>
             )}

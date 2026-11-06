@@ -2,6 +2,7 @@ import { useState } from "react"
 import {
   countConfirmations,
   decodeBundle,
+  endedByIssuer,
   followersOf,
   type Hex,
   isDismissed,
@@ -31,15 +32,15 @@ const targetOf = (r: RecallRow) => {
 export function RecallList({ view }: { view: PublicView }) {
   const [everyone, setEveryone] = useState(false)
   if (view.recalls.length === 0) return <p className="muted">No recalls on record.</p>
-  const followed = view.recalls.filter((r) => followersOf(r, view.agents) > 0)
+  const followed = view.recalls.filter((r) => !endedByIssuer(r, view.lifts) && followersOf(r, view.agents) > 0)
   const hidden = view.recalls.length - followed.length
   const shown = everyone ? view.recalls : followed
   return (
     <div className="card">
-      {shown.length === 0 && <p className="muted">No owner follows the key behind any recall yet.</p>}
+      {shown.length === 0 && <p className="muted">No recall is in force right now.</p>}
       {hidden > 0 && (
         <label className="small muted check-line">
-          <input type="checkbox" checked={everyone} onChange={(e) => setEveryone(e.target.checked)} /> Also show {hidden} recall{hidden === 1 ? "" : "s"} from keys nobody follows. Anyone can write one, and it binds nobody.
+          <input type="checkbox" checked={everyone} onChange={(e) => setEveryone(e.target.checked)} /> Also show {hidden} recall{hidden === 1 ? "" : "s"} that {hidden === 1 ? "has" : "have"} ended or {hidden === 1 ? "comes" : "come"} from keys nobody follows. Anyone can write one, and those bind nobody.
         </label>
       )}
       <table>

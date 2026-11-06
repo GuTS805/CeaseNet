@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { type DiaryRow, hashBytes, type Hex } from "@ceasenet/core"
-import { decodePart, DIARY_START, type DiaryData, type DiaryEntry, type DiaryStore, encodePart, entryHash, openSealedRef, sealText, verifyPart, writeAtomic } from "@ceasenet/guard"
+import { type DiaryRow, hashBytes, type Hex, SEALED_ON_SWARM } from "@ceasenet/core"
+import { decodePart, DIARY_START, type DiaryData, type DiaryEntry, type DiaryStore, encodePart, entryHash, openSealedBytes, openSealedRef, sealBytes, sealText, type SwarmClient, verifyPart, writeAtomic } from "@ceasenet/guard"
 import { type JournalRecord, journalPath, readJournal } from "./journal"
 
 /**
@@ -28,6 +28,7 @@ export interface PartInfo {
   lastSeq: number
   entries: number
   at: number
+  storage?: string
 }
 
 interface DiaryState {
@@ -38,7 +39,7 @@ interface DiaryState {
   parts: PartInfo[]
   lastStoredAt?: number
   /** A part made and not yet recorded. It is kept so a failure partway does not pay for it twice or change its hash. */
-  pending?: { head: Hex; firstSeq: number; lastSeq: number; entries: number; next: number; root?: string }
+  pending?: { head: Hex; firstSeq: number; lastSeq: number; entries: number; next: number; root?: string; storage?: string }
 }
 
 const MAX_RECORDS = 200
@@ -96,7 +97,7 @@ export function buildEntries(records: readonly JournalRecord[], start: { head: H
   return { entries, head, seq }
 }
 
-export type DiaryIndexWriter = (agent: Hex, part: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }) => Promise<unknown>
+export type DiaryIndexWriter = (agent: Hex, part: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string }) => Promise<unknown>
 
 /** Stores what is waiting in one agent's journal. Returns whether anything was stored. */
 export async function storeWaiting(target: DiaryTarget, store: DiaryStore, index: DiaryIndexWriter, ownerPublicKey?: Hex, now = Date.now()): Promise<boolean> {
@@ -119,12 +120,14 @@ export async function storeWaiting(target: DiaryTarget, store: DiaryStore, index
 
   const pending = state.pending!
   if (!pending.root) {
-    pending.root = (await store.put(bytes)).root
+    const stored = await store.put(bytes)
+    pending.root = stored.root
+    pending.storage = stored.storage
     saveState(home, state)
   }
-  await index(target.address, { root: pending.root, head: pending.head, entries: BigInt(pending.entries), firstSeq: BigInt(pending.firstSeq), lastSeq: BigInt(pending.lastSeq) })
+  await index(target.address, { root: pending.root, head: pending.head, entries: BigInt(pending.entries), firstSeq: BigInt(pending.firstSeq), lastSeq: BigInt(pending.lastSeq), ...(pending.storage ? { storage: pending.storage } : {}) })
 
-  state.parts.push({ root: pending.root, head: pending.head, firstSeq: pending.firstSeq, lastSeq: pending.lastSeq, entries: pending.entries, at: now })
+  state.parts.push({ root: pending.root, head: pending.head, firstSeq: pending.firstSeq, lastSeq: pending.lastSeq, entries: pending.entries, at: now, ...(pending.storage ? { storage: pending.storage } : {}) })
   state.offset = pending.next
   state.head = pending.head
   state.seq = pending.lastSeq + 1
@@ -173,6 +176,22 @@ export function localDiaryStore(dir: string): DiaryStore {
   }
 }
 
+// ---- Keeping parts on Swarm, encrypted ----
+
+/**
+ * Keeps parts on Swarm, encrypted to the owner before they leave this machine. The index on Arkiv is public, and shows
+ * only that a part exists, where it is, how many entries it holds and when. Only the owner's key can read what is in it.
+ */
+export function sealedSwarmStore(swarm: SwarmClient, ownerPublicKey: Hex): DiaryStore {
+  return {
+    put: async (bytes) => ({
+      root: await swarm.upload(`diary-${hashBytes(bytes).slice(2, 14)}.sealed`, sealBytes(bytes, ownerPublicKey)),
+      storage: SEALED_ON_SWARM,
+    }),
+    get: (root) => swarm.read(root),
+  }
+}
+
 // ---- Reading a diary back ----
 
 export interface DiaryPartView {
@@ -184,6 +203,9 @@ export interface DiaryPartView {
   /** The block its index was recorded at. */
   block: string
   indexKey: string
+  storage?: string
+  /** It is encrypted, and this machine does not hold the key that opens it. Nothing can be said about its contents. */
+  locked?: boolean
   /** Whether what storage returned ends on the hash the index recorded. */
   check: { ok: boolean; problem?: string }
   /** Whether it follows on from the part before it, so nothing between them is missing. */
@@ -197,14 +219,20 @@ export type DiaryItem = DiaryEntry & {
 }
 
 /** Reads the newest parts of a diary, and checks each against what the index recorded. */
-export async function readBack(index: readonly DiaryRow[], get: (root: string) => Promise<Uint8Array>, ownerKey?: Hex, limit = 8): Promise<DiaryPartView[]> {
+export async function readBack(index: readonly DiaryRow[], get: (root: string, row: DiaryRow) => Promise<Uint8Array>, ownerKey?: Hex, limit = 8): Promise<DiaryPartView[]> {
   const newest = [...index].sort((a, b) => Number(b.lastSeq - a.lastSeq)).slice(0, limit)
   const views: DiaryPartView[] = []
   for (const row of newest) {
-    const base = { root: row.root, head: row.head, firstSeq: Number(row.firstSeq), lastSeq: Number(row.lastSeq), entries: Number(row.entries), block: String(row.createdAt), indexKey: row.key }
+    const base = { root: row.root, head: row.head, firstSeq: Number(row.firstSeq), lastSeq: Number(row.lastSeq), entries: Number(row.entries), block: String(row.createdAt), indexKey: row.key, ...(row.storage ? { storage: row.storage } : {}) }
+    const sealed = row.storage === SEALED_ON_SWARM
+    if (sealed && !ownerKey) {
+      views.push({ ...base, locked: true, check: { ok: true }, items: [] })
+      continue
+    }
     let entries: DiaryEntry[]
     try {
-      entries = decodePart(await get(row.root))
+      const stored = await get(row.root, row)
+      entries = decodePart(sealed ? openSealedBytes(stored, ownerKey!) : stored)
     } catch (e) {
       views.push({ ...base, check: { ok: false, problem: `Could not read it: ${(e as Error).message.split("\n")[0]}` }, items: [] })
       continue
@@ -220,7 +248,7 @@ export async function readBack(index: readonly DiaryRow[], get: (root: string) =
   for (let i = 0; i < views.length - 1; i++) {
     const later = views[i]!
     const earlier = views[i + 1]!
-    later.followsOn = later.firstSeq === earlier.lastSeq + 1 && later.items[0]?.prev === earlier.head
+    later.followsOn = later.firstSeq === earlier.lastSeq + 1 && (later.locked || later.items[0]?.prev === earlier.head)
   }
   return views
 }

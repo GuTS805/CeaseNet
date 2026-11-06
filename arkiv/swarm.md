@@ -6,11 +6,14 @@
 
 | Data | Swarm | Arkiv |
 |---|---|---|
+| What each agent did: its jobs, tool calls, what the gate decided and what the model said | One encrypted file per part of its diary, sealed to the owner's key before it leaves the machine | `ceasenet.diary`: `root`, the public reference, plus `head`, `entries`, `firstSeq`, `lastSeq` and `storage` set to `swarm-sealed` |
 | A fixed tool | The whole package, as one public file | `ceasenet.lift`: `fixedHash`, `fixedVersion`, and `fixedRef`, the public reference |
 | Evidence behind a recall | The file, encrypted by Bee (`swarm-encrypt: true`) | `ceasenet.recall.sealedEvidence`: the reference, sealed to the security council's key |
 | Evidence after disclosure | The same file, public | `ceasenet.disclose.reproductionRef`: the public reference |
 
 ## The problems this solves
+
+**What an agent did can hold anything, and it has to outlive the agent.** So each part is encrypted to the agent's owner on the machine that made it, then stored on Swarm. Because we encrypt it ourselves, the reference holds no key and can go on Arkiv as it is, and whoever runs the Bee node only ever handles the encrypted file. Anyone can see on Arkiv that a part exists, how many entries it holds and when it was written. Only the owner's key can read it, and the console then checks it against the hash on Arkiv.
 
 **A fix has to reach agents even if the maker's site or registry account is gone.** That is a likely state of affairs for a tool that has just been recalled. So the fix lives on Swarm, the reference lives on Arkiv, and anyone can serve the file, because agents check its hash before it reaches their disk. Anyone can also check it in a browser, on the recall page, with no server of ours: "Download from Swarm and check".
 
@@ -26,8 +29,8 @@ An encrypted Swarm reference is 64 bytes, and its second half is the key to the 
 
 ## Entity field and example
 
-- Entity field holding the reference: `ceasenet.lift.fixedRef`
-- Example entity key: **TO FILL** (the `ceasenet.lift` written by "Publish fix")
+- Entity fields holding a reference: `ceasenet.diary.root`, and `ceasenet.lift.fixedRef` in the scripted demo
+- Example entity key: **TO FILL** (the `ceasenet.diary` that `npm run swarm-check` prints)
 - Its Swarm reference: **TO FILL**
 - Postage batch ID: **TO FILL**
 - Batch buyer: **TO FILL**
@@ -38,6 +41,7 @@ An encrypted Swarm reference is 64 bytes, and its second half is the key to the 
 
 - Upload and read through Bee's HTTP API: `SwarmClient` in [packages/guard/src/swarm.ts](../packages/guard/src/swarm.ts)
 - Fetch a fix and check its hash before writing to disk: `fetchPackage`, same file
+- Encrypt a diary part and store it: `sealedSwarmStore` in [packages/cli/src/diaryService.ts](../packages/cli/src/diaryService.ts), using `sealBytes` and `openSealedBytes` in swarm.ts
 - What the demo uploads: [apps/demo/src/swarmFiles.ts](../apps/demo/src/swarmFiles.ts)
 - Check a fix in the browser: `FixOnSwarm` in [apps/web/src/RecallPages.tsx](../apps/web/src/RecallPages.tsx)
 
