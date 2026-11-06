@@ -96,3 +96,6 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 10:02 | do 1 |
 | 11-06 10:08 | done |
 | 11-06 10:29 | yes go ahead |
+| 11-06 16:58 | okay now i am telling you my idea / so just listen and dont chanmge / i am thinking of removing these agents and add as trading agents(3) in terminal |
+| 11-06 16:58 | real terminal real agents |
+| 11-06 16:58 | okay then if you got it / then les go and dont make any mistakres |

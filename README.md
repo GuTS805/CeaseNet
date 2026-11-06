@@ -11,7 +11,7 @@ It doesn't depend on us. Each gate reads a public recall list on [Arkiv](https:/
 | | |
 |---|---|
 | **Stop things** | Stop one agent, all your agents, or one tool everywhere it is used. It works with the MCP tools your agents already use, and with Claude Code's own tools such as Bash |
-| **Watch it work** | Three real AI agents do real work, keep checking the recall list, and close themselves when a recall covers them |
+| **Watch it work** | Three real AI trading agents work on live prices with paper money, each in its own terminal, keep checking the recall list, and close themselves when a recall covers them |
 | **Look back** | Every call is saved to a diary on 0G Storage, with its index on Arkiv. Anyone can check it hasn't been changed |
 | **Know what an agent is** | Arkiv holds who answers for each agent, and a fingerprint of its exact tools, model and instructions |
 | **Report a problem** | Anyone can report an agent or a tool. World ID shows each vote is a different real person. At enough votes, the owner is told and decides |
@@ -51,25 +51,27 @@ To move from one to the other, press **Move to the public list** on the console'
 
 `ceasenet import-settings .env` copies your model key, Arkiv access key and World ID settings into `~/.ceasenet/.env`. It leaves a wallet's secret phrase behind, and no tool ever sees these keys. [.env.example](.env.example) explains each one.
 
-## See it work: three real AI agents
+## See it work: three real AI trading agents
 
 ```bash
 ceasenet agents start
 ceasenet console
 ```
 
-Three agents start: invoices, customer messages and research notes. Each is its own process with its own key. A real model decides each step, through real MCP servers from npm that can reach only that agent's folder. Each keeps reading the recall list, and when a recall covers it, **it closes itself and its process ends.** The model isn't asked, so one that has gone wrong or would rather carry on makes no difference.
+Three real terminals open, one for each agent: a momentum trader, a mean-reversion trader and a risk watcher. Each is its own process with its own key. A real model decides each step on live Coinbase prices, through real MCP servers, and you watch every call in its window. **The money is paper:** orders fill at the live price in an account in that agent's folder, starting at $10,000, and no real funds exist to lose. Each keeps reading the recall list, and when a recall covers it, **it closes itself and its process ends,** with the reason left on screen. The model's key stays with the agent, and no tool ever sees it.
 
 | On the Agents page, press | What happens |
 |---|---|
-| **Recall** on the filesystem tool | All three use it, so all three close. Starting them again does nothing until it is lifted: they read the list first and refuse |
-| **Recall** on the memory tool | The two that use it close, and the third keeps working |
+| **Recall** on the market tool | All three use it, so all three close. Starting them again does nothing until it is lifted: they read the list first and refuse |
+| **Recall** on the broker tool | The two traders close, and the risk watcher keeps working |
 | **Stop this agent** | Only that one closes |
 | **Stop all three** | They all close, and nothing else you run is affected |
 
+From a terminal, `ceasenet stop trade-broker-tool --reason "It fills orders at the wrong price"` does the same as the broker's button.
+
 Each card then shows how long closing took, that the system confirms the process has gone, and whether its receipt is on the list. In our runs they decided to close in about 0.3 s on this machine, and about 5 s on the public list, where the recall's transaction has to confirm first.
 
-They think with the model in your settings, which can be any service that speaks the OpenAI chat API (Groq's free tier works), or with Claude Code if there is none. You can switch at the top of the page. They pause after 2 minutes with no console open and shut down after 15, so they can't run up your limit. A free-tier key has a daily allowance for each model, and the page says when one is used up. Their tasks are sample files.
+They think with the model in your settings, which can be any service that speaks the OpenAI chat API (Groq's free tier works), or with Claude Code if there is none. You can switch at the top of the page. Each terminal runs for 20 minutes. Started from the console alone, with no terminal, they pause after 2 minutes with nobody looking and shut down after 15. A free-tier key has a daily allowance for each model, and the page says when one is used up. On Groq's free tier that is 200,000 tokens a day for each model, and one 20-minute session with three agents uses roughly half of it, so switch model if one runs out.
 
 ## Stop agents and recall tools
 
@@ -268,7 +270,7 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 ## Layout
 
 ```
-packages/cli     The ceasenet program: setup, protecting clients, the guard, the three agents,
+packages/cli     The ceasenet program: setup, protecting clients, the guard, the three trading agents,
                  the diary service, reports and the console's backend
 packages/core    Records, the gate's decisions, Arkiv reads and writes
 packages/guard   The gate and MCP proxy, the diary format, Swarm client and Agent Pass

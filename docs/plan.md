@@ -58,7 +58,7 @@ After the event's build, the project moved from a scripted demo to something peo
 | Decision | Why |
 |---|---|
 | Every call goes in the diary, with its contents | The question after something goes wrong is what exactly did it do, and a hash alone cannot answer that |
-| Contents are sealed to the owner's key on real agents | Storage is public and permanent, and a call can hold a customer's details. The three sample agents stay in the open, because they work on sample files |
+| Contents are sealed to the owner's key on real agents | Storage is public and permanent, and a call can hold a customer's details. The three trading agents stay in the open, because they trade paper money on public prices |
 | A guard only writes to a local file, and one service stores it | A guard holds no keys and must not depend on a network, and uploads from one wallet have to go one at a time |
 | One part per agent every 2 minutes, and at once on closing | A part costs real tokens, and what an agent did just before closing is what people will want to see |
 | The owner's wallet pays, and the index may be written by the owner | So an owner funds one wallet. Readers accept the agent's key or its owner's, and nobody else's |
