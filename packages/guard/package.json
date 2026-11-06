@@ -5,13 +5,15 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./diary": "./src/diary.ts"
+    "./diary": "./src/diary.ts",
+    "./agent-pass": "./src/agentPass.ts"
   },
   "bin": {
     "ceasenet-guard": "./src/proxy.ts"
   },
   "dependencies": {
     "@ceasenet/core": "*",
-    "@modelcontextprotocol/sdk": "^1.32.2"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "jose": "^6.2.15"
   }
 }
