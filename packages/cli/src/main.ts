@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process"
 import { runAgent } from "./agentRun"
-import { memberView, TEAM } from "./fleet"
+import { memberView, type StartResult, startReport, TEAM } from "./fleet"
 import { importSettings } from "./settings"
 import { existsSync } from "node:fs"
 import { hostname } from "node:os"
@@ -508,7 +508,12 @@ async function main(argv: readonly string[]): Promise<void> {
       const info = await waitForDaemon()
       const res = await fetch(`http://127.0.0.1:${info.port}/api/team/${action}`, { method: "POST", headers: { "content-type": "application/json", "x-ceasenet-token": info.token }, body: "{}" })
       if (!res.ok) throw new Error(((await res.json()) as { error: string }).error)
-      out(action === "start" ? `Three terminals are opening, one per agent. The console is at http://127.0.0.1:${info.port}` : "They have been shut down, with no recall.")
+      if (action === "shutdown") {
+        out("They have been shut down, with no recall.")
+        return
+      }
+      for (const line of startReport((await res.json()) as StartResult)) out(line)
+      out(`The console is at http://127.0.0.1:${info.port}`)
       return
     }
     case "access-key": {

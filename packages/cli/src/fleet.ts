@@ -366,7 +366,8 @@ export function terminalScript(platform: NodeJS.Platform, title: string, env: Re
   ].join("\n")
 }
 
-export function startMember(member: Member, mainHome: string, self: { command: string; args: string[] }, tools: PreparedTool[]): void {
+/** Where an agent ended up: in a terminal of its own, or in the background when no terminal could be opened. */
+export function startMember(member: Member, mainHome: string, self: { command: string; args: string[] }, tools: PreparedTool[]): "terminal" | "background" {
   const home = memberHome(member.id)
   const toolsFile = join(home, "tools.json")
   writeAtomic(toolsFile, JSON.stringify(tools.filter((t) => member.tools.includes(t.id)).map((t) => t.file)))
@@ -375,7 +376,7 @@ export function startMember(member: Member, mainHome: string, self: { command: s
 
   const script = join(home, process.platform === "win32" ? "terminal.cmd" : "terminal.sh")
   writeFileSync(script, terminalScript(process.platform, member.name, { ...env, CEASENET_TERMINAL: "1" }, [self.command, ...run]))
-  if (openTerminal(script)) return
+  if (openTerminal(script)) return "terminal"
 
   const child = nodeSpawn(self.command, run, {
     // On Windows a detached process has no console, so everything it starts would open a window of its own.
@@ -385,6 +386,25 @@ export function startMember(member: Member, mainHome: string, self: { command: s
     env: { ...process.env, ...env },
   })
   child.unref()
+  return "background"
+}
+
+export interface StartResult {
+  terminals: string[]
+  background: string[]
+  running: string[]
+}
+
+const count = (n: number, one: string, many: string) => `${["No", "One", "Two", "Three"][n] ?? n} ${n === 1 ? one : many}`
+const names = (list: string[]) => (list.length < 2 ? list.join("") : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`)
+
+/** What starting really did, so nobody is told three terminals opened when fewer did. */
+export function startReport({ terminals, background, running }: StartResult): string[] {
+  const lines: string[] = []
+  if (terminals.length > 0) lines.push(`${count(terminals.length, "terminal is", "terminals are")} opening: ${names(terminals)}. Each reads the recall list first, and will not start if a recall covers it.`)
+  if (background.length > 0) lines.push(`No terminal could be opened for ${names(background)}, so ${background.length === 1 ? "it runs" : "they run"} in the background. Watch in the console.`)
+  if (running.length > 0) lines.push(`Already running, so left alone: ${names(running)}.`)
+  return lines
 }
 
 /** Ends an agent without any recall, along with whatever it was running. */

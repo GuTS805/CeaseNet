@@ -71,6 +71,9 @@ export function teamRoutes(ctx: TeamContext) {
     startError = undefined
     const chosen = TEAM.filter((m) => !ids || ids.includes(m.id))
     const self = selfForFleet()
+    const terminals: string[] = []
+    const background: string[] = []
+    const running: string[] = []
     try {
       preparing = "Measuring their tools"
       prepared = prepareTools()
@@ -84,12 +87,13 @@ export function teamRoutes(ctx: TeamContext) {
       })
       preparing = "Starting them"
       for (const m of chosen) {
-        if (!memberView(m).alive) startMember(m, homeDir(), self, prepared)
+        if (memberView(m).alive) running.push(m.name)
+        else (startMember(m, homeDir(), self, prepared) === "terminal" ? terminals : background).push(m.name)
       }
     } finally {
       preparing = undefined
     }
-    return { started: chosen.map((m) => m.id) }
+    return { started: chosen.map((m) => m.id), terminals, background, running }
   }
 
   return {

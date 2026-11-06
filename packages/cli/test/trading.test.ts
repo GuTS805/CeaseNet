@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { modelRunner } from "../src/agentRun"
-import { mcpSettingsPath, TEAM, terminalScript, TOOLS, toolDir } from "../src/fleet"
+import { mcpSettingsPath, startReport, TEAM, terminalScript, TOOLS, toolDir } from "../src/fleet"
 
 /** Stands in for the market data service, so these tests can move the price and take the service away. */
 let spot: { status: number; amount: string }
@@ -173,6 +173,25 @@ describe("the paper broker", () => {
     await call(first, "place_order", { symbol: "BTC-USD", side: "buy", usd: 100 })
     await first.close()
     expect((await call(await broker(), "get_portfolio", { reason: "test" })).text).toContain("Cash $9,900.00")
+  })
+})
+
+describe("what starting them says", () => {
+  it("counts the terminals that really opened", () => {
+    expect(startReport({ terminals: ["Momentum trader", "Reversion trader"], background: [], running: ["Risk watcher"] })).toEqual([
+      "Two terminals are opening: Momentum trader and Reversion trader. Each reads the recall list first, and will not start if a recall covers it.",
+      "Already running, so left alone: Risk watcher.",
+    ])
+  })
+
+  it("says when an agent could not have a terminal", () => {
+    expect(startReport({ terminals: [], background: ["Risk watcher"], running: [] })).toEqual([
+      "No terminal could be opened for Risk watcher, so it runs in the background. Watch in the console.",
+    ])
+  })
+
+  it("says nothing was started when all three already run", () => {
+    expect(startReport({ terminals: [], background: [], running: ["A", "B", "C"] })).toEqual(["Already running, so left alone: A, B and C."])
   })
 })
 
