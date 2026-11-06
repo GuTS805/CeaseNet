@@ -1,6 +1,7 @@
 export * from "./arkiv"
 export * from "./board"
 export * from "./deployment"
+export * from "./diaryTime"
 export * from "./gate"
 export * from "./hash"
 export * from "./killSwitch"

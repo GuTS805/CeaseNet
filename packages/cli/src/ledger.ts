@@ -10,6 +10,7 @@ import {
   arkivWalletClient,
   ArkivWriter,
   decodeMemory,
+  diaryInRange,
   type DiaryRow,
   encodeMemory,
   type GateView,
@@ -32,6 +33,7 @@ import {
   recallContentHash,
   type RecallInput,
   type RecallRow,
+  type TimeRange,
   type TrustPolicy,
 } from "@ceasenet/core"
 import { ArkivGuardNet, type GuardNet, ReadOnlyNet } from "@ceasenet/guard"
@@ -56,7 +58,7 @@ export interface LedgerWriter {
   trustList(input: { seq: bigint; policy: TrustPolicy }): Promise<{ entityKey: Hex }>
   agent(input: { agent: Hex; name: string; framework: string; purpose: string }): Promise<{ entityKey: Hex }>
   /** One stored part of an agent's diary, written on its behalf. */
-  diary(input: { agent: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string }): Promise<{ entityKey: Hex }>
+  diary(input: { agent: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string; firstAt?: number; lastAt?: number }): Promise<{ entityKey: Hex }>
   send(to: Hex, amount: bigint): Promise<void>
 }
 
@@ -75,8 +77,8 @@ export interface Ledger {
   agents(owner: string): Promise<AgentRow[]>
   heartbeat(agent: Hex): Promise<HeartbeatRow | undefined>
   loadout(agent: Hex): Promise<LoadoutRow | undefined>
-  /** Where an agent's diary is stored, from its own key or its owner's. */
-  diaries(agent: Hex): Promise<DiaryRow[]>
+  /** Where an agent's diary is stored, from its own key or its owner's. Given a span of time, only the parts inside it. */
+  diaries(agent: Hex, range?: TimeRange): Promise<DiaryRow[]>
   /** Undefined where there is no such thing as a balance. */
   balance(address: Hex): Promise<bigint | undefined>
 }
@@ -150,7 +152,7 @@ export function arkivLedger(config: Config): Ledger {
     agents: (o) => readAgents(client, [o]),
     heartbeat: (agent) => readHeartbeat(client, agent),
     loadout: (agent) => readLatestLoadout(client, agent),
-    diaries: (agent) => readDiaryIndex(client, agent, owner),
+    diaries: (agent, range) => readDiaryIndex(client, agent, owner, range),
     balance: (address) => client.getBalance({ address }),
   }
 }
@@ -327,9 +329,9 @@ export function localLedger(config: Config): Ledger {
       const all = of("loadout").filter((l) => same(l.creator, agent))
       return all[all.length - 1]
     },
-    diaries: async (agent) =>
+    diaries: async (agent, range) =>
       of("diary")
-        .filter((d) => same(d.agent, agent) && (same(d.creator, agent) || same(d.creator, owner)))
+        .filter((d) => same(d.agent, agent) && (same(d.creator, agent) || same(d.creator, owner)) && diaryInRange(d, range))
         .sort((a, b) => Number(b.lastSeq - a.lastSeq)),
     balance: async () => undefined,
   }

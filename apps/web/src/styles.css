@@ -443,6 +443,30 @@ button.primary {
   padding: 8px 0;
 }
 
+/* Looking up an agent's diary by time. */
+.diary-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+  margin: 6px 0 10px;
+}
+
+.diary-range label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.diary-range input {
+  width: auto;
+  color-scheme: dark;
+}
+
+.diary-range .muted {
+  flex-basis: 100%;
+}
+
 .check-form {
   display: grid;
   grid-template-columns: 1fr 140px 1.4fr;

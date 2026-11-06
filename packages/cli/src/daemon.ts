@@ -523,7 +523,8 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
     const host = req.headers.host ?? ""
     if (host !== `127.0.0.1:${port}` && host !== `localhost:${port}`) return respond(res, 403, { error: "This console only answers on this machine." })
 
-    const path = new URL(req.url ?? "/", "http://x").pathname
+    const url = new URL(req.url ?? "/", "http://x")
+    const path = url.pathname
     if (!path.startsWith("/api/")) return servePage(path, res)
 
     const given = req.headers["x-ceasenet-token"]
@@ -536,7 +537,8 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
       try {
         const chunks: Buffer[] = []
         for await (const c of req) chunks.push(c as Buffer)
-        const body = chunks.length ? (JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>) : {}
+        // A request with no body, such as a GET, passes its options in the address instead.
+        const body = chunks.length ? (JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>) : (Object.fromEntries(url.searchParams) as Record<string, unknown>)
         return respond(res, 200, await handler(body, match, res))
       } catch (e) {
         return respond(res, e instanceof HttpError ? e.status : 400, { error: (e as Error).message })

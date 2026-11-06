@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { type DiaryRow, hashBytes, type Hex, SEALED_ON_SWARM } from "@ceasenet/core"
+import { DIARY_WINDOW_MS, type DiaryRow, diaryWindowOf, hashBytes, type Hex, SEALED_ON_SWARM } from "@ceasenet/core"
 import { decodePart, DIARY_START, type DiaryData, type DiaryEntry, type DiaryStore, encodePart, entryHash, openSealedBytes, openSealedRef, sealBytes, sealText, type SwarmClient, verifyPart, writeAtomic } from "@ceasenet/guard"
 import { type JournalRecord, journalPath, readJournal } from "./journal"
 
@@ -29,6 +29,9 @@ export interface PartInfo {
   entries: number
   at: number
   storage?: string
+  /** When its first and last entries happened. */
+  firstAt?: number
+  lastAt?: number
 }
 
 interface DiaryState {
@@ -39,7 +42,7 @@ interface DiaryState {
   parts: PartInfo[]
   lastStoredAt?: number
   /** A part made and not yet recorded. It is kept so a failure partway does not pay for it twice or change its hash. */
-  pending?: { head: Hex; firstSeq: number; lastSeq: number; entries: number; next: number; root?: string; storage?: string }
+  pending?: { head: Hex; firstSeq: number; lastSeq: number; entries: number; next: number; root?: string; storage?: string; firstAt?: number; lastAt?: number }
 }
 
 const MAX_RECORDS = 200
@@ -97,7 +100,24 @@ export function buildEntries(records: readonly JournalRecord[], start: { head: H
   return { entries, head, seq }
 }
 
-export type DiaryIndexWriter = (agent: Hex, part: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string }) => Promise<unknown>
+export type DiaryIndexWriter = (
+  agent: Hex,
+  part: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string; firstAt?: number; lastAt?: number },
+) => Promise<unknown>
+
+/** Records belong in one part only if they fall in the same time window. */
+const sameWindow = (first: JournalRecord, record: JournalRecord) => diaryWindowOf(first.at) === diaryWindowOf(record.at)
+
+/**
+ * Whether the oldest record not yet stored is in a window that has ended, so its part can be written whole. A part
+ * already made and not yet recorded is always ready.
+ */
+export function windowEnded(home: string, now = Date.now(), windowMs = DIARY_WINDOW_MS): boolean {
+  const state = readDiaryState(home)
+  if (state.pending) return true
+  const oldest = readJournal(home, state.offset, 1).records[0]
+  return oldest !== undefined && now >= diaryWindowOf(oldest.at, windowMs) + windowMs
+}
 
 /** Stores what is waiting in one agent's journal. Returns whether anything was stored. */
 export async function storeWaiting(target: DiaryTarget, store: DiaryStore, index: DiaryIndexWriter, ownerPublicKey?: Hex, now = Date.now()): Promise<boolean> {
@@ -108,13 +128,15 @@ export async function storeWaiting(target: DiaryTarget, store: DiaryStore, index
   if (state.pending && existsSync(pendingPath(home))) {
     bytes = readFileSync(pendingPath(home))
   } else {
-    const { records, next } = readJournal(home, state.offset, MAX_RECORDS)
+    // One part never crosses into the next time window, so the times on its index say which window it covers.
+    const { records, next } = readJournal(home, state.offset, MAX_RECORDS, sameWindow)
     if (records.length === 0) return false
     const built = buildEntries(records, { head: state.head, seq: state.seq }, target.mode, ownerPublicKey)
     bytes = encodePart(built.entries)
     mkdirSync(home, { recursive: true })
     writeFileSync(pendingPath(home), bytes)
-    state.pending = { head: built.head, firstSeq: state.seq, lastSeq: built.seq - 1, entries: built.entries.length, next }
+    const times = records.map((r) => r.at)
+    state.pending = { head: built.head, firstSeq: state.seq, lastSeq: built.seq - 1, entries: built.entries.length, next, firstAt: Math.min(...times), lastAt: Math.max(...times) }
     saveState(home, state)
   }
 
@@ -125,9 +147,10 @@ export async function storeWaiting(target: DiaryTarget, store: DiaryStore, index
     pending.storage = stored.storage
     saveState(home, state)
   }
-  await index(target.address, { root: pending.root, head: pending.head, entries: BigInt(pending.entries), firstSeq: BigInt(pending.firstSeq), lastSeq: BigInt(pending.lastSeq), ...(pending.storage ? { storage: pending.storage } : {}) })
+  const times = pending.firstAt !== undefined && pending.lastAt !== undefined ? { firstAt: pending.firstAt, lastAt: pending.lastAt } : {}
+  await index(target.address, { root: pending.root, head: pending.head, entries: BigInt(pending.entries), firstSeq: BigInt(pending.firstSeq), lastSeq: BigInt(pending.lastSeq), ...(pending.storage ? { storage: pending.storage } : {}), ...times })
 
-  state.parts.push({ root: pending.root, head: pending.head, firstSeq: pending.firstSeq, lastSeq: pending.lastSeq, entries: pending.entries, at: now, ...(pending.storage ? { storage: pending.storage } : {}) })
+  state.parts.push({ root: pending.root, head: pending.head, firstSeq: pending.firstSeq, lastSeq: pending.lastSeq, entries: pending.entries, at: now, ...(pending.storage ? { storage: pending.storage } : {}), ...times })
   state.offset = pending.next
   state.head = pending.head
   state.seq = pending.lastSeq + 1
@@ -204,6 +227,9 @@ export interface DiaryPartView {
   block: string
   indexKey: string
   storage?: string
+  /** When its first and last entries happened, as its index on the list says. */
+  firstAt?: number
+  lastAt?: number
   /** It is encrypted, and this machine does not hold the key that opens it. Nothing can be said about its contents. */
   locked?: boolean
   /** Whether what storage returned ends on the hash the index recorded. */
@@ -223,7 +249,17 @@ export async function readBack(index: readonly DiaryRow[], get: (root: string, r
   const newest = [...index].sort((a, b) => Number(b.lastSeq - a.lastSeq)).slice(0, limit)
   const views: DiaryPartView[] = []
   for (const row of newest) {
-    const base = { root: row.root, head: row.head, firstSeq: Number(row.firstSeq), lastSeq: Number(row.lastSeq), entries: Number(row.entries), block: String(row.createdAt), indexKey: row.key, ...(row.storage ? { storage: row.storage } : {}) }
+    const base = {
+      root: row.root,
+      head: row.head,
+      firstSeq: Number(row.firstSeq),
+      lastSeq: Number(row.lastSeq),
+      entries: Number(row.entries),
+      block: String(row.createdAt),
+      indexKey: row.key,
+      ...(row.storage ? { storage: row.storage } : {}),
+      ...(row.firstAt !== undefined && row.lastAt !== undefined ? { firstAt: row.firstAt, lastAt: row.lastAt } : {}),
+    }
     const sealed = row.storage === SEALED_ON_SWARM
     if (sealed && !ownerKey) {
       views.push({ ...base, locked: true, check: { ok: true }, items: [] })

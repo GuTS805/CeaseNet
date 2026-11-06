@@ -1,18 +1,16 @@
 import { join } from "node:path"
-import { ADDRESSES, type ArkivPublic, type DiaryRow, type Hex, identityFiles, type LoadedFile, readReports, SEALED_ON_SWARM, teamFile } from "@ceasenet/core"
+import { ADDRESSES, type ArkivPublic, DIARY_WINDOW_MS, type DiaryRow, type Hex, identityFiles, type LoadedFile, readReports, SEALED_ON_SWARM, teamFile, type TimeRange } from "@ceasenet/core"
 import { type DiaryStore, SwarmClient } from "@ceasenet/guard"
 import { privateKeyToAccount } from "viem/accounts"
 import { explainWriteError, stopAgent, stopTool } from "./actions"
 import { liveGuards } from "./activity"
-import { type DiaryMode, type DiaryPartView, type DiaryTarget, hasWaiting, localDiaryStore, readBack, readDiaryState, sealedSwarmStore, storeWaiting, waitingCount } from "./diaryService"
+import { type DiaryMode, type DiaryPartView, type DiaryTarget, hasWaiting, localDiaryStore, readBack, readDiaryState, sealedSwarmStore, storeWaiting, waitingCount, windowEnded } from "./diaryService"
 import { memberHome, memberView, readAgentState, TEAM } from "./fleet"
 import { type Config, homeDir, identityOf, type Keys } from "./home"
 import type { Ledger } from "./ledger"
 import { DEFAULT_VOTES_NEEDED, loadHandled, markHandled, type OwnAgent, recallReasonFor, reportsFor, type ReportView } from "./reports"
 import { readSettings } from "./settings"
 
-/** One stored part per agent every this often. Each one costs a little, and an agent can make many calls a minute. */
-const STORE_EVERY_MS = 2 * 60_000
 const TICK_MS = 10_000
 const REPORTS_EVERY_MS = 30_000
 /** Enough for about one part. Below this, trying would only fail. */
@@ -46,6 +44,17 @@ export interface RecordsContext {
 }
 
 const shortError = (e: unknown) => (e as Error).message.split("\n")[0] ?? "it failed"
+
+/** A span of time asked for as from and to, in milliseconds since 1970. Anything that is not a time is left open. */
+export function timeRange(query: Record<string, unknown>): TimeRange {
+  const at = (v: unknown) => {
+    const n = typeof v === "string" && v.trim() !== "" ? Number(v) : typeof v === "number" ? v : Number.NaN
+    return Number.isFinite(n) && n >= 0 ? n : undefined
+  }
+  const from = at(query.from)
+  const to = at(query.to)
+  return { ...(from !== undefined ? { from } : {}), ...(to !== undefined ? { to } : {}) }
+}
 
 /** Saving what agents did, reading it back, and telling an owner when people have reported one of them. */
 export function recordsService(ctx: RecordsContext) {
@@ -128,8 +137,9 @@ export function recordsService(ctx: RecordsContext) {
     // What an agent did just before it closed is exactly what someone will want to see, so it does not wait.
     const phase = readAgentState(target.home)?.phase
     if (phase === "closed" || phase === "off") return true
-    const last = readDiaryState(target.home).lastStoredAt ?? 0
-    return Date.now() - last >= STORE_EVERY_MS
+    // Otherwise one part per agent for each time window, written once the window is over. Each costs a little, and an
+    // agent can make many calls a minute.
+    return windowEnded(target.home)
   }
 
   const flush = async (force = false): Promise<void> => {
@@ -204,6 +214,7 @@ export function recordsService(ctx: RecordsContext) {
         wallet: onSwarm ? undefined : wallet,
         problem: onSwarm ? undefined : walletProblem,
         faucet: ZERO_G_FAUCET,
+        windowMs: DIARY_WINDOW_MS,
         agents: targets().map((t) => {
           const state = readDiaryState(t.home)
           return {
@@ -224,12 +235,13 @@ export function recordsService(ctx: RecordsContext) {
       await flush(true)
       return { stored: true }
     },
-    "GET /api/diary/([\\w-]+)": async (_b, m) => {
+    "GET /api/diary/([\\w-]+)": async (query, m) => {
       const target = targets().find((t) => t.id === m[1])
       if (!target) throw new Error("There is no such agent.")
-      const index = await ledger.diaries(target.address)
+      const range = timeRange(query)
+      const index = await ledger.diaries(target.address, range)
       const parts: DiaryPartView[] = await readBack(index, readPart, keys.owner)
-      return { id: target.id, name: target.name, address: target.address, mode: target.mode, where: onChain ? "0g" : "local", totalParts: index.length, canOpenSealed: Boolean(keys.owner), parts }
+      return { id: target.id, name: target.name, address: target.address, mode: target.mode, where: onChain ? "0g" : "local", totalParts: index.length, canOpenSealed: Boolean(keys.owner), parts, range }
     },
     "GET /api/reports": () => ({
       reports,

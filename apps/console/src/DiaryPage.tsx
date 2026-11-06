@@ -8,6 +8,17 @@ const MODE: Record<DiaryAgent["mode"], string> = {
   hashes: "Only what happened and when, plus hashes. The owner's key is on another machine, so contents cannot be sealed",
 }
 
+/** A datetime-local input's value, in this machine's time zone, as milliseconds since 1970. */
+const fromInput = (value: string): number | undefined => {
+  const ms = value ? new Date(value).getTime() : Number.NaN
+  return Number.isFinite(ms) ? ms : undefined
+}
+const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+const day = (ms: number) => new Date(ms).toLocaleDateString()
+/** When a part's entries happened, as one short line. */
+const span = (firstAt?: number, lastAt?: number) =>
+  firstAt === undefined || lastAt === undefined ? "Not recorded" : day(firstAt) === day(lastAt) ? `${day(firstAt)}, ${clock(firstAt)} to ${clock(lastAt)}` : `${new Date(firstAt).toLocaleString()} to ${new Date(lastAt).toLocaleString()}`
+
 const pretty = (value: unknown) => (typeof value === "string" ? value : JSON.stringify(value, null, 2))
 
 function outcome(item: DiaryItem): { tone: Tone; label: string } {
@@ -51,13 +62,22 @@ export function DiaryPage({ run }: { run: Run }) {
   const [chosen, setChosen] = useState<string>()
   const [onlyRefused, setOnlyRefused] = useState(false)
   const [storing, setStoring] = useState(false)
+  const [fromText, setFromText] = useState("")
+  const [toText, setToText] = useState("")
   const now = useNow()
   const agent = list?.agents.find((a) => a.id === chosen) ?? list?.agents[1] ?? list?.agents[0]
-  const { data: read, error, refresh } = usePoll<DiaryRead>(agent ? `/api/diary/${agent.id}` : "/api/diary/main", 10_000)
+  // A span of time is looked up on the list itself: the index is asked only for parts inside it.
+  const from = fromInput(fromText)
+  const to = fromInput(toText)
+  const query = new URLSearchParams({ ...(from !== undefined ? { from: String(from) } : {}), ...(to !== undefined ? { to: String(to) } : {}) }).toString()
+  const { data: read, error, refresh } = usePoll<DiaryRead>(`${agent ? `/api/diary/${agent.id}` : "/api/diary/main"}${query ? `?${query}` : ""}`, 10_000)
   if (!list) return <div className="page-body"><div className="page-title"><h1>Diary</h1></div><div className={listError ? "notice bad" : "loading"} role="status">{listError ?? "Reading the diaries…"}</div></div>
   if (!agent) return <div className="page-body"><div className="page-title"><div><h1>Diary</h1><p className="muted">A record of what your agents do, call by call.</p></div></div><div className="empty-state"><h2>Your first entry starts with an agent.</h2><p>No agent diaries are available yet. Start an agent to begin recording its activity.</p><a className="button-link" href="#/">View agents</a></div></div>
 
-  const current = read?.id === agent.id ? read : undefined
+  const ranged = from !== undefined || to !== undefined
+  const minutes = Math.round((list.windowMs ?? 300_000) / 60_000)
+  // An answer for another agent or another span is not shown as this one's.
+  const current = read?.id === agent.id && read.range?.from === from && read.range?.to === to ? read : undefined
   const parts = current?.parts ?? []
   const bad = parts.filter((p) => !p.check.ok)
   const locked = parts.filter((p) => p.locked)
@@ -132,14 +152,40 @@ export function DiaryPage({ run }: { run: Run }) {
             Only refusals and closing
           </label>
         </header>
+        <div className="diary-range" role="group" aria-label="Time range">
+          <label>
+            From
+            <input type="datetime-local" step="1" value={fromText} onChange={(e) => setFromText(e.target.value)} />
+          </label>
+          <label>
+            To
+            <input type="datetime-local" step="1" value={toText} onChange={(e) => setToText(e.target.value)} />
+          </label>
+          {ranged && (
+            <button
+              type="button"
+              onClick={() => {
+                setFromText("")
+                setToText("")
+              }}
+            >
+              Show the newest
+            </button>
+          )}
+          <span className="muted small">
+            {ranged
+              ? `Only the parts with something ${from !== undefined && to !== undefined ? "in that span" : from !== undefined ? "after that time" : "before that time"}, asked of the ${list.where === "local" ? "list on this machine" : "index on Arkiv"} directly. Parts stored before times were recorded are left out.`
+              : `Each part covers one ${minutes}-minute window of the clock, so you can look up what an agent did at any time.`}
+          </span>
+        </div>
         {error && !current ? (
           <div className="empty notice bad">{error}</div>
         ) : !current ? (
           <div className="empty muted">Reading it back from storage…</div>
         ) : items.length === 0 ? (
           <div className="empty">
-            <p>Nothing stored for this agent yet.</p>
-            {agent.waiting > 0 && <p className="muted small">{agent.waiting} entries are waiting. Each agent stores a part every 2 minutes, and straight away when it closes.</p>}
+            <p>{ranged ? "Nothing stored for this agent in that span of time." : "Nothing stored for this agent yet."}</p>
+            {agent.waiting > 0 && <p className="muted small">{agent.waiting} entries are waiting. Each agent stores one part for each {minutes}-minute window once it is over, and straight away when it closes.</p>}
           </div>
         ) : (
           <table className="calls diary-calls">
@@ -188,6 +234,7 @@ export function DiaryPage({ run }: { run: Run }) {
             <thead>
               <tr>
                 <th>Entries</th>
+                <th>When</th>
                 <th>Stored as</th>
                 <th>Index block</th>
                 <th>Check</th>
@@ -199,6 +246,7 @@ export function DiaryPage({ run }: { run: Run }) {
                   <td className="small tabular">
                     {p.firstSeq} to {p.lastSeq}
                   </td>
+                  <td className="small">{span(p.firstAt, p.lastAt)}</td>
                   <td>
                     <Copyable value={p.root} />
                   </td>

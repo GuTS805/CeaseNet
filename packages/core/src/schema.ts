@@ -113,6 +113,12 @@ export const Diary = defineSchema(ns("diary"), {
   lastSeq: u64().indexed(),
   /** How the part is kept. Without one it is a readable file on 0G Storage, as parts were before this was added. */
   storage: str().indexed().optional(),
+  /**
+   * When its first and last entries happened, in milliseconds since 1970. A part never spans two time windows (see
+   * DIARY_WINDOW_MS), so anyone can ask Arkiv for what an agent did between two times. Older parts have neither.
+   */
+  firstAt: u64().indexed().optional(),
+  lastAt: u64().indexed().optional(),
 })
 
 /** Public description of a problem, released at the disclosure deadline. */

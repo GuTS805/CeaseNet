@@ -15,6 +15,7 @@ Arkiv is not a log here. The gate decides from what it reads, and every public p
 | `ceasenet.loadout` where `$creator` is the agent, newest `seq` first | The board and agent page | Exactly which files the agent runs, and so whether a recall affects it |
 | `ceasenet.heartbeat` where `$creator` is the agent | The board and agent page | "Running" or "Stopped". When it has expired, "Unknown" |
 | `ceasenet.diary` where `$creator` is the agent | The agent page | A list of diary parts, and "Read from 0G and check", which compares a part with its hash here |
+| `ceasenet.diary` where `$creator` is the agent, `lastAt >= u64(from)` and `firstAt <= u64(to)` | The agent page and the console's Diary page, with From and To | Only the parts from that span of time. Arkiv does the filtering, so a browser never downloads the whole diary index |
 
 The "Check a tool" page downloads all recalls and matches in the browser, so nobody learns what you looked up. We chose that over a per-tool query on purpose, and we paid for it: see [friction.md](friction.md), item 6.
 

@@ -1,5 +1,5 @@
-import { asc, desc, eq, gt, or } from "@arkiv-network/sdk/query"
-import { addr, key } from "@arkiv-network/sdk/schema"
+import { asc, desc, eq, gt, gte, lte, or } from "@arkiv-network/sdk/query"
+import { addr, key, u64 } from "@arkiv-network/sdk/schema"
 import { hexToString } from "viem"
 import type { ArkivPublic } from "./arkiv"
 import { lower } from "./gate"
@@ -21,6 +21,7 @@ import type {
   RecallLevel,
   RecallRow,
   Stance,
+  TimeRange,
   TrustPolicy,
 } from "./types"
 
@@ -377,14 +378,21 @@ export const readDiaries = (client: ArkivPublic, agent: Hex): Promise<DiaryRow[]
 /**
  * Where everything an agent did is stored, newest first, for anyone to look up with no account.
  * Anyone can write a record claiming to be about an agent, so only the agent's own key or its owner's counts.
+ *
+ * Given a span of time, Arkiv itself returns only the parts that overlap it: those that end after it starts and begin
+ * before it ends. Parts written before times were recorded have none, so a span leaves them out.
  */
-export async function readDiaryIndex(client: ArkivPublic, agent: Hex, owner?: string): Promise<DiaryRow[]> {
+export async function readDiaryIndex(client: ArkivPublic, agent: Hex, owner?: string, range: TimeRange = {}): Promise<DiaryRow[]> {
   const creators = [agent, ...(owner ? [owner] : [])]
+  const inRange = [
+    ...(range.from !== undefined ? [gte("lastAt", u64(BigInt(Math.max(0, Math.floor(range.from)))))] : []),
+    ...(range.to !== undefined ? [lte("firstAt", u64(BigInt(Math.max(0, Math.floor(range.to)))))] : []),
+  ]
   const res = await readAll<any>((after) =>
     client
       .select()
       .from(Diary)
-      .where(or(creators.map((c) => eq("$creator", addr(c)))), eq("agent", addr(agent)), ...afterKey(after))
+      .where(or(creators.map((c) => eq("$creator", addr(c)))), eq("agent", addr(agent)), ...inRange, ...afterKey(after))
       .orderBy(asc("$key"))
       .limit(PAGE)
       .fetch() as any,
@@ -399,6 +407,8 @@ export async function readDiaryIndex(client: ArkivPublic, agent: Hex, owner?: st
       firstSeq: BigInt(r.firstSeq.value),
       lastSeq: BigInt(r.lastSeq.value),
       storage: r.storage?.value,
+      ...(r.firstAt ? { firstAt: Number(BigInt(r.firstAt.value)) } : {}),
+      ...(r.lastAt ? { lastAt: Number(BigInt(r.lastAt.value)) } : {}),
       creator: r.$creator,
       createdAt: r.$createdAt,
     }))

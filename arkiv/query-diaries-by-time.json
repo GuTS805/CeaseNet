@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "arkiv_query",
+  "params": [
+    "arkiv.schema = str('ceasenet.diary') AND agent = addr(0x88Ba26055f80E565Afd9706ac66b3B523160eD08) AND lastAt >= u64(1793986200000) AND firstAt <= u64(1793986500000)",
+    {
+      "select": {
+        "key": true,
+        "creator": true,
+        "createdAt": true,
+        "attributes": { "agent": true, "root": true, "head": true, "entries": true, "firstSeq": true, "lastSeq": true, "firstAt": true, "lastAt": true }
+      },
+      "limit": "0x14"
+    }
+  ]
+}

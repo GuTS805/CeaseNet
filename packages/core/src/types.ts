@@ -125,8 +125,17 @@ export interface DiaryRow {
   lastSeq: bigint
   /** How the part is kept. Without one it is a readable file on 0G Storage. */
   storage?: string
+  /** When its first and last entries happened, in milliseconds since 1970. Parts written before these existed have neither. */
+  firstAt?: number
+  lastAt?: number
   creator: Hex
   createdAt: bigint
+}
+
+/** A span of time to look up what an agent did in, in milliseconds since 1970. Either end may be left open. */
+export interface TimeRange {
+  from?: number
+  to?: number
 }
 
 export interface ArtifactRow {

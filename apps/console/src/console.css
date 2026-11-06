@@ -606,7 +606,8 @@ thead + tbody tr:first-child td {
 /* ---- Forms ---- */
 
 input:not([type]),
-input[type="text"] {
+input[type="text"],
+input[type="datetime-local"] {
   font: inherit;
   width: 100%;
   min-width: 0;
@@ -1188,4 +1189,31 @@ fieldset {
   height: 100%;
   background: var(--amber);
   border-radius: 999px;
+}
+
+/* ---- Looking up a diary by time ---- */
+
+.diary-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.diary-range label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.diary-range input {
+  width: auto;
+  color-scheme: dark;
+}
+
+.diary-range .muted {
+  flex-basis: 100%;
 }

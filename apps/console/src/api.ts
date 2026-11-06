@@ -128,6 +128,8 @@ export interface DiaryList {
   wallet?: { address: string; balance?: string; low: boolean }
   problem?: string
   faucet: string
+  /** How long a time window is: each stored part covers at most one. */
+  windowMs: number
   agents: DiaryAgent[]
 }
 
@@ -161,6 +163,9 @@ export interface DiaryPart {
   entries: number
   block: string
   storage?: string
+  /** When its first and last entries happened. Parts stored before times were recorded have neither. */
+  firstAt?: number
+  lastAt?: number
   locked?: boolean
   check: { ok: boolean; problem?: string }
   followsOn?: boolean
@@ -176,6 +181,8 @@ export interface DiaryRead {
   totalParts: number
   canOpenSealed: boolean
   parts: DiaryPart[]
+  /** The span of time these parts were looked up for, if one was asked for. */
+  range?: { from?: number; to?: number }
 }
 
 // ---- Reports from people ----

@@ -90,8 +90,16 @@ export function recordFinishedCall(call: FinishedCall, tool: { server: string; n
 
 export const recordNote = (note: string, text: string, home = homeDir(), at = Date.now()): void => append({ type: "note", at, note, text }, home)
 
-/** Complete records from this point in the file, and where to carry on from. A line still being written waits. */
-export function readJournal(home: string, offset: number, maxRecords: number): { records: JournalRecord[]; next: number } {
+/**
+ * Complete records from this point in the file, and where to carry on from. A line still being written waits.
+ * With belongsWith, it stops at the first record that does not belong with the first one read, and leaves it for next time.
+ */
+export function readJournal(
+  home: string,
+  offset: number,
+  maxRecords: number,
+  belongsWith?: (first: JournalRecord, record: JournalRecord) => boolean,
+): { records: JournalRecord[]; next: number } {
   const path = journalPath(home)
   if (!existsSync(path)) return { records: [], next: offset }
   const fd = openSync(path, "r")
@@ -107,7 +115,9 @@ export function readJournal(home: string, offset: number, maxRecords: number): {
     for (let i = 0; i < length && records.length < maxRecords; i++) {
       if (buffer[i] !== 0x0a) continue
       try {
-        records.push(JSON.parse(buffer.subarray(start, i).toString("utf8")) as JournalRecord)
+        const record = JSON.parse(buffer.subarray(start, i).toString("utf8")) as JournalRecord
+        if (belongsWith && records.length > 0 && !belongsWith(records[0]!, record)) break
+        records.push(record)
       } catch {
         // A damaged line says nothing it can be trusted for, and the rest of the file is still good.
       }

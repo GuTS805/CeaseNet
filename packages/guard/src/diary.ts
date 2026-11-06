@@ -1,4 +1,4 @@
-import { canonicalJson, hashBytes, type Hex } from "@ceasenet/core"
+import { canonicalJson, diaryWindowOf, hashBytes, type Hex } from "@ceasenet/core"
 
 /**
  * What the diary keeps about one moment.
@@ -104,7 +104,8 @@ export interface DiaryStore {
 }
 
 export interface DiaryIndex {
-  diary(input: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }): Promise<unknown>
+  /** firstAt and lastAt: when its first and last entries happened, so the index can be searched by time. */
+  diary(input: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; firstAt?: number; lastAt?: number }): Promise<unknown>
 }
 
 /**
@@ -160,8 +161,11 @@ export class Diary {
   }
 
   private async write(): Promise<void> {
-    // A copy: entries appended during the write must not join this part.
-    const entries = [...this.pending]
+    // A copy: entries appended during the write must not join this part. Nor do entries from a later time window,
+    // so a part never spans two, and the next flush stores them.
+    const window = diaryWindowOf(this.pending[0]!.at)
+    const later = this.pending.findIndex((e) => diaryWindowOf(e.at) !== window)
+    const entries = later === -1 ? [...this.pending] : this.pending.slice(0, later)
     const last = entries[entries.length - 1]!
     const head = entryHash(last)
     try {
@@ -172,6 +176,8 @@ export class Diary {
         entries: BigInt(entries.length),
         firstSeq: BigInt(entries[0]!.seq),
         lastSeq: BigInt(last.seq),
+        firstAt: Math.min(...entries.map((e) => e.at)),
+        lastAt: Math.max(...entries.map((e) => e.at)),
       })
       // Entries appended while this was being written stay waiting.
       this.pending = this.pending.slice(entries.length)

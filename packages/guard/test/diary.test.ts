@@ -170,3 +170,24 @@ describe("checking a stored part", () => {
     expect(verifyPart([], "0x").ok).toBe(false)
   })
 })
+
+describe("Diary and time windows", () => {
+  it("stores one window per part, with when its entries happened, and the next window on the next flush", async () => {
+    const { DIARY_WINDOW_MS } = await import("@ceasenet/core")
+    const W = 1_000 * DIARY_WINDOW_MS
+    const times = [W + 10, W + 20, W + DIARY_WINDOW_MS + 5]
+    const index: { firstSeq: bigint; lastSeq: bigint; firstAt?: number; lastAt?: number }[] = []
+    const diary = new Diary(new MemoryStore(), { diary: async (i) => void index.push(i) }, () => times.shift()!)
+    diary.append(call("a"))
+    diary.append(call("b"))
+    diary.append(call("c"))
+
+    await diary.flush()
+    expect(index).toEqual([expect.objectContaining({ firstSeq: 0n, lastSeq: 1n, firstAt: W + 10, lastAt: W + 20 })])
+    expect(diary.waiting).toBe(1)
+
+    await diary.flush()
+    expect(index[1]).toMatchObject({ firstSeq: 2n, lastSeq: 2n, firstAt: W + DIARY_WINDOW_MS + 5, lastAt: W + DIARY_WINDOW_MS + 5 })
+    expect(diary.waiting).toBe(0)
+  })
+})

@@ -102,7 +102,7 @@ None of this needs the demo, our keys or the program. You need a browser wallet 
 
 ![The Diary page: an agent's calls in order, with a check that they match the hashes on Arkiv](docs/images/diary.png)
 
-Everything an agent does goes in its diary: each call, what it sent, what came back, what the gate decided, and what the model said. Each part is stored on [Swarm](arkiv/swarm.md), encrypted so only the owner can read it, with its index and hash on Arkiv. Until Swarm is set up, parts go to [0G Storage](https://0g.ai) instead. So anyone can find an agent's history from its address, and a changed entry or a missing part fails the check. The console's Diary page reads it back and checks it, and the public site's agent page does the same with no account.
+Everything an agent does goes in its diary: each call, what it sent, what came back, what the gate decided, and what the model said. Each part is stored on [Swarm](arkiv/swarm.md), encrypted so only the owner can read it, with its index and hash on Arkiv. Until Swarm is set up, parts go to [0G Storage](https://0g.ai) instead. So anyone can find an agent's history from its address, and a changed entry or a missing part fails the check. Each part covers one 5-minute window of the clock and its index records when its entries happened, so anyone can also ask Arkiv for what an agent did between two times, on the agent page or the console's Diary page. The console's Diary page reads it back and checks it, and the public site's agent page does the same with no account.
 
 On Swarm, the whole part is encrypted to your owner key before it leaves your machine, so the table below only applies to parts on 0G. Storage there is public and permanent, and a real agent's calls can hold anything, so who can read the contents depends on the agent:
 
@@ -229,6 +229,9 @@ curl -s https://rpc.rabdi.db-chain.testnet.arkiv.network/ -H 'content-type: appl
 
 # Where every agent's diary is stored
 curl -s https://rpc.rabdi.db-chain.testnet.arkiv.network/ -H 'content-type: application/json' -d @arkiv/query-diaries.json
+
+# What one agent did between two times
+curl -s https://rpc.rabdi.db-chain.testnet.arkiv.network/ -H 'content-type: application/json' -d @arkiv/query-diaries-by-time.json
 ```
 
 Anyone can write any record, so these show everyone's. A gate's own query adds `AND $creator = addr(0x...)` for the keys its owner follows, which the chain sets and nobody can fake. That is why a fake STOP changes nothing.

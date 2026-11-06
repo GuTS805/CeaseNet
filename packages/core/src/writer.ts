@@ -240,7 +240,7 @@ export class ArkivWriter {
    * One part of an agent's diary: where it is stored and the hash its entries must end on.
    * It is written by the agent, or by its owner on its behalf, and readers accept only those two.
    */
-  diary(input: { agent?: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string }) {
+  diary(input: { agent?: Hex; root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint; storage?: string; firstAt?: number; lastAt?: number }) {
     if (input.storage === SEALED_ON_SWARM) assertPublicRef(input.root)
     return this.enqueue(() =>
       this.wallet.createEntity(
@@ -253,6 +253,8 @@ export class ArkivWriter {
           firstSeq: u64(input.firstSeq),
           lastSeq: u64(input.lastSeq),
           storage: input.storage,
+          firstAt: input.firstAt === undefined ? undefined : u64(BigInt(input.firstAt)),
+          lastAt: input.lastAt === undefined ? undefined : u64(BigInt(input.lastAt)),
         }) as any,
         { expiration: LONG(), flags: READ_ONLY },
       ),

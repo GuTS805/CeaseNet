@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { deletedStops, type Hex, type DiaryRow, readDiaryIndex, recallCovers, SEALED_ON_SWARM, statusColourOf } from "@ceasenet/core"
+import { deletedStops, DIARY_WINDOW_MS, type Hex, type DiaryRow, readDiaryIndex, recallCovers, SEALED_ON_SWARM, statusColourOf, type TimeRange } from "@ceasenet/core"
 import { decodePart, type DiaryCheck, type DiaryEntry, verifyPart } from "@ceasenet/guard/diary"
 import { client, explorerAddress, HOSTED, swarmLink, nameOf, shortHash, statusLabel, useNetworkView, usePoll } from "./lib"
 
@@ -12,13 +12,34 @@ const HEAD: Record<string, string> = {
 
 const INDEXER = "https://indexer-storage-testnet-turbo.0g.ai"
 
+/** A datetime-local input's value, in this browser's time zone, as milliseconds since 1970. */
+const fromInput = (value: string): number | undefined => {
+  const ms = value ? new Date(value).getTime() : Number.NaN
+  return Number.isFinite(ms) ? ms : undefined
+}
+
+/** When a part's entries happened, as its index on Arkiv says. Parts stored before times were recorded say nothing. */
+function When({ part }: { part: DiaryRow }) {
+  if (part.firstAt === undefined || part.lastAt === undefined) return null
+  const first = new Date(part.firstAt)
+  const last = new Date(part.lastAt)
+  const time = (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  return (
+    <span className="small muted">
+      {" "}
+      {first.toLocaleDateString()}, {time(first)} to {first.toDateString() === last.toDateString() ? time(last) : `${last.toLocaleDateString()} ${time(last)}`}
+    </span>
+  )
+}
+
 /** Anyone can see that it exists and fetch the file. Only the owner can read it, in their own console. */
 function SealedDiaryPart({ part }: { part: DiaryRow }) {
   return (
     <div className="diary-part">
       <div className="row between">
         <span>
-          Entries {String(part.firstSeq)} to {String(part.lastSeq)}{" "}
+          Entries {String(part.firstSeq)} to {String(part.lastSeq)}
+          <When part={part} />{" "}
           <a className="mono" href={swarmLink(part.root)} target="_blank" rel="noreferrer">
             {shortHash(part.root)}
           </a>
@@ -50,7 +71,8 @@ function DiaryPart({ part }: { part: DiaryRow }) {
     <div className="diary-part">
       <div className="row between">
         <span>
-          Entries {String(part.firstSeq)} to {String(part.lastSeq)} <span className="mono muted">{shortHash(part.root)}</span>
+          Entries {String(part.firstSeq)} to {String(part.lastSeq)}
+          <When part={part} /> <span className="mono muted">{shortHash(part.root)}</span>
         </span>
         <button disabled={loading} onClick={() => void read()}>
           {loading ? "Reading…" : "Read from 0G and check"}
@@ -106,7 +128,19 @@ function DiaryPart({ part }: { part: DiaryRow }) {
 export function AgentPage({ address }: { address: Hex }) {
   const { data: view, error } = useNetworkView(3000)
   const owner = view?.agents.find((a) => a.agent.agent.toLowerCase() === address.toLowerCase())?.agent.owner
-  const { data: diaries } = usePoll<DiaryRow[]>(() => readDiaryIndex(client, address, owner), HOSTED ? 30_000 : 8000, [address, owner])
+  const [fromText, setFromText] = useState("")
+  const [toText, setToText] = useState("")
+  const range: TimeRange = { from: fromInput(fromText), to: fromInput(toText) }
+  const ranged = range.from !== undefined || range.to !== undefined
+  // A span of time is asked of Arkiv itself, which returns only the parts that overlap it. An answer for an earlier
+  // span is not shown as this one's.
+  const asked = `${range.from ?? ""}:${range.to ?? ""}`
+  const { data: answer } = usePoll<{ asked: string; rows: DiaryRow[] }>(
+    () => readDiaryIndex(client, address, owner, range).then((rows) => ({ asked, rows })),
+    HOSTED ? 30_000 : 8000,
+    [address, owner, asked],
+  )
+  const diaries = answer?.asked === asked ? answer.rows : undefined
 
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
@@ -218,10 +252,36 @@ export function AgentPage({ address }: { address: Hex }) {
 
           <div className="field">
             <div className="label">Diary</div>
-            {diaries && diaries.length > 0 ? (
-              diaries.slice(0, 5).map((d) => (d.storage === SEALED_ON_SWARM ? <SealedDiaryPart key={d.key} part={d} /> : <DiaryPart key={d.key} part={d} />))
+            <div className="diary-range" role="group" aria-label="Look up a span of time">
+              <label>
+                From
+                <input type="datetime-local" step="1" value={fromText} onChange={(e) => setFromText(e.target.value)} />
+              </label>
+              <label>
+                To
+                <input type="datetime-local" step="1" value={toText} onChange={(e) => setToText(e.target.value)} />
+              </label>
+              {ranged && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFromText("")
+                    setToText("")
+                  }}
+                >
+                  Show the newest
+                </button>
+              )}
+              <span className="small muted">
+                Each part covers one {DIARY_WINDOW_MS / 60_000}-minute window. A span is asked of Arkiv directly, which returns only the parts inside it.
+              </span>
+            </div>
+            {diaries === undefined ? (
+              <div className="muted">Reading Arkiv…</div>
+            ) : diaries.length > 0 ? (
+              diaries.slice(0, ranged ? 20 : 5).map((d) => (d.storage === SEALED_ON_SWARM ? <SealedDiaryPart key={d.key} part={d} /> : <DiaryPart key={d.key} part={d} />))
             ) : (
-              <div className="muted">Nothing stored yet</div>
+              <div className="muted">{ranged ? "Nothing stored in that span of time. Parts stored before times were recorded are left out." : "Nothing stored yet"}</div>
             )}
           </div>
 

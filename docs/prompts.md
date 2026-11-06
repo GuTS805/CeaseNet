@@ -123,3 +123,9 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 21:12 | do everything i permit you |
 | 11-06 21:35 | [asked where ETHGlobal's money comes from; not about the project] |
 | 11-06 21:55 | see the changes in ui i have made and verify those / and also fix the check tthe functionality also and fix it if it is broken / and then commit and push / no ai tracwe do not make any mistakes |
+| 11-06 22:40 | now i want u to deploy the  arkiv  go ahaead |
+| 11-06 22:45 | [pasted a PowerShell error: the ceasenet command was not found] |
+| 11-06 22:47 | [pasted a PowerShell error: running scripts is disabled for npm] |
+| 11-06 22:50 | so now arkiv is depllyed right and i can see the real data i will put in schemas? in arkiv portals? |
+| 11-06 22:52 | i want to make this the thing is that when the dairy are made on the arkiv i want u to chenge entity on a range of timestamps and also entity |
+| 11-06 22:53 | [chose "Dono" (both): one part per time window, and times on each part so a span can be looked up] |
