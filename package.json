@@ -23,7 +23,10 @@
     "demo:dev": "tsx --env-file=.env scripts/demo-dev.ts",
     "proxy-check": "tsx --env-file=.env scripts/proxy-check.ts",
     "verifier": "tsx --env-file=.env apps/verifier/src/server.ts",
-    "diary-check": "tsx --env-file=.env scripts/diary-check.ts"
+    "diary-check": "tsx --env-file=.env scripts/diary-check.ts",
+    "swarm-check": "tsx --env-file=.env scripts/swarm-check.ts",
+    "agent-pass-check": "tsx --env-file=.env scripts/agent-pass-check.ts",
+    "local-bee": "tsx scripts/local-bee.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

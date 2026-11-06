@@ -131,7 +131,8 @@ export interface DemoAgent {
   stolen: number
   drafts: number
   feed: FeedItem[]
-  approval?: { tool: string; version: string; action: string; reason: string; since: number; expiresAt: number }
+  approval?: { tool: string; version: string; action: string; reason: string; since: number; expiresAt: number; pass?: { userCode: string; url: string } }
+  approvalNote?: string
   fixAvailable: boolean
   vanished: Hex[]
   diary: { entries: number; waiting: number; parts: { root: string }[]; lastError?: string }
@@ -144,5 +145,6 @@ export interface DemoState {
   idle: boolean
   tools: { bad: LoadedFile; fixed: LoadedFile; files: LoadedFile }
   swarm: { on: boolean; evidenceReady: boolean }
+  worldIdApprovals: boolean
   agents: DemoAgent[]
 }

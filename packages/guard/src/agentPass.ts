@@ -1,4 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { dirname } from "node:path"
 import { createRemoteJWKSet, jwtVerify } from "jose"
+import type { Approver } from "./guard"
 
 /** A person verified at an Orb. Enough to say a real human answered, and that this human cannot be many people. */
 export const ORB_CLASS = "https://world.org/oidc/acr/orb"
@@ -225,3 +228,57 @@ export function agentPassFromEnv(env: NodeJS.ProcessEnv = process.env): AgentPas
   const authMethod = env.WORLD_IDP_AUTH_METHOD === "client_secret_post" ? "client_secret_post" : "client_secret_basic"
   return new AgentPass({ issuer: env.WORLD_IDP_ISSUER || "https://auth.world.org", clientId, clientSecret, authMethod })
 }
+
+/** Who may approve for each account. Only this backend sees it: a subject identifies a person to this app. */
+export interface ApproverLinks {
+  get(account: string): { issuer: string; subject: string } | undefined
+  set(account: string, identity: { issuer: string; subject: string }): void
+}
+
+export function fileLinks(path: string): ApproverLinks {
+  const read = (): Record<string, { issuer: string; subject: string }> => (existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {})
+  return {
+    get: (account) => read()[account.toLowerCase()],
+    set: (account, identity) => {
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, JSON.stringify({ ...read(), [account.toLowerCase()]: identity }, null, 2))
+    },
+  }
+}
+
+/** The first validated person for an account becomes its approver. After that, only they can approve. */
+export function matchesLink(links: ApproverLinks, account: string, person: Extract<PassResult, { ok: true }>): boolean {
+  const linked = links.get(account)
+  if (!linked) {
+    links.set(account, { issuer: person.issuer, subject: person.subject })
+    return true
+  }
+  return linked.issuer === person.issuer && linked.subject === person.subject
+}
+
+/** For the proxy, which has no page: it prints where to approve, and waits. */
+export const approverFromPass =
+  (pass: AgentPass, links: ApproverLinks, account: string, log: (line: string) => void): Approver =>
+  async (request, signal) => {
+    let attempt: PassAttempt
+    try {
+      attempt = await pass.start()
+    } catch (e) {
+      log(`could not ask World ID: ${(e as Error).message.split("\n")[0]}`)
+      return "EXPIRED"
+    }
+    log(`${request.action} on ${request.file.name} ${request.file.version} needs a human. Open ${attempt.verificationUriComplete ?? attempt.verificationUri} and enter ${attempt.userCode}`)
+    const cancel = () => attempt.cancel()
+    signal.addEventListener("abort", cancel, { once: true })
+    const result = await attempt.result
+    signal.removeEventListener("abort", cancel)
+    if (!result.ok) {
+      log(result.message)
+      return result.reason === "denied" ? "DENIED" : "EXPIRED"
+    }
+    if (!matchesLink(links, account, result)) {
+      log("A different person answered from the one linked to this owner.")
+      return "DENIED"
+    }
+    return "APPROVED"
+  }

@@ -59,7 +59,7 @@ function Countdown({ until }: { until: number }) {
   return <>{Math.max(0, Math.ceil((until - Date.now()) / 1000))} s</>
 }
 
-function AgentCard({ agent, busy, act, canUpdate }: { agent: DemoAgent; busy: boolean; act: Act; canUpdate: boolean }) {
+function AgentCard({ agent, busy, act, canUpdate, worldId }: { agent: DemoAgent; busy: boolean; act: Act; canUpdate: boolean; worldId: boolean }) {
   return (
     <div className={`card agent ${agent.stolen > 0 && agent.tools.some((t) => t.file.version === "1.0.16" && t.verdict === "ALLOW") ? "leaking" : ""}`}>
       <div className="row between">
@@ -103,17 +103,38 @@ function AgentCard({ agent, busy, act, canUpdate }: { agent: DemoAgent; busy: bo
           <div className="small muted">
             Answer within <Countdown until={agent.approval.expiresAt} />, or it is refused.
           </div>
+          {agent.approval.pass ? (
+            <div style={{ marginTop: 8 }}>
+              <a href={agent.approval.pass.url} target="_blank" rel="noreferrer">
+                Open World ID
+              </a>{" "}
+              and enter code <strong className="mono">{agent.approval.pass.userCode}</strong>
+              <div className="small muted">The call stays paused until World ID answers and this backend has checked the result.</div>
+            </div>
+          ) : null}
           <div className="buttons" style={{ marginTop: 8 }}>
-            <button className="primary" onClick={() => void act("Approve", `/api/agents/${agent.id}/approval`, { approve: true })}>
-              Approve
-            </button>
+            {worldId ? (
+              !agent.approval.pass && (
+                <button className="primary" onClick={() => void act("World ID", `/api/agents/${agent.id}/approval/world`)}>
+                  Approve with World ID
+                </button>
+              )
+            ) : (
+              <button className="primary" onClick={() => void act("Approve", `/api/agents/${agent.id}/approval`, { approve: true })}>
+                Approve (stand-in)
+              </button>
+            )}
             <button onClick={() => void act("Refuse", `/api/agents/${agent.id}/approval`, { approve: false })}>Refuse</button>
           </div>
-          <div className="small muted" style={{ marginTop: 6 }}>
-            Stand-in buttons until World ID Agent Pass is connected.
-          </div>
+          {!worldId && (
+            <div className="small muted" style={{ marginTop: 6 }}>
+              Stand-in, because World ID Agent Pass is not connected on this machine.
+            </div>
+          )}
         </div>
       )}
+
+      {agent.approvalNote && <div className="small muted">{agent.approvalNote}</div>}
 
       <Feed items={agent.feed} />
 
@@ -270,6 +291,7 @@ export function LivePage() {
               busy={Boolean(busy)}
               act={act}
               canUpdate={a.fixAvailable && a.online && a.tools.some((t) => t.file.version === "1.0.16")}
+              worldId={Boolean(state?.worldIdApprovals)}
             />
           ))}
         </div>

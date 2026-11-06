@@ -8,6 +8,7 @@ import {
   deletedStops,
   Heartbeat,
   type Hex,
+  isPublicSwarmRef,
   readAcks,
   readDiaries,
   readHeartbeat,
@@ -157,6 +158,14 @@ const pressed = Date.now()
 const stop = (await post("/api/maker/stop")).key as Hex
 console.log(`     STOP written in ${((Date.now() - pressed) / 1000).toFixed(1)} s: ${stop}`)
 await until("agent A blocks the bad tool", (s) => mailVerdict(s, "a") === "BLOCK", 15_000)
+const swarmOn = (await get("/api/state")).swarm.on as boolean
+if (swarmOn) {
+  const record = (await readPublicView(client)).recalls.find((r) => r.key === stop)
+  check("the STOP carries sealed evidence", Boolean(record?.sealedEvidence))
+  check("the reference to it is sealed, not readable", JSON.parse(record?.sealedEvidence ?? "{}").alg === "secp256k1-hkdf-sha256-aes-256-gcm")
+  const opened = (await post("/api/regulator/open-evidence", { recall: stop })) as { evidence: string }
+  check("the security council can open the evidence", JSON.parse(opened.evidence).finding !== undefined)
+}
 console.log(`     from pressing STOP to blocked: ${((Date.now() - pressed) / 1000).toFixed(1)} s`)
 const sStop = await get("/api/state")
 check("agent B keeps working, because its owner does not follow the maker", mailVerdict(sStop, "b") === "ALLOW")
@@ -214,6 +223,15 @@ await post("/api/maker/fix", { recall: stop })
 await until("A moves to the fixed version on its own", (s) => mailVersion(s, "a") === "1.0.17" && mailVerdict(s, "a") === "ALLOW", 30_000)
 await until("B moves to the fixed version on its own", (s) => mailVersion(s, "b") === "1.0.17" && mailVerdict(s, "b") === "ALLOW", 30_000)
 await until("A is sending email again", (s) => agent(s, "a").sent > sentBeforeFix, 60_000)
+if (swarmOn) {
+  const lift = (await readPublicView(client)).lifts.find((l) => l.recall === stop && l.kind === "FIX")
+  check("the fix on Arkiv points at a public Swarm file", isPublicSwarmRef(lift?.fixedRef ?? ""), lift?.fixedRef)
+  check("A really got it from Swarm", agent(await get("/api/state"), "a").feed.some((f: any) => f.text.includes("downloaded from Swarm")))
+  const shared = (await post("/api/maker/disclose", { recall: stop })) as { reproductionRef: string }
+  check("disclosing publishes a public reference", isPublicSwarmRef(shared.reproductionRef))
+  const shown = (await readPublicView(client)).disclosures.find((d) => d.recall === stop)
+  check("the public pages can read the disclosure", shown?.reproductionRef === shared.reproductionRef)
+}
 check("and nothing leaks from the fixed version", agent(await get("/api/state"), "a").stolen === stolenBeforeFix)
 check("C is still on the bad version and still blocked", mailVersion(await get("/api/state"), "c") === "1.0.16")
 

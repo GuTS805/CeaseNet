@@ -16,12 +16,12 @@ import {
   type TrustPolicy,
 } from "@ceasenet/core"
 import {
-  type ApprovalResult,
-  type Approver,
+  agentPassFromEnv,
   ArkivGuardNet,
   Diary,
   type DiaryData,
   fetchPackage,
+  fileLinks,
   Guard,
   openSealedRef,
   sealRef,
@@ -30,6 +30,7 @@ import {
 import { toHex } from "viem"
 import { accountFor, type Role } from "../../../scripts/roles"
 import { argsHash, connectWith, OfficeAgent } from "./agent"
+import { ApprovalDesk } from "./approvals"
 import { type Brain, DevBrain, ZeroGBrain } from "./brain"
 import { catalog, coreFiles, SYSTEM_PROMPT, toolProcess } from "./catalog"
 import { countLines, gateStore, sandboxDir, STATE_DIR } from "./store"
@@ -37,8 +38,6 @@ import { uploadPackage, uploadPublicEvidence, uploadSealedEvidence } from "./swa
 import { ZeroGStore } from "./zeroG"
 
 const PORT = Number(process.env.DEMO_PORT ?? 8787)
-/** How long a person has to answer an approval request. */
-const APPROVAL_MS = 45_000
 /** Agents stop working when nobody has looked for this long, so a forgotten demo does not spend credits. */
 const IDLE_AFTER_MS = 90_000
 const DIARY_FLUSH_MS = 45_000
@@ -86,37 +85,7 @@ const COMPANIES: Company[] = [
   { id: "c", company: "Coastal Foods", ownerRole: "ownerC", agentRole: "agentC", autoUpdate: false, firstInvoice: 3000 },
 ]
 
-interface PendingApproval {
-  tool: string
-  version: string
-  action: string
-  reason: string
-  since: number
-  answer: (result: ApprovalResult) => void
-}
-
-const approvals = new Map<string, PendingApproval>()
-
-const approverFor =
-  (id: string): Approver =>
-  (request, signal) =>
-    new Promise((resolve) => {
-      const answer = (result: ApprovalResult) => {
-        clearTimeout(timer)
-        approvals.delete(id)
-        resolve(result)
-      }
-      const timer = setTimeout(() => answer("EXPIRED"), APPROVAL_MS)
-      signal.addEventListener("abort", () => answer("EXPIRED"))
-      approvals.set(id, {
-        tool: request.file.name,
-        version: request.file.version,
-        action: request.action,
-        reason: request.reason,
-        since: Date.now(),
-        answer,
-      })
-    })
+const desk = new ApprovalDesk({ pass: agentPassFromEnv(), links: fileLinks(join(STATE_DIR, "approvers.json")) })
 
 let lastSeen = Date.now()
 const someoneWatching = () => Date.now() - lastSeen < IDLE_AFTER_MS
@@ -153,7 +122,7 @@ const fleet = await Promise.all(
       files: [tools.badMail.file, tools.files.file, ...coreFiles(model)],
       net: new ArkivGuardNet(client, owner, agentWriter, timers.heartbeatTtlSeconds),
       startSeq: (latest?.seq ?? 0n) + 1n,
-      approve: approverFor(c.id),
+      approve: desk.approverFor(c.id),
       onEvent: (e) => {
         if (e.kind === "STATUS") note({ kind: "STATUS", from: e.from, to: e.to })
         else if (e.kind === "RECEIPT") note({ kind: "RECEIPT", recall: e.recall, action: e.action })
@@ -221,9 +190,9 @@ function snapshot() {
     tools: { bad: tools.badMail.file, fixed: tools.fixedMail.file, files: tools.files.file },
     diaryWallet: diaryStore.address,
     swarm: { on: swarmOn, evidenceReady: Boolean(sealedEvidence) },
+    worldIdApprovals: desk.usesWorldId,
     idle: !someoneWatching(),
     agents: fleet.map((f) => {
-      const pending = approvals.get(f.id)
       const policy = f.guard.lastCheck?.policy ?? lastPolicy.get(f.id)
       return {
         id: f.id,
@@ -240,9 +209,8 @@ function snapshot() {
         stolen: countLines(f.sandbox, "attacker-inbox.jsonl"),
         drafts: countLines(f.sandbox, "drafts.jsonl"),
         feed: f.agent.feed.slice(-14),
-        approval: pending
-          ? { tool: pending.tool, version: pending.version, action: pending.action, reason: pending.reason, since: pending.since, expiresAt: pending.since + APPROVAL_MS }
-          : undefined,
+        approval: desk.view(f.id),
+        approvalNote: desk.note(f.id),
         fixAvailable: (f.guard.lastCheck?.fixes.length ?? 0) > 0,
         vanished: f.guard.lastCheck?.vanished.map((v) => v.key) ?? [],
         block: f.guard.lastCheck?.block,
@@ -303,12 +271,16 @@ const routes: Record<string, (body: any, match: RegExpMatchArray) => Promise<unk
     return { installed: await f.agent.installFix(), files: f.guard.files, error: f.guard.lastError }
   },
 
-  /** Stands in for a person approving through Agent Pass, until the verifier service is connected. */
+  /** Refuses a call. It can approve one only while World ID is not connected, as a labelled stand-in. */
   "POST /api/agents/(\\w+)/approval": async (b, m) => {
-    const pending = approvals.get(m[1]!)
-    if (!pending) throw new Error("nothing is waiting for approval")
-    pending.answer(b.approve ? "APPROVED" : "DENIED")
+    desk.answer(m[1]!, Boolean(b.approve))
     return { answered: true }
+  },
+
+  /** Asks a real person through World ID Agent Pass. The call goes ahead only after this backend validates the result. */
+  "POST /api/agents/(\\w+)/approval/world": async (_b, m) => {
+    const f = find(m[1]!)
+    return desk.startPass(f.id, f.owner)
   },
 
   /** An owner changes whose STOPs their agents obey. It is public, and takes effect at the next check. */

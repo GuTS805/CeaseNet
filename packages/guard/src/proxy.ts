@@ -3,6 +3,7 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import { arkivPublicClient, arkivWalletClient, ArkivWriter, DEMO_TIMERS, demoPolicy, type Hex, PRODUCTION_TIMERS, readLatestLoadout } from "@ceasenet/core"
 import { privateKeyToAccount } from "viem/accounts"
+import { agentPassFromEnv, approverFromPass, fileLinks } from "./agentPass"
 import { ArkivGuardNet, ReadOnlyNet } from "./arkivNet"
 import { fileStore } from "./fileStore"
 import { Guard, type GuardNet } from "./guard"
@@ -18,6 +19,9 @@ import { runProxy } from "./proxyCore"
  *
  * With CEASENET_AGENT_KEY set it also publishes what it loaded, a heartbeat and its receipts. Without it, it
  * only reads the list, so it protects the agent and leaves no public trace.
+ *
+ * With WORLD_IDP_CLIENT_ID and WORLD_IDP_CLIENT_SECRET set, a call that needs a human waits for a real person to
+ * approve it through World ID. Without them, such a call is refused.
  */
 function parseArgs(argv: string[]) {
   const split = argv.indexOf("--")
@@ -56,13 +60,17 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   }
 
   const store = fileStore(memory ?? join(homedir(), ".ceasenet", `gate-${file.name.replace(/[^\w.-]/g, "_")}.json`))
-  const guard = new Guard({ policy: demoPolicy(), timers, store, files: [file], net, startSeq })
+  const pass = agentPassFromEnv()
+  const approve =
+    pass && approverFromPass(pass, fileLinks(join(homedir(), ".ceasenet", "approvers.json")), owner ?? "this-machine", (line) => console.error(`ceasenet-guard: ${line}`))
+  const guard = new Guard({ policy: demoPolicy(), timers, store, files: [file], net, startSeq, approve })
   await guard.start()
   guard.run()
 
   // The tool does not get the agent's key.
   const env = { ...process.env }
   delete env.CEASENET_AGENT_KEY
+  delete env.WORLD_IDP_CLIENT_SECRET
   const child = runProxy({
     guard,
     file,

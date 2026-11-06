@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { encodeBundle } from "@ceasenet/core"
-import { readPackage, SwarmClient } from "@ceasenet/guard"
+import { readPackage, type SwarmClient } from "@ceasenet/guard"
 import type { ToolPackage } from "./catalog"
 import { STATE_DIR } from "./store"
 
@@ -11,19 +11,23 @@ type Refs = Record<string, string>
 
 const readCache = (): Refs => (existsSync(CACHE) ? (JSON.parse(readFileSync(CACHE, "utf8")) as Refs) : {})
 
-/** Reuses what is already stored: an upload spends postage, and the same bytes always get the same public reference. */
-async function once(name: string, upload: () => Promise<string>): Promise<string> {
-  const known = readCache()[name]
+/**
+ * Reuses what is already stored, because an upload spends postage. What a node has stored says nothing about
+ * another node, so each reference is remembered per node and batch.
+ */
+async function once(swarm: SwarmClient, name: string, upload: () => Promise<string>): Promise<string> {
+  const id = `${swarm.opts.url}|${swarm.opts.batch}|${name}`
+  const known = readCache()[id]
   if (known) return known
   const reference = await upload()
   mkdirSync(STATE_DIR, { recursive: true })
-  writeFileSync(CACHE, JSON.stringify({ ...readCache(), [name]: reference }, null, 2))
+  writeFileSync(CACHE, JSON.stringify({ ...readCache(), [id]: reference }, null, 2))
   return reference
 }
 
 /** The public copy of a tool, so anyone can fetch a fix without trusting whoever serves it. */
 export const uploadPackage = (swarm: SwarmClient, pkg: ToolPackage): Promise<string> =>
-  once(`package:${pkg.file.hash}`, () =>
+  once(swarm, `package:${pkg.file.hash}`, () =>
     swarm.upload(`${pkg.file.name}-${pkg.file.version}.ceasenet.json`, encodeBundle(readPackage(pkg.dir)), { contentType: "application/json" }),
   )
 
@@ -47,12 +51,12 @@ export function evidenceFor(pkg: ToolPackage): Uint8Array {
 
 /** Encrypted on Swarm. The reference holds the key, so it stays off public records until it has been sealed. */
 export const uploadSealedEvidence = (swarm: SwarmClient, pkg: ToolPackage): Promise<string> =>
-  once(`evidence:${pkg.file.hash}`, () =>
+  once(swarm, `evidence:${pkg.file.hash}`, () =>
     swarm.upload("evidence.json", evidenceFor(pkg), { contentType: "application/json", encrypt: true }),
   )
 
 /** The same evidence, public, for after the disclosure deadline. */
 export const uploadPublicEvidence = (swarm: SwarmClient, pkg: ToolPackage): Promise<string> =>
-  once(`disclosure:${pkg.file.hash}`, () =>
+  once(swarm, `disclosure:${pkg.file.hash}`, () =>
     swarm.upload("evidence.json", evidenceFor(pkg), { contentType: "application/json" }),
   )

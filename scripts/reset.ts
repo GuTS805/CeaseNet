@@ -54,6 +54,6 @@ console.log(`deleted ${total} records in all`)
 
 // Gate memory and the demo's sandbox folders go too, or a new run would remember the last one.
 for (const name of existsSync(STATE_DIR) ? readdirSync(STATE_DIR) : []) {
-  if (name.startsWith("gate-") || name === "sandbox" || name === "fixes") rmSync(join(STATE_DIR, name), { recursive: true, force: true })
+  if (name.startsWith("gate-") || name === "sandbox" || name === "fixes" || name === "approvers.json") rmSync(join(STATE_DIR, name), { recursive: true, force: true })
 }
 console.log("cleared local demo state")
