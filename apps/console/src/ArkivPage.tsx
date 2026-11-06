@@ -80,9 +80,9 @@ export function ArkivPage({ onAsk, run }: { onAsk: (ask: Ask) => void; run: Run 
         <Tile label="Latest block" value={chain.block ?? "None"} note={chain.latencyMs !== undefined ? `Read in ${chain.latencyMs} ms` : undefined} />
         <Tile
           label="Access key"
-          value={!chain.accessKey ? "None" : chain.keyExhausted ? "Used up" : "In use"}
+          value={!chain.accessKey ? "None" : chain.keyRejected ? "Not accepted" : chain.keyExhausted ? "Used up" : "In use"}
           note={
-            chain.keyExhausted ? (
+            chain.keyRejected || chain.keyExhausted ? (
               <>
                 Reading through the public endpoint, which works just the same. Get a new one at the{" "}
                 <a href={ACCESS_KEYS} target="_blank" rel="noreferrer">

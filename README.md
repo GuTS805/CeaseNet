@@ -305,7 +305,7 @@ npm run keys        # creates a test phrase in .env and writes your addresses to
 npm run fund
 npm run seed        # publishes the demo's tools, passports and trust lists
 npm run demo        # the agents. Needs MODEL_API_KEY. Without one, npm run demo:dev uses built-in rules and says so on screen
-npm run web:demo    # its live screen, on http://localhost:5173
+npm run web:demo    # its live screen, on http://localhost:5173/#/demo
 npm run verifier    # optional: real World ID confirmations
 ```
 

@@ -1,5 +1,11 @@
 import { defineConfig, loadEnv } from "vite"
 
+// Motion marks its modules "use client" for server rendering. These apps render only in the browser, so the bundler
+// dropping that line is expected, and the warning for each file would bury any real one.
+const quietUseClient = (warning: { code?: string }, warn: (w: never) => void) => {
+  if (warning.code !== "MODULE_LEVEL_DIRECTIVE") warn(warning as never)
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, "../..", "")
   return {
@@ -16,6 +22,6 @@ export default defineConfig(({ mode }) => {
       __SWARM_GATEWAY__: JSON.stringify(env.SWARM_GATEWAY_URL || "https://api.gateway.ethswarm.org"),
     },
     server: { port: 5173, strictPort: true, fs: { allow: ["../.."] } },
-    build: { target: "esnext", chunkSizeWarningLimit: 4000 },
+    build: { target: "esnext", chunkSizeWarningLimit: 4000, rollupOptions: { onwarn: quietUseClient } },
   }
 })

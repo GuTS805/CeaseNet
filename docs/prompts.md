@@ -121,3 +121,5 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 21:00 | on vercel bro |
 | 11-06 21:10 | toh jod do |
 | 11-06 21:12 | do everything i permit you |
+| 11-06 21:35 | [asked where ETHGlobal's money comes from; not about the project] |
+| 11-06 21:55 | see the changes in ui i have made and verify those / and also fix the check tthe functionality also and fix it if it is broken / and then commit and push / no ai tracwe do not make any mistakes |

@@ -215,7 +215,7 @@ export interface RecordRow {
 
 export interface ArkivState {
   mode: "arkiv" | "local"
-  chain: { name: string; chainId: number; rpc: string; explorer: string; reachable: boolean; block?: string; latencyMs?: number; error?: string; accessKey: boolean; keyUsedPercent?: number; keyExhausted: boolean }
+  chain: { name: string; chainId: number; rpc: string; explorer: string; reachable: boolean; block?: string; latencyMs?: number; error?: string; accessKey: boolean; keyUsedPercent?: number; keyExhausted: boolean; keyRejected?: boolean }
   publicList?: { recalls: number; stops: number; warnings: number; agents: number; receipts: number; lifts: number; files: number }
   wallets: { role: string; address: string; balance?: string; empty?: boolean; link: string }[]
   agents: {

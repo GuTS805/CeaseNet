@@ -15,14 +15,17 @@ export interface AccessKeyStatus {
   usedPercent?: number
   /** It has run out, so requests are going through the public endpoint. */
   exhausted: boolean
+  /** The network no longer accepts it at all, for example because it was revoked, so requests go through the public endpoint. */
+  rejected?: boolean
 }
 
 /**
- * An access key has a quota, and when it runs out the network refuses every request made with it.
+ * An access key has a quota, and when it runs out the network refuses every request made with it. It also refuses
+ * every request once the key is revoked or deleted.
  *
- * That must not look like the list being out of reach: a gate would start refusing its agent's calls over a billing
- * limit, and a verifier could not count a vote. The list is public and needs no key, so a used-up key just means
- * carrying on without one.
+ * Neither must look like the list being out of reach: a gate would start refusing its agent's calls over a billing
+ * limit or a key setting, and a verifier could not count a vote. The list is public and needs no key, so a key that
+ * is used up or refused just means carrying on without one.
  */
 export function quotaAwareFetch(fetchImpl: typeof fetch = (...args) => fetch(...args), now: () => number = Date.now) {
   const status: AccessKeyStatus = { exhausted: false }
@@ -41,7 +44,14 @@ export function quotaAwareFetch(fetchImpl: typeof fetch = (...args) => fetch(...
       keyResumesAt = now() + TRY_KEY_AGAIN_MS
       return fetchImpl(PUBLIC_RPC, init)
     }
+    // Only the key is refused here: the public endpoint never answers 401, because it asks for nothing.
+    if (response.status === 401) {
+      status.rejected = true
+      keyResumesAt = now() + TRY_KEY_AGAIN_MS
+      return fetchImpl(PUBLIC_RPC, init)
+    }
     status.exhausted = false
+    if (status.rejected) status.rejected = false
     return response
   }
   return { fetchFn, status }

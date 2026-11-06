@@ -185,6 +185,8 @@ export interface ArkivView {
     /** How much of its quota the key has used, and whether it has run out. */
     keyUsedPercent?: number
     keyExhausted: boolean
+    /** The network no longer accepts the key, so reads go through the public endpoint. */
+    keyRejected?: boolean
   }
   /** Every record of ours on the public chain, whoever wrote it. */
   publicList?: { recalls: number; stops: number; warnings: number; agents: number; receipts: number; lifts: number; files: number }
@@ -225,6 +227,8 @@ export const makeArkivClient = (config: Config): ArkivPublic => arkivPublicClien
 
 const entityLink = (mode: string, key: string | undefined) => (mode === "arkiv" && key ? `${ARKIV_EXPLORER}/entity/${key}` : undefined)
 const clip = (text: string, n = 90) => (text.length > n ? `${text.slice(0, n)}…` : text)
+/** How long the Arkiv page waits for everyone's records before showing the rest without them. */
+const WHOLE_LIST_LIMIT_MS = 15_000
 
 export async function readArkiv({ config, ledger, client, agents }: ArkivInputs): Promise<ArkivView> {
   const owner = config.owner.address
@@ -251,7 +255,15 @@ export async function readArkiv({ config, ledger, client, agents }: ArkivInputs)
   let publicList: ArkivView["publicList"]
   if (chain.reachable) {
     try {
-      const view = await readWholeList(client)
+      // With no access key the public endpoint is rate limited hard, and this read can take minutes. It only fills in
+      // the totals, so it gets a time limit, and the page does not wait on it.
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const view = await Promise.race([
+        readWholeList(client),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error("Arkiv took too long")), WHOLE_LIST_LIMIT_MS)
+        }),
+      ]).finally(() => clearTimeout(timer))
       publicList = {
         recalls: view.recalls.length,
         stops: view.recalls.filter((r) => r.level === "STOP").length,
@@ -371,6 +383,7 @@ export async function readArkiv({ config, ledger, client, agents }: ArkivInputs)
   const key = accessKeyStatus()
   chain.keyUsedPercent = key.usedPercent
   chain.keyExhausted = key.exhausted
+  chain.keyRejected = Boolean(key.rejected)
   const ownerWallet = wallets[0]!
   const activeLocal = mode === "local" && recalls.some((r) => !lifts.some((l) => l.recall === r.key && l.kind === "WITHDRAWN"))
 
