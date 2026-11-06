@@ -11,9 +11,35 @@ import {
 } from "@ceasenet/core"
 import type { RobotNet, RobotStatus } from "./robot"
 
+/**
+ * Runs one task at a time and keeps only the newest waiting input.
+ *
+ * Heartbeats report the present, so an old one waiting in line is worthless, and a queue of them would
+ * hold up receipts.
+ */
+export function latestOnly<T>(task: (input: T) => Promise<void>): (input: T) => Promise<void> {
+  let running = false
+  let waiting: { input: T } | undefined
+  return async (input) => {
+    waiting = { input }
+    if (running) return
+    running = true
+    try {
+      while (waiting) {
+        const next = waiting
+        waiting = undefined
+        await task(next.input)
+      }
+    } finally {
+      running = false
+    }
+  }
+}
+
 /** A robot's connection to Arkiv. Every record it writes is created by its own key. */
 export class ArkivRobotNet implements RobotNet {
   private heartbeatKey: Hex | undefined
+  private readonly sendBeat = latestOnly<{ status: RobotStatus; seq: bigint }>((b) => this.writeBeat(b.status, b.seq))
 
   constructor(
     private readonly client: ArkivPublic,
@@ -30,7 +56,11 @@ export class ArkivRobotNet implements RobotNet {
     await this.writer.loadout({ seq, files })
   }
 
-  async writeHeartbeat(status: RobotStatus, seq: bigint): Promise<void> {
+  writeHeartbeat(status: RobotStatus, seq: bigint): Promise<void> {
+    return this.sendBeat({ status, seq })
+  }
+
+  private async writeBeat(status: RobotStatus, seq: bigint): Promise<void> {
     const input = { mode: status, loadoutSeq: seq, ttlSeconds: this.heartbeatTtlSeconds }
     if (!this.heartbeatKey) {
       this.heartbeatKey = (await readHeartbeat(this.client, this.writer.address))?.key

@@ -215,7 +215,7 @@ export class RobotRuntime {
       await this.opts.net.writeAck({ recall: fix.stop, action: "UPDATED" }, fix.stop.artifact, next.policyHash)
       this.gate.markAcked(fix.stop.key, "UPDATED")
       await this.checkGate(true)
-      await this.beat()
+      void this.beat()
       return true
     } catch (e) {
       this.note(e)

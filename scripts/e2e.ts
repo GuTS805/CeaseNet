@@ -1,5 +1,5 @@
 import loadMujoco from "@mujoco/mujoco"
-import { ADDRESSES, arkivPublicClient, type Hex, readAcks, readHeartbeat, readLatestLoadout } from "@ceasenet/core"
+import { ADDRESSES, type AckRow, arkivPublicClient, type Hex, readAcks, readHeartbeat, readLatestLoadout } from "@ceasenet/core"
 import { replay, RobotSim } from "@ceasenet/sim"
 
 // Runs the demo story against a running fleet and the live testnet, and checks every step.
@@ -54,24 +54,45 @@ check("a fake STOP changes nothing", s1.robots.every((r: any) => r.status === "R
 
 await post("/api/robots/3/network", { up: false })
 await wait(1000)
-const { key: stopKey, sentAt } = (await post("/api/maker/stop")) as { key: Hex; sentAt: number }
-const stopped = await until(
+const pressed = Date.now()
+const stopRequest = post("/api/maker/stop") as Promise<{ key: Hex }>
+await until(
   "robots 1 and 2 stop after the maker's STOP",
   (s) => robot(s, 1).status === "STOPPED" && robot(s, 2).status === "STOPPED",
   30_000,
 )
-console.log(`     time from pressing STOP to both stopped: ${((Date.now() - sentAt) / 1000).toFixed(1)} s (${stopped} ms after the write landed)`)
-check("robot 3, offline, has not seen it", robot(await get("/api/state"), 3).status !== "STOPPED" || true)
+const stopSeconds = (Date.now() - pressed) / 1000
+console.log(`     time from pressing STOP to both stopped: ${stopSeconds.toFixed(1)} s`)
+check("robot 3 is offline and has not stopped for the recall", robot(await get("/api/state"), 3).status !== "STOPPED")
+const { key: stopKey } = await stopRequest
 
-await wait(8000)
-const acks1 = await readAcks(client, [stopKey])
-const stopAcks = acks1.filter((a) => a.action === "STOPPED")
-check("robots 1 and 2 posted receipts", stopAcks.length === 2, `${stopAcks.length}`)
+async function untilAcks(name: string, test: (acks: AckRow[]) => boolean, limitMs: number): Promise<AckRow[]> {
+  const t0 = Date.now()
+  let acks: AckRow[] = []
+  while (Date.now() - t0 < limitMs) {
+    acks = await readAcks(client, [stopKey])
+    if (test(acks)) {
+      check(name, true, `${((Date.now() - t0) / 1000).toFixed(1)} s`)
+      return acks
+    }
+    await wait(500)
+  }
+  check(name, false, `not within ${limitMs / 1000} s, have ${acks.map((a) => a.action).join(",")}`)
+  return acks
+}
+
+const stopAcks = (
+  await untilAcks("robots 1 and 2 post receipts", (a) => a.filter((x) => x.action === "STOPPED").length === 2, 30_000)
+).filter((a) => a.action === "STOPPED")
 check(
   "each receipt was created by the robot itself",
   stopAcks.every((a) => a.creator.toLowerCase() === a.robot.toLowerCase()),
 )
 check("receipts name the issuer", stopAcks.every((a) => a.issuer.toLowerCase() === ADDRESSES.maker.toLowerCase()))
+check(
+  "the offline robot has no receipt yet",
+  !stopAcks.some((a) => a.robot.toLowerCase() === ADDRESSES.robot3.toLowerCase()),
+)
 
 await post("/api/maker/fix", { recall: stopKey })
 await until(
@@ -90,13 +111,12 @@ await until(
   (s) => robot(s, 3).status === "STOPPED" && robot(s, 3).version === "1.5.2",
   20_000,
 )
-await wait(8000)
-const acks2 = await readAcks(client, [stopKey])
-check(
-  "robot 3 posted its receipt after reconnecting",
-  acks2.some((a) => a.robot.toLowerCase() === ADDRESSES.robot3.toLowerCase() && a.action === "STOPPED"),
+await untilAcks(
+  "robot 3 posts its receipt after reconnecting",
+  (a) => a.some((x) => x.robot.toLowerCase() === ADDRESSES.robot3.toLowerCase() && x.action === "STOPPED"),
+  30_000,
 )
-check("robots 1 and 2 posted update receipts", acks2.filter((a) => a.action === "UPDATED").length === 2)
+await untilAcks("robots 1 and 2 post update receipts", (a) => a.filter((x) => x.action === "UPDATED").length === 2, 30_000)
 
 await post("/api/planner", { up: false })
 await until("with 0G off, robots 1 and 2 pause safely", (s) => robot(s, 1).status === "PAUSED" && robot(s, 2).status === "PAUSED", 40_000)

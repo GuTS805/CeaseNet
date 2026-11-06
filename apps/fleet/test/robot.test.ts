@@ -11,6 +11,7 @@ import {
 } from "@ceasenet/core"
 import { replay, RobotSim } from "@ceasenet/sim"
 import { chooseMove, DevPlanner, parseMove, PlannerInvalidReply, PlannerUnavailable, ZeroGPlanner } from "../src/planner"
+import { latestOnly } from "../src/arkivNet"
 import { RobotRuntime, type RobotNet } from "../src/robot"
 import { loadSoftware, type PolicyVersion } from "../src/software"
 
@@ -170,6 +171,31 @@ describe("RobotRuntime", () => {
     expect(net.loadouts).toEqual([1n, 2n])
     const updated = net.acks.find((a) => a.intent.action === "UPDATED")
     expect(updated?.newHash).toBe(version("1.5.3").policyHash)
+  })
+
+  it("is not held up by a heartbeat that never finishes while installing a fix", async () => {
+    const { robot, net, clock } = make({ autoUpdate: false })
+    await robot.start()
+    const stop = stopOn(robot.software.policyHash)
+    net.stops = [stop]
+    net.lifts = [
+      {
+        key: "0x02",
+        recall: stop.key,
+        artifact: stop.artifact,
+        kind: "FIX",
+        fixedHash: version("1.5.3").policyHash,
+        creator: MAKER,
+        createdAt: 6n,
+      },
+    ]
+    await robot.checkGate(true)
+    await settle()
+    net.writeHeartbeat = () => new Promise(() => {})
+    expect(await robot.installFix()).toBe(true)
+    const before = robot.decisions.length
+    await run(robot, clock, 6000)
+    expect(robot.decisions.length).toBeGreaterThan(before)
   })
 
   it("refuses a fix whose hash does not match, and stays stopped", async () => {
@@ -352,6 +378,45 @@ describe("RobotRuntime", () => {
     const { events, first } = await recordedRun()
     const tampered = events.map((e) => (e === first ? { ...e, state: "0000000000000000" } : e))
     expect(replay(new RobotSim(mujoco), tampered as any).firstMismatchTick).toBe(first.tick)
+  })
+})
+
+describe("latestOnly", () => {
+  it("sends the first and the newest, and skips everything in between", async () => {
+    const sent: string[] = []
+    const gates: (() => void)[] = []
+    const send = latestOnly<string>(async (x) => {
+      sent.push(x)
+      await new Promise<void>((r) => gates.push(r))
+    })
+    void send("a")
+    void send("b")
+    void send("c")
+    void send("d")
+    await settle()
+    expect(sent).toEqual(["a"])
+    gates.shift()!()
+    await settle()
+    expect(sent).toEqual(["a", "d"])
+    gates.shift()!()
+    await settle()
+    void send("e")
+    await settle()
+    expect(sent).toEqual(["a", "d", "e"])
+    gates.shift()!()
+  })
+
+  it("can be used again after a failure", async () => {
+    let fail = true
+    const sent: string[] = []
+    const send = latestOnly<string>(async (x) => {
+      if (fail) throw new Error("no")
+      sent.push(x)
+    })
+    await expect(send("a")).rejects.toThrow("no")
+    fail = false
+    await send("b")
+    expect(sent).toEqual(["b"])
   })
 })
 
