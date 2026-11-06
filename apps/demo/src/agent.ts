@@ -54,6 +54,8 @@ export interface AgentOptions {
 
 const FEED_LIMIT = 60
 const RETRY_MS = 3_000
+/** A model that stays away gets asked less and less often. */
+const MAX_RETRY_MS = 30_000
 /** A fix that could not be fetched is tried again this much later. */
 const FIX_RETRY_MS = 10_000
 
@@ -161,6 +163,7 @@ export class OfficeAgent {
   }
 
   private async think(messages: readonly Message[]) {
+    let retryMs = RETRY_MS
     while (this.running) {
       try {
         const reply = await this.opts.brain.next(messages, this.specs)
@@ -173,7 +176,8 @@ export class OfficeAgent {
         if (!this.brainProblem) this.say("problem", "Cannot reach the AI model, so the agent is waiting.")
         this.brainProblem = e.message
         this.guard.setPaused(true)
-        await this.wait(RETRY_MS)
+        await this.wait(retryMs)
+        retryMs = Math.min(retryMs * 2, MAX_RETRY_MS)
       }
     }
     return undefined

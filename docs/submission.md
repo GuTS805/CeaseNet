@@ -26,7 +26,7 @@ TypeScript, in an npm workspace. The gate's decisions are pure functions with un
 
 Arkiv is the core: recalls, confirmations, receipts, trust lists and passports are all entities, and the gate decides from what it reads. Every read filters on $creator, because anyone can write any attributes. STOPs are read-only and permissionlessly extendable. Arkiv lets an owner delete a read-only record and has no historical reads, so gates remember what they've seen, and receipts carry the recall's content hash.
 
-Agents use the real Model Context Protocol SDK, with each tool as a separate process that holds no keys. The demo agents' model runs through 0G's router, and each agent keeps a hash-chained diary on 0G Storage, with its head pinned on Arkiv so that a changed copy fails the check.
+Agents use the real Model Context Protocol SDK, with each tool as a separate process that holds no keys. The agents' model can be any service that speaks the OpenAI chat API. Each agent keeps a hash-chained diary on 0G Storage, with its head pinned on Arkiv so that a changed copy fails the check.
 
 Fixed tools live on Swarm, with the reference on Arkiv, and agents check the hash before anything reaches the disk. Evidence goes on Swarm encrypted, and its reference is sealed to the security council's key before it goes near a public record, because an encrypted Swarm reference contains its own key.
 

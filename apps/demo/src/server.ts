@@ -31,7 +31,7 @@ import { toHex } from "viem"
 import { accountFor, type Role } from "../../../scripts/roles"
 import { argsHash, connectWith, OfficeAgent } from "./agent"
 import { ApprovalDesk } from "./approvals"
-import { type Brain, DevBrain, PacedBrain, ZeroGBrain } from "./brain"
+import { type Brain, DevBrain, ModelBrain, modelFromEnv, modelHost, PacedBrain } from "./brain"
 import { catalog, coreFiles, SYSTEM_PROMPT, toolProcess } from "./catalog"
 import { countLines, gateStore, sandboxDir, STATE_DIR } from "./store"
 import { uploadPackage, uploadPublicEvidence, uploadSealedEvidence } from "./swarmFiles"
@@ -40,27 +40,29 @@ import { ZeroGStore } from "./zeroG"
 const PORT = Number(process.env.DEMO_PORT ?? 8787)
 /** Agents stop working when nobody has looked for this long, so a forgotten demo does not spend credits. */
 const IDLE_AFTER_MS = 90_000
-/** 0G's router gave our key 30 requests a minute, shared by every agent. This stays just under. */
-const MODEL_REQUESTS_PER_MINUTE = Number(process.env.ZG_REQUESTS_PER_MINUTE) || 28
 const DIARY_FLUSH_MS = 45_000
 
 const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
-const model = process.env.ZG_MODEL || "glm-5.2"
 const client = arkivPublicClient(accessKey)
 const timers = DEMO_TIMERS
 const tools = catalog()
 const writer = (role: Role) => new ArkivWriter(arkivWalletClient(accountFor(role), accessKey))
 const log = (...args: unknown[]) => console.log(new Date().toISOString().slice(11, 23), ...args)
 
-function makeBrain(): { brain: Brain; source: "0g" | "dev" } {
+function makeBrain(): { brain: Brain; source: "model" | "dev"; model: string; host: string } {
   // Asked for by name only. Without a key, and without this, the demo refuses to start.
-  if (process.env.DEV_BRAIN === "1") return { brain: new DevBrain(), source: "dev" }
-  const key = process.env.ZG_API_KEY
-  if (key) return { brain: new PacedBrain(new ZeroGBrain(key, model), 60_000 / MODEL_REQUESTS_PER_MINUTE), source: "0g" }
-  throw new Error("ZG_API_KEY is missing. Add it to .env, or use npm run demo:dev for local development only.")
+  if (process.env.DEV_BRAIN === "1") return { brain: new DevBrain(), source: "dev", model: "built-in-rules", host: "this-machine" }
+  const settings = modelFromEnv()
+  return {
+    // The limit belongs to the key, so every agent shares one queue.
+    brain: new PacedBrain(new ModelBrain(settings), 60_000 / settings.requestsPerMinute),
+    source: "model",
+    model: settings.model,
+    host: modelHost(settings.url),
+  }
 }
 
-const { brain, source: brainSource } = makeBrain()
+const { brain, source: brainSource, model, host: modelSource } = makeBrain()
 const diaryStore = new ZeroGStore(toHex(accountFor("treasury").getHdKey().privateKey!))
 
 /** Reading from Swarm is free, so a gateway is enough. Uploading needs your own Bee node or service, and a postage batch. */
@@ -121,7 +123,7 @@ const fleet = await Promise.all(
       policy: demoPolicy(),
       timers,
       store: gateStore(`gate-${c.id}.json`),
-      files: [tools.badMail.file, tools.files.file, ...coreFiles(model)],
+      files: [tools.badMail.file, tools.files.file, ...coreFiles(model, modelSource)],
       net: new ArkivGuardNet(client, owner, agentWriter, timers.heartbeatTtlSeconds),
       startSeq: (latest?.seq ?? 0n) + 1n,
       approve: desk.approverFor(c.id),

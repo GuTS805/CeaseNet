@@ -47,7 +47,7 @@ npm run keys        # creates a test phrase in .env and writes your addresses to
 # For the diary, also claim 0G testnet tokens for that same address
 npm run fund
 npm run seed        # publishes the demo's tools, passports and trust lists
-npm run demo        # the agents. Needs ZG_API_KEY. Without one, npm run demo:dev uses built-in rules and says so on screen
+npm run demo        # the agents. Needs MODEL_API_KEY, and Groq's free tier works. Without one, npm run demo:dev uses built-in rules and says so on screen
 npm run web         # the website, on http://localhost:5173
 npm run verifier    # optional: real World ID confirmations
 ```
@@ -71,6 +71,7 @@ It measures the tool's real files, then answers `tools/call` only if the gate al
 | `npm run smoke` | Every Arkiv behaviour the design relies on: a read-only STOP, anyone can extend it, an outsider can't delete it, and an owner can |
 | `npm run e2e` | The whole story on the live chain, against a running demo |
 | `npm run proxy-check` | A standard MCP client is refused through the proxy, 0.5 s after the STOP appears on Arkiv |
+| `npm run model-check` | Your AI model can call tools and react to a refusal, and shows your key's limits |
 | `npm run diary-check` | A diary part stores on 0G, reads back with no wallet, and a changed copy fails |
 | `npm run swarm-check` | A fix and sealed evidence on a real Bee node. Needs a postage batch |
 | `npm run agent-pass-check` | One real World ID Agent Pass attempt. Needs portal credentials |
@@ -112,9 +113,9 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 
 **Censorship resistance.** We run the website, the demo server and the verifier that files World ID confirmations. If they fail or refuse, agents keep obeying, because each gate reads Arkiv itself, and anyone can host the static site. An owner can replace our verifier and any issuer by publishing a new trust list. Recalls need no approval from us.
 
-**Open source.** MIT licence. `npm install && npm test && npm run build -w @ceasenet/web` works from this repository alone, with no keys. Running live agents needs third-party accounts: test tokens to write to Arkiv, and a 0G key for the model. Reading Arkiv needs neither.
+**Open source.** MIT licence. `npm install && npm test && npm run build -w @ceasenet/web` works from this repository alone, with no keys. Running live agents needs test tokens to write to Arkiv, and a key for any compatible AI model, which can be one you run yourself. Reading Arkiv needs neither.
 
-**Privacy.** The Arkiv RPC learns your IP and which keys you follow, not which tools you run, because the gate downloads all their recalls and matches locally. The same goes for the "Check a tool" page. Publishing a loadout, heartbeat and receipts is optional. The model provider, through 0G's router, sees what the agent sends it. The public diary holds only a hash of each call's arguments. World learns only that someone proved for this app's action, and Arkiv gets a hash scoped to one warning, so one person's answers can't be linked across warnings. The site has no trackers.
+**Privacy.** The Arkiv RPC learns your IP and which keys you follow, not which tools you run, because the gate downloads all their recalls and matches locally. The same goes for the "Check a tool" page. Publishing a loadout, heartbeat and receipts is optional. The model provider sees what the agent sends it, and you choose who that is. The public diary holds only a hash of each call's arguments. World learns only that someone proved for this app's action, and Arkiv gets a hash scoped to one warning, so one person's answers can't be linked across warnings. The site has no trackers.
 
 **Security.** Each role has its own key, and tools run as separate processes that see none of them. Backend secrets never reach a browser or a model. A fix runs only if its hash matches the published one. We assume that:
 - the keys on your trust list are honest. A stolen issuer key can stop your tool, but not run code on your machine, and removing it from your list ends that
@@ -138,7 +139,7 @@ Documents: [schema](arkiv/schema.md), [feedback](arkiv/friction.md), [reach](ark
 | **World** | IDKit: one person, one answer on a warning. Agent Pass: a real person approves a paused call | [docs/world.md](docs/world.md) |
 | **Ethereum Foundation** | The CROPS section above, and the reason the design has no central party | |
 | **Swarm** | Fixed tools and sealed evidence | [arkiv/swarm.md](arkiv/swarm.md) |
-| **0G** | The demo agents' model, through 0G's router, and the diary on 0G Storage. Not entered for a 0G prize | [zeroG.ts](apps/demo/src/zeroG.ts) |
+| **0G** | The diary on 0G Storage. Not entered for a 0G prize | [zeroG.ts](apps/demo/src/zeroG.ts) |
 
 ## Layout
 

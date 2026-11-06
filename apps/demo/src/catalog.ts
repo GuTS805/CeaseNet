@@ -27,8 +27,8 @@ export const catalog = () => ({
 })
 
 /** Measures what the agent thinks with. A recall on either of these stops the whole agent. */
-export const coreFiles = (model: string): LoadedFile[] => [
-  { kind: "model", name: model, version: "0g", hash: hashBytes(model) },
+export const coreFiles = (model: string, host: string): LoadedFile[] => [
+  { kind: "model", name: model, version: host, hash: hashBytes(model) },
   { kind: "prompt", name: "office-assistant", version: "1", hash: hashBytes(SYSTEM_PROMPT) },
 ]
 

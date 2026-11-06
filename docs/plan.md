@@ -21,6 +21,7 @@ Existing products leave a gap. Runtime gateways are run per company, with no sha
 | Real MCP, with tools as separate processes | It works with existing tools, and a tool holds no keys |
 | A proxy that needs no code change | Otherwise nobody would adopt it |
 | Diary on 0G, fixes and evidence on Swarm, hashes on Arkiv | Each store does what it's good at, and a hash on Arkiv catches any change |
+| The model is any OpenAI-compatible service | Nobody should have to trust one model provider. We first used 0G's router, and moved when its credits and request limit got in the way of the demo |
 
 ## Build order
 
@@ -39,7 +40,7 @@ Existing products leave a gap. Runtime gateways are run per company, with no sha
 
 - Robots and physical AI: on the `robots` branch.
 - ENS and Uniswap: the team decided against both.
-- A 0G prize entry: 0G's rules exclude using it for logs only, and that is our main use.
+- A 0G prize entry: 0G's rules exclude using it for logs only, and that is our only use.
 - Chasing a real postage batch before the code worked: the Swarm path was built against Bee's published API.
 
 ## Known gaps

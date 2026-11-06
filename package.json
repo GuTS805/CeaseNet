@@ -27,6 +27,7 @@
     "proxy-check": "tsx --env-file=.env scripts/proxy-check.ts",
     "verifier": "tsx --env-file=.env apps/verifier/src/server.ts",
     "diary-check": "tsx --env-file=.env scripts/diary-check.ts",
+    "model-check": "tsx --env-file=.env scripts/model-check.ts",
     "swarm-check": "tsx --env-file=.env scripts/swarm-check.ts",
     "agent-pass-check": "tsx --env-file=.env scripts/agent-pass-check.ts",
     "local-bee": "tsx scripts/local-bee.ts"

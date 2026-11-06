@@ -142,7 +142,7 @@ export interface DemoAgent {
 }
 
 export interface DemoState {
-  brainSource: "0g" | "dev"
+  brainSource: "model" | "dev"
   model: string
   idle: boolean
   tools: { bad: LoadedFile; fixed: LoadedFile; files: LoadedFile }

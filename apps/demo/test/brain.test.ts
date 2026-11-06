@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { type Brain, BrainBusy, type BrainReply, BrainUnavailable, PacedBrain, ZeroGBrain } from "../src/brain"
+import { type Brain, BrainBusy, type BrainReply, BrainUnavailable, ModelBrain, modelFromEnv, modelHost, type ModelSettings, PacedBrain } from "../src/brain"
+
+const SETTINGS: Omit<ModelSettings, "requestsPerMinute"> = { url: "https://model.example/v1", apiKey: "k", model: "m" }
+const modelWith = (f: typeof fetch, over: Partial<ModelSettings> = {}) => new ModelBrain({ ...SETTINGS, ...over }, f)
 
 const REPLY: BrainReply = { message: { role: "assistant", content: "ok" }, requestId: "r", model: "m", source: "dev" }
 
@@ -86,6 +89,18 @@ describe("PacedBrain", () => {
     await expect(paced(always).brain.next([], [])).rejects.toBeInstanceOf(BrainUnavailable)
   })
 
+  it("speaks up instead of waiting out a long limit, such as a daily one", async () => {
+    let calls = 0
+    const daily: Brain = {
+      next: async () => {
+        calls++
+        throw new BrainBusy("429", 3_600_000)
+      },
+    }
+    await expect(paced(daily).brain.next([], [])).rejects.toBeInstanceOf(BrainUnavailable)
+    expect(calls).toBe(1)
+  })
+
   it("does not retry any other failure", async () => {
     let calls = 0
     const down: Brain = {
@@ -99,24 +114,47 @@ describe("PacedBrain", () => {
   })
 })
 
-describe("ZeroGBrain", () => {
+describe("modelFromEnv", () => {
+  it("explains what is missing", () => {
+    expect(() => modelFromEnv({})).toThrow("MODEL_API_KEY is missing")
+  })
+
+  it("never picks up another service's key", () => {
+    expect(() => modelFromEnv({ ZG_API_KEY: "sk-old" })).toThrow("MODEL_API_KEY is missing")
+  })
+
+  it("has working defaults, and takes any service", () => {
+    expect(modelFromEnv({ MODEL_API_KEY: "k" }).url).toContain("groq.com")
+    const custom = modelFromEnv({ MODEL_API_KEY: "k", MODEL_API_URL: "http://localhost:11434/v1", MODEL_NAME: "mine", MODEL_REQUESTS_PER_MINUTE: "90", MODEL_REASONING_EFFORT: "none" })
+    expect(custom).toEqual({ url: "http://localhost:11434/v1", apiKey: "k", model: "mine", requestsPerMinute: 90, reasoningEffort: "none" })
+    expect(modelHost(custom.url)).toBe("localhost:11434")
+  })
+})
+
+describe("ModelBrain", () => {
+  it("names the service in its errors, and never the key", async () => {
+    const error = await modelWith((async () => new Response("no", { status: 500 })) as typeof fetch, { apiKey: "sk-secret" }).next([], []).catch((e) => e)
+    expect(error.message).toContain("model.example")
+    expect(error.message).not.toContain("sk-secret")
+  })
+
   const respond = (status: number, headers: Record<string, string> = {}) =>
     (async () => new Response(JSON.stringify({ error: { message: "Rate limit exceeded." } }), { status, headers })) as typeof fetch
 
   it("reads how long a rate limit lasts", async () => {
-    const brain = new ZeroGBrain("k", "m", respond(429, { "retry-after": "43" }))
+    const brain = modelWith(respond(429, { "retry-after": "43" }))
     const error = await brain.next([], []).catch((e) => e)
     expect(error).toBeInstanceOf(BrainBusy)
     expect(error.retryAfterMs).toBe(43_000)
   })
 
   it("waits a little when the router does not say how long", async () => {
-    const error = await new ZeroGBrain("k", "m", respond(429)).next([], []).catch((e) => e)
+    const error = await modelWith(respond(429)).next([], []).catch((e) => e)
     expect(error.retryAfterMs).toBe(10_000)
   })
 
   it("does not treat other failures as a rate limit", async () => {
-    const error = await new ZeroGBrain("k", "m", respond(500)).next([], []).catch((e) => e)
+    const error = await modelWith(respond(500)).next([], []).catch((e) => e)
     expect(error).toBeInstanceOf(BrainUnavailable)
     expect(error).not.toBeInstanceOf(BrainBusy)
   })

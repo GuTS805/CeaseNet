@@ -20,7 +20,7 @@ Commits are all under the team's account and don't mention AI, at the team's req
 - Set the direction: the problem, Arkiv as the main sponsor, no ENS or Uniswap, moving from robots to AI agents, and using 0G only for the diary.
 - Named the project and chose which sponsors to enter.
 - Tested the running site and pushed back on the design along the way.
-- Set up the accounts and keys: Arkiv access key, faucets, 0G key, World app and action.
+- Set up the accounts and keys: Arkiv access key, faucets, model key, World app and action.
 
 **TEAM TO COMPLETE BEFORE SUBMITTING:** name each team member and say what they personally did, including reviewing the code, rehearsing and recording the demo.
 

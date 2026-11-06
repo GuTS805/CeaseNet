@@ -2,8 +2,11 @@ import { type GateView, type LoadedFile, memoryStore, type RecallRow, type Trust
 import { Guard, type GuardNet } from "@ceasenet/guard"
 import { describe, expect, it } from "vitest"
 import { OfficeAgent, type ToolConnection } from "../src/agent"
-import { type Brain, BrainUnavailable, DevBrain, ZeroGBrain } from "../src/brain"
+import { type Brain, BrainUnavailable, DevBrain, ModelBrain, type ModelSettings } from "../src/brain"
 import type { ToolPackage } from "../src/catalog"
+
+const SETTINGS: Omit<ModelSettings, "requestsPerMinute"> = { url: "https://model.example/v1", apiKey: "k", model: "m" }
+const modelWith = (f: typeof fetch, over: Partial<ModelSettings> = {}) => new ModelBrain({ ...SETTINGS, ...over }, f)
 
 const MAKER = "0x00000000000000000000000000000000000000aa" as const
 const policy: TrustPolicy = { issuers: [MAKER], regulators: [], verifier: "0x00000000000000000000000000000000000000cc", threshold: 3 }
@@ -245,42 +248,61 @@ describe("OfficeAgent", () => {
   })
 })
 
-describe("ZeroGBrain", () => {
+describe("ModelBrain", () => {
   const reply = (status: number, body: unknown, headers: Record<string, string> = {}) =>
     (async () => new Response(JSON.stringify(body), { status, headers })) as unknown as typeof fetch
   const answer = { choices: [{ message: { content: "ok" } }] }
 
   it("uses the ID 0G reports in its trace", async () => {
     const f = reply(200, { ...answer, id: "as-1", x_0g_trace: { request_id: "308254f5" } }, { "x-request-id": "bde4, 308254f5" })
-    expect((await new ZeroGBrain("k", "m", f).next([], [])).requestId).toBe("308254f5")
+    expect((await modelWith(f).next([], [])).requestId).toBe("308254f5")
   })
 
   it("never stores two joined IDs from the header", async () => {
     const f = reply(200, answer, { "x-request-id": "bde4, 308254f5" })
-    expect((await new ZeroGBrain("k", "m", f).next([], [])).requestId).toBe("308254f5")
+    expect((await modelWith(f).next([], [])).requestId).toBe("308254f5")
   })
 
   it("treats a reply with no request ID as unusable", async () => {
-    await expect(new ZeroGBrain("k", "m", reply(200, answer)).next([], [])).rejects.toThrow(BrainUnavailable)
+    await expect(modelWith(reply(200, answer)).next([], [])).rejects.toThrow(BrainUnavailable)
   })
 
   it("reports running out of funds and outages as unavailable", async () => {
-    await expect(new ZeroGBrain("k", "m", reply(402, {})).next([], [])).rejects.toThrow(BrainUnavailable)
-    await expect(new ZeroGBrain("k", "m", reply(503, {})).next([], [])).rejects.toThrow(BrainUnavailable)
+    await expect(modelWith(reply(402, {})).next([], [])).rejects.toThrow(BrainUnavailable)
+    await expect(modelWith(reply(503, {})).next([], [])).rejects.toThrow(BrainUnavailable)
     const boom = (async () => {
       throw new Error("offline")
     }) as unknown as typeof fetch
-    await expect(new ZeroGBrain("k", "m", boom).next([], [])).rejects.toThrow(BrainUnavailable)
+    await expect(modelWith(boom).next([], [])).rejects.toThrow(BrainUnavailable)
   })
 
-  it("asks the model not to spend time reasoning, and offers the tools", async () => {
+  it("goes to the configured service, with the key and the tools", async () => {
     let sent: any
-    const f = (async (_url: string, init: RequestInit) => {
+    let to = ""
+    let auth = ""
+    const f = (async (url: string, init: RequestInit) => {
+      to = url
+      auth = (init.headers as Record<string, string>).Authorization!
       sent = JSON.parse(init.body as string)
       return new Response(JSON.stringify({ ...answer, request_id: "r" }))
     }) as unknown as typeof fetch
-    await new ZeroGBrain("k", "m", f).next([], [{ name: "send_email", description: "d", inputSchema: { type: "object" } }])
-    expect(sent.reasoning_effort).toBe("none")
+    await modelWith(f, { url: "https://model.example/v1/" }).next([], [{ name: "send_email", description: "d", inputSchema: { type: "object" } }])
+    expect(to).toBe("https://model.example/v1/chat/completions")
+    expect(auth).toBe("Bearer k")
+    expect(sent.model).toBe("m")
     expect(sent.tools[0].function.name).toBe("send_email")
+    expect(sent.max_tokens).toBeGreaterThan(0)
+  })
+
+  it("sends a reasoning setting only when asked to, because some models refuse it", async () => {
+    const sent: any[] = []
+    const f = (async (_url: string, init: RequestInit) => {
+      sent.push(JSON.parse(init.body as string))
+      return new Response(JSON.stringify({ ...answer, request_id: "r" }))
+    }) as unknown as typeof fetch
+    await modelWith(f).next([], [])
+    await modelWith(f, { reasoningEffort: "none" }).next([], [])
+    expect("reasoning_effort" in sent[0]).toBe(false)
+    expect(sent[1].reasoning_effort).toBe("none")
   })
 })
