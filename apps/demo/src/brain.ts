@@ -25,11 +25,25 @@ export class BrainUnavailable extends Error {
   override name = "BrainUnavailable"
 }
 
+/** The model is fine, but this key has used up its requests for now. */
+export class BrainBusy extends BrainUnavailable {
+  override name = "BrainBusy"
+  constructor(
+    message: string,
+    readonly retryAfterMs: number,
+  ) {
+    super(message)
+  }
+}
+
 export interface Brain {
   next(messages: readonly Message[], tools: readonly ToolSpec[], signal?: AbortSignal): Promise<BrainReply>
 }
 
 const ROUTER = "https://router-api.0g.ai/v1"
+/** Used when the router says it is busy without saying for how long. */
+const DEFAULT_RETRY_S = 10
+const MAX_BUSY_RETRIES = 5
 const TIMEOUT_MS = 30_000
 
 /**
@@ -39,6 +53,35 @@ const TIMEOUT_MS = 30_000
 function findRequestId(body: any, headers: Headers): unknown {
   const header = headers.get("x-request-id")?.split(",").pop()?.trim()
   return body.x_0g_trace?.request_id ?? body.request_id ?? header ?? body.id
+}
+
+/**
+ * Shares one key's request limit between all the agents, so they take turns and never hit it.
+ * If the limit is hit anyway, every agent waits for as long as the router asks, and nobody sees a failure.
+ */
+export class PacedBrain implements Brain {
+  private nextSlot = 0
+
+  constructor(
+    private readonly inner: Brain,
+    private readonly gapMs: number,
+    private readonly now: () => number = Date.now,
+    private readonly sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+  ) {}
+
+  async next(messages: readonly Message[], tools: readonly ToolSpec[], signal?: AbortSignal): Promise<BrainReply> {
+    for (let attempt = 1; ; attempt++) {
+      const at = Math.max(this.now(), this.nextSlot)
+      this.nextSlot = at + this.gapMs
+      if (at > this.now()) await this.sleep(at - this.now())
+      try {
+        return await this.inner.next(messages, tools, signal)
+      } catch (e) {
+        if (!(e instanceof BrainBusy) || attempt >= MAX_BUSY_RETRIES) throw e
+        this.nextSlot = Math.max(this.nextSlot, this.now() + e.retryAfterMs)
+      }
+    }
+  }
 }
 
 /** The demo agents' model, reached through 0G's router. */
@@ -74,6 +117,10 @@ export class ZeroGBrain implements Brain {
     }
 
     const text = await res.text().catch(() => "")
+    if (res.status === 429) {
+      const seconds = Number(res.headers.get("retry-after"))
+      throw new BrainBusy(`0G returned 429: ${text.slice(0, 200)}`, (seconds > 0 ? seconds : DEFAULT_RETRY_S) * 1000)
+    }
     if (!res.ok) throw new BrainUnavailable(`0G returned ${res.status}: ${text.slice(0, 200)}`)
 
     let body: any

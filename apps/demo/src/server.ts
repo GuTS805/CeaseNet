@@ -31,7 +31,7 @@ import { toHex } from "viem"
 import { accountFor, type Role } from "../../../scripts/roles"
 import { argsHash, connectWith, OfficeAgent } from "./agent"
 import { ApprovalDesk } from "./approvals"
-import { type Brain, DevBrain, ZeroGBrain } from "./brain"
+import { type Brain, DevBrain, PacedBrain, ZeroGBrain } from "./brain"
 import { catalog, coreFiles, SYSTEM_PROMPT, toolProcess } from "./catalog"
 import { countLines, gateStore, sandboxDir, STATE_DIR } from "./store"
 import { uploadPackage, uploadPublicEvidence, uploadSealedEvidence } from "./swarmFiles"
@@ -40,6 +40,8 @@ import { ZeroGStore } from "./zeroG"
 const PORT = Number(process.env.DEMO_PORT ?? 8787)
 /** Agents stop working when nobody has looked for this long, so a forgotten demo does not spend credits. */
 const IDLE_AFTER_MS = 90_000
+/** 0G's router gave our key 30 requests a minute, shared by every agent. This stays just under. */
+const MODEL_REQUESTS_PER_MINUTE = Number(process.env.ZG_REQUESTS_PER_MINUTE) || 28
 const DIARY_FLUSH_MS = 45_000
 
 const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
@@ -54,7 +56,7 @@ function makeBrain(): { brain: Brain; source: "0g" | "dev" } {
   // Asked for by name only. Without a key, and without this, the demo refuses to start.
   if (process.env.DEV_BRAIN === "1") return { brain: new DevBrain(), source: "dev" }
   const key = process.env.ZG_API_KEY
-  if (key) return { brain: new ZeroGBrain(key, model), source: "0g" }
+  if (key) return { brain: new PacedBrain(new ZeroGBrain(key, model), 60_000 / MODEL_REQUESTS_PER_MINUTE), source: "0g" }
   throw new Error("ZG_API_KEY is missing. Add it to .env, or use npm run demo:dev for local development only.")
 }
 
@@ -143,6 +145,7 @@ const fleet = await Promise.all(
       connect: connectWith(guard, (pkg) => toolProcess(pkg, sandbox, c.company)),
       findFix,
       autoUpdate: c.autoUpdate,
+      finishesJob: (tool) => tool === "send_email",
       firstInvoice: c.firstInvoice,
       shouldWork: someoneWatching,
       // The built-in rules answer instantly, so they get a pause. A real model takes seconds on its own.

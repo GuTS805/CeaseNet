@@ -101,6 +101,44 @@ describe("OfficeAgent", () => {
     expect(m.agent.jobs).toBe(1)
   })
 
+  it("can end a job when a tool succeeds, to save a model request", async () => {
+    const m = make()
+    let requests = 0
+    const inner = m.agent.opts.brain
+    m.agent.opts.brain = { next: (...a) => (requests++, inner.next(...a)) }
+    m.agent.opts.finishesJob = (tool) => tool === "send_email"
+    await prepare(m)
+    await m.agent.runJob()
+    expect(m.reached).toEqual(["2.1.0:read_invoice", "1.0.16:send_email"])
+    expect(m.agent.jobs).toBe(1)
+    expect(requests).toBe(2)
+  })
+
+  it("still sends a refusal back to the model, even for a tool that would end the job", async () => {
+    const m = make()
+    m.agent.opts.finishesJob = (tool) => tool === "send_email"
+    await prepare(m)
+    m.net.view = { stops: [STOP] }
+    await m.guard.check(true)
+    await m.agent.runJob()
+    expect(m.reached).toEqual(["2.1.0:read_invoice", "2.1.0:save_draft"])
+  })
+
+  it("says the model is gone once, however many times it retries", async () => {
+    let failures = 0
+    const brain: Brain = {
+      next: async () => {
+        if (++failures <= 5) throw new BrainUnavailable("down")
+        return { message: { role: "assistant", content: "done" }, requestId: "r", model: "m", source: "dev" }
+      },
+    }
+    const m = make(brain)
+    await prepare(m)
+    await m.agent.runJob()
+    expect(m.agent.feed.filter((f) => f.kind === "problem")).toHaveLength(1)
+    expect(m.agent.brainProblem).toBeUndefined()
+  })
+
   it("never reaches a recalled tool, and carries on with the others", async () => {
     const m = make()
     await prepare(m)

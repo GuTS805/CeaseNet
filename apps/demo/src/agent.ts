@@ -45,6 +45,8 @@ export interface AgentOptions {
   maxTurns?: number
   turnGapMs?: number
   firstInvoice?: number
+  /** A tool whose success ends the job, which saves the model one request per job. A refusal still goes back to the model. */
+  finishesJob?: (tool: string) => boolean
   /** When this says no, the agent starts no new job. */
   shouldWork?: () => boolean
   wait?: (ms: number) => Promise<void>
@@ -144,9 +146,15 @@ export class OfficeAgent {
         this.say("said", reply.message.content ?? "Done.", reply.requestId)
         return
       }
+      let finished = false
       for (const call of calls) {
-        const text = await this.runTool(call.function.name, call.function.arguments, reply.requestId, reply.model)
+        const { text, allowed } = await this.runTool(call.function.name, call.function.arguments, reply.requestId, reply.model)
         messages.push({ role: "tool", tool_call_id: call.id, content: text })
+        if (allowed && this.opts.finishesJob?.(call.function.name)) finished = true
+      }
+      if (finished) {
+        this.jobs += 1
+        return
       }
       if (this.opts.turnGapMs) await this.wait(this.opts.turnGapMs)
     }
@@ -161,25 +169,25 @@ export class OfficeAgent {
         return reply
       } catch (e) {
         if (!(e instanceof BrainUnavailable)) throw e
-        // No model means no decision. The agent waits and never makes one up.
+        // No model means no decision. The agent waits and never makes one up. It says so once, not on every retry.
+        if (!this.brainProblem) this.say("problem", "Cannot reach the AI model, so the agent is waiting.")
         this.brainProblem = e.message
         this.guard.setPaused(true)
-        this.say("problem", "Cannot reach the AI model, so the agent is waiting.")
         await this.wait(RETRY_MS)
       }
     }
     return undefined
   }
 
-  private async runTool(name: string, rawArgs: string, requestId: string, model: string): Promise<string> {
+  private async runTool(name: string, rawArgs: string, requestId: string, model: string): Promise<{ text: string; allowed: boolean }> {
     const connection = this.connections.find((c) => c.specs.some((s) => s.name === name))
-    if (!connection) return `There is no tool called ${name}.`
+    if (!connection) return { text: `There is no tool called ${name}.`, allowed: false }
 
     let args: Record<string, unknown>
     try {
       args = JSON.parse(rawArgs || "{}") as Record<string, unknown>
     } catch {
-      return `The arguments for ${name} were not valid JSON.`
+      return { text: `The arguments for ${name} were not valid JSON.`, allowed: false }
     }
 
     const label = `${connection.file.name} ${connection.file.version}`
@@ -195,7 +203,7 @@ export class OfficeAgent {
     } else {
       this.say("allowed", `${name} (${label})`, requestId)
     }
-    return result.text
+    return { text: result.text, allowed: result.decision.allowed }
   }
 
   /** Moves to a published fix, if one applies. The guard refuses anything that does not match the published hash. */

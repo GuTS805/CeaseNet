@@ -278,6 +278,9 @@ export function LivePage() {
           see <a href="#/recalls">Recalls</a>.
         </div>
       )}
+      {agents.find((a) => a.status === "PAUSED")?.problem && (
+        <div className="notice bad">The agents are waiting for their model. {agents.find((a) => a.status === "PAUSED")?.problem}</div>
+      )}
       {error && <div className="notice">Cannot read Arkiv right now: {error}</div>}
       {problem && <div className="notice bad">{problem}</div>}
       {busy && <div className="muted small">{busy}: waiting for the chain…</div>}
