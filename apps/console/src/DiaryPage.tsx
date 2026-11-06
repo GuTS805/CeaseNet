@@ -251,7 +251,7 @@ export function DiaryPage({ run }: { run: Run }) {
                     <Copyable value={p.root} />
                   </td>
                   <td className="small tabular">{p.block}</td>
-                  <td>{p.locked ? <Status tone="grey" small>Encrypted</Status> : p.check.ok ? <Status tone="green" small>{p.storage ? "Opened, and matches" : "Matches"}</Status> : <Status tone="red" small>Does not match</Status>}</td>
+                  <td>{p.locked ? <Status tone="grey" small>{p.storage === "kept-by-owner" ? "On its own machine" : "Encrypted"}</Status> : p.check.ok ? <Status tone="green" small>{p.storage ? "Opened, and matches" : "Matches"}</Status> : <Status tone="red" small>Does not match</Status>}</td>
                 </tr>
               ))}
             </tbody>

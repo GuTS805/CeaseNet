@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CONFIRMATION_THRESHOLD, isLive, lower, onlyLive, type PublicView, type RecallRow } from "@ceasenet/core"
-import { boundBy, client, HOSTED, isNormalRecall, nameOf, shortHash, statusColour, statusLabel, useNetworkView, usePoll, votesOn } from "./lib"
+import { boundBy, CHOSEN_RPC, chooseRpc, client, HOSTED, isNormalRecall, nameOf, shortHash, statusColour, statusLabel, useNetworkView, usePoll, votesOn } from "./lib"
 import { type ChainRecord, recordsIn } from "./warroom/events"
 import { Ticker } from "./warroom/Ticker"
 
@@ -69,7 +69,7 @@ export function NetworkPage() {
     })
   }, [view])
 
-  if (error && !view) return <div className="page network"><h1>The network, live</h1><div className="notice bad" role="alert">Cannot read Arkiv: {error}</div><p className="muted">The network is temporarily unavailable. This page will retry automatically.</p></div>
+  if (error && !view) return <div className="page network"><h1>The network, live</h1><div className="notice bad" role="alert">Cannot read Arkiv: {error}</div><p className="muted">The network is temporarily unavailable. This page will retry automatically.</p><NodeChoice /></div>
   if (!view || !shown) return <div className="page network"><h1>The network, live</h1><div className="empty-state" role="status">Reading public records from Arkiv…</div></div>
   const liveCount = view.agents.filter(isLive).length
   return (
@@ -133,6 +133,49 @@ export function NetworkPage() {
           </tbody>
         </table>
       </div>
+      <NodeChoice />
+    </div>
+  )
+}
+
+/** Lets a visitor read the list through a node they run, so no one else learns their address or what they read. */
+function NodeChoice() {
+  const [url, setUrl] = useState(CHOSEN_RPC ?? "")
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string>()
+  const save = async (next: string | undefined) => {
+    setBusy(true)
+    setProblem(undefined)
+    try {
+      await chooseRpc(next)
+      location.reload()
+    } catch (e) {
+      setProblem((e as { shortMessage?: string }).shortMessage ?? (e instanceof Error ? e.message : String(e)))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="card form">
+      <h2>Read through your own Arkiv node</h2>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Your browser reads every page here straight from Arkiv, through {CHOSEN_RPC ? <code>{CHOSEN_RPC}</code> : "Arkiv's public endpoint"}. Whoever runs that node sees your IP address and which records you ask for. Give it a node you run, and nobody else does. The choice stays in this browser. Records you sign still go out through your wallet's own network setting.
+      </p>
+      <label>
+        Arkiv node
+        <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8545/" spellCheck={false} />
+      </label>
+      <div className="buttons">
+        <button className="primary" disabled={busy || !url.trim() || url.trim() === CHOSEN_RPC} onClick={() => void save(url)}>
+          {busy ? "Checking the node…" : "Use this node"}
+        </button>
+        {CHOSEN_RPC && (
+          <button disabled={busy} onClick={() => void save(undefined)}>
+            Back to Arkiv's endpoint
+          </button>
+        )}
+      </div>
+      {problem && <div className="error">{problem}</div>}
     </div>
   )
 }

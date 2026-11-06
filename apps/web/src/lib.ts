@@ -4,6 +4,8 @@ import {
   ARKIV_EXPLORER,
   arkivPublicClient,
   type AgentStatus,
+  checkListFresh,
+  checkRpcUrl,
   type BoardAgent,
   CONFIRMATION_THRESHOLD,
   CONFIRMATION_WINDOW_BLOCKS,
@@ -25,7 +27,30 @@ declare const __VERIFIER_URL__: string
 declare const __SWARM_GATEWAY__: string
 
 export const ACCESS_KEY = __ARKIV_ACCESS_KEY__
-export const client = arkivPublicClient(__ARKIV_ACCESS_KEY__)
+const RPC_SETTING = "ceasenet.rpc"
+/** An Arkiv node this browser was told to read through, such as the visitor's own. Unset means Arkiv's public endpoint. */
+export const CHOSEN_RPC: string | undefined = (() => {
+  try {
+    return localStorage.getItem(RPC_SETTING) || undefined
+  } catch {
+    return undefined
+  }
+})()
+export const client = arkivPublicClient(__ARKIV_ACCESS_KEY__, CHOSEN_RPC)
+
+/** Checks a node before this browser reads through it, as `ceasenet rpc` does. Undefined goes back to Arkiv's endpoint. */
+export async function chooseRpc(url: string | undefined): Promise<void> {
+  if (!url) {
+    localStorage.removeItem(RPC_SETTING)
+    return
+  }
+  const rpc = checkRpcUrl(url)
+  const probe = arkivPublicClient(__ARKIV_ACCESS_KEY__, rpc)
+  const [chainId, newest] = await Promise.all([probe.getChainId(), probe.getBlock()])
+  if (chainId !== probe.chain.id) throw new Error(`It serves chain ${chainId}, not Arkiv's Rabdi testnet (${probe.chain.id}).`)
+  checkListFresh(newest.timestamp)
+  localStorage.setItem(RPC_SETTING, rpc)
+}
 export const DEMO_URL = __DEMO_URL__
 export const VERIFIER_URL = __VERIFIER_URL__
 /** A public copy of the site, with no live agents behind it. It also reads Arkiv less often, to stay within the public endpoint's limits. */

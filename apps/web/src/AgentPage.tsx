@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { deletedStops, DIARY_WINDOW_MS, type Hex, type DiaryRow, readDiaryIndex, recallCovers, SEALED_ON_SWARM, statusColourOf, type TimeRange } from "@ceasenet/core"
+import { deletedStops, DIARY_WINDOW_MS, type Hex, type DiaryRow, identityOnly, KEPT_BY_OWNER, readDiaryIndex, recallCovers, SEALED_ON_SWARM, statusColourOf, type TimeRange } from "@ceasenet/core"
 import { decodePart, type DiaryCheck, type DiaryEntry, verifyPart } from "@ceasenet/guard/diary"
 import { client, explorerAddress, HOSTED, swarmLink, nameOf, shortHash, statusLabel, useNetworkView, usePoll } from "./lib"
 
@@ -45,6 +45,20 @@ function SealedDiaryPart({ part }: { part: DiaryRow }) {
           </a>
         </span>
         <span className="small muted">Encrypted on Swarm. Only its owner can read it</span>
+      </div>
+    </div>
+  )
+}
+
+function KeptDiaryPart({ part }: { part: DiaryRow }) {
+  return (
+    <div className="diary-part">
+      <div className="row between">
+        <span>
+          Entries {String(part.firstSeq)} to {String(part.lastSeq)}
+          <When part={part} /> <span className="mono">{shortHash(part.root)}</span>
+        </span>
+        <span className="small muted">Kept private, on its owner's machine. Only its hash is public</span>
       </div>
     </div>
   )
@@ -157,6 +171,8 @@ export function AgentPage({ address }: { address: Hex }) {
 
   const colour = statusColourOf(address, entry.heartbeat)
   const files = entry.loadout?.files ?? []
+  // Only who it is: every agent like this shares one fingerprint, which says nothing about it.
+  const nothingPublished = identityOnly(files).length === files.length
   const open = view.recalls.filter((r) => files.some((f) => recallCovers(r, f)))
   const mine = view.acks.filter((a) => a.creator.toLowerCase() === address.toLowerCase())
   const deleted = deletedStops(mine, view.recalls)
@@ -184,7 +200,9 @@ export function AgentPage({ address }: { address: Hex }) {
 
           <div className="field">
             <div className="label">Fingerprint</div>
-            {entry.loadout?.fingerprint ? (
+            {entry.loadout && nothingPublished ? (
+              <div className="muted">Not published. It runs no tools yet, or its owner keeps what it runs private.</div>
+            ) : entry.loadout?.fingerprint ? (
               <div className="mono" title="What this agent is made of: its exact tools, model and instructions. Any change gives a new one.">
                 {entry.loadout.fingerprint}
               </div>
@@ -275,7 +293,7 @@ export function AgentPage({ address }: { address: Hex }) {
             {diaries === undefined ? (
               <div className="muted">Reading Arkiv…</div>
             ) : diaries.length > 0 ? (
-              diaries.slice(0, ranged ? 20 : 5).map((d) => (d.storage === SEALED_ON_SWARM ? <SealedDiaryPart key={d.key} part={d} /> : <DiaryPart key={d.key} part={d} />))
+              diaries.slice(0, ranged ? 20 : 5).map((d) => (d.storage === KEPT_BY_OWNER ? <KeptDiaryPart key={d.key} part={d} /> : d.storage === SEALED_ON_SWARM ? <SealedDiaryPart key={d.key} part={d} /> : <DiaryPart key={d.key} part={d} />))
             ) : (
               <div className="muted">{ranged ? "Nothing stored in that span of time. Parts stored before times were recorded are left out." : "Nothing stored yet"}</div>
             )}

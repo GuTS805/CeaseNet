@@ -151,3 +151,5 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-07 01:45 | ok then keep all this in mind / but now we should focus on ef corps.. |
 | 11-07 01:58 | CORPS me kya kya improve krna hai poora btana ache se / ki wo bounty lge |
 | 11-07 02:01 | a,b,c,d,e sb karo / and dont make any mistakes |
+| 11-07 02:23 | privacy me aisa kari ku koi lwda aas pass n aaye aur readme sbse achikrdo beech beech me ss add krdo / bina kisi ss ke dedicated section ke |
+| 11-07 02:31 | continue |

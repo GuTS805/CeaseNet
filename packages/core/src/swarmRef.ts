@@ -13,6 +13,8 @@ export const isEncryptedSwarmRef = (ref: string): boolean => /^[0-9a-fA-F]{128}$
  * only ever handles the encrypted file.
  */
 export const SEALED_ON_SWARM = "swarm-sealed"
+/** A private agent's diary part that could not go to Swarm encrypted, so it stayed on its owner's machine. Only its hash and times are public. */
+export const KEPT_BY_OWNER = "kept-by-owner"
 
 /** Entities are public. This stops an encrypted reference, which carries its own key, from ever being written to one. */
 export function assertPublicRef(ref: string | undefined): void {

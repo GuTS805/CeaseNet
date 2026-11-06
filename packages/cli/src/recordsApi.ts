@@ -1,5 +1,6 @@
+import { existsSync } from "node:fs"
 import { join } from "node:path"
-import { ADDRESSES, type ArkivPublic, DIARY_WINDOW_MS, type DiaryRow, type Hex, identityFiles, type LoadedFile, readReports, SEALED_ON_SWARM, teamFile, type TimeRange } from "@ceasenet/core"
+import { ADDRESSES, type ArkivPublic, DIARY_WINDOW_MS, type DiaryRow, type Hex, identityFiles, KEPT_BY_OWNER, type LoadedFile, readReports, SEALED_ON_SWARM, teamFile, type TimeRange } from "@ceasenet/core"
 import { type DiaryStore, SwarmClient } from "@ceasenet/guard"
 import { privateKeyToAccount } from "viem/accounts"
 import { explainWriteError, stopAgent, stopTool } from "./actions"
@@ -66,7 +67,9 @@ export function recordsService(ctx: RecordsContext) {
 
   // ---- Where diaries go ----
 
-  const local = localDiaryStore(join(homeDir(), "diary-store"))
+  const localDir = join(homeDir(), "diary-store")
+  const local = localDiaryStore(localDir)
+  const keptHere = (root: string) => /^0x[0-9a-f]{64}$/i.test(root) && existsSync(join(localDir, root))
   let zeroG: Promise<ZeroGLike> | undefined
   const openZeroG = (): Promise<ZeroGLike> => {
     // Loaded only when something needs it, because it is large and a guard or hook never does.
@@ -86,10 +89,13 @@ export function recordsService(ctx: RecordsContext) {
     put: async (bytes) => {
       const swarm = swarmStore()
       if (swarm) return swarm.put(bytes)
-      return onChain ? quietly(async () => (await openZeroG()).put(bytes)) : local.put(bytes)
+      // Kept private, a diary that cannot be sealed whole stays on this machine: on 0G anyone could read which tools it used.
+      if (!onChain) return local.put(bytes)
+      if (config.privacy === "private") return { ...(await local.put(bytes)), storage: KEPT_BY_OWNER }
+      return quietly(async () => (await openZeroG()).put(bytes))
     },
     get: async (root) => {
-      if (!onChain) return local.get(root)
+      if (!onChain || keptHere(root)) return local.get(root)
       // Reading needs no wallet and no library: anyone can do this with a plain web request.
       const { fetchFromZeroG } = await import("@ceasenet/demo/zeroG")
       return fetchFromZeroG(root)

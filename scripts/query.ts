@@ -10,7 +10,7 @@ const stops = view.recalls.filter((r) => r.level === "STOP")
 const reports = view.recalls.filter((r) => r.level === "ADVISORY")
 console.log(`At block ${view.block}: ${stops.length} STOPs, ${reports.length} open reports, ${view.agents.length} agents, ${view.acks.length} receipts`)
 
-console.log("\nSTOPs. Anyone can write one, so each says who did, and it binds only agents whose owner follows that key:")
+console.log("\nSTOPs. Anyone can write one, so each says who did, and it binds only that key's own agents:")
 for (const r of stops.slice(0, 10)) {
   const receipts = view.acks.filter((a) => a.recall === r.key && a.creator.toLowerCase() === a.agent.toLowerCase())
   const ended = view.lifts.some((l) => l.recall === r.key && l.creator.toLowerCase() === r.creator.toLowerCase())

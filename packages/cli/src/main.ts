@@ -3,7 +3,6 @@ import { runAgent } from "./agentRun"
 import { memberView, type StartResult, startReport, TEAM } from "./fleet"
 import { importSettings } from "./settings"
 import { existsSync, statSync } from "node:fs"
-import { hostname } from "node:os"
 import { agentArtifact, arkivPublicClient, checkListFresh, checkRpcUrl, fleetArtifact, type Hex, type LoadedFile, recallCovers } from "@ceasenet/core"
 import { measurePackage } from "@ceasenet/guard"
 import { currentPolicy, enrollAgent, isEnded, liftRecall, publishFix, publishIdentity, setFollowing, stopAgent, stopFleet, stopTool } from "./actions"
@@ -43,6 +42,8 @@ Set up
   ceasenet network <arkiv|local>  Keep recalls on the public list, or in a file on this machine.
   ceasenet rpc <url|default>      Read and write the public list through an Arkiv node you choose, such as your own,
                                   so no single node operator can hide a recall from your agents.
+  ceasenet privacy <private|open>  private: the public list learns who your agents are, never which tools, model or
+                                  instructions they run. The console still shows you everything, from this machine.
 
 See it work
   ceasenet agents start           Start three real AI trading agents, each in a terminal of its own, on live prices
@@ -124,7 +125,8 @@ async function cmdInit(p: Parsed): Promise<void> {
   const owner = text(p, "--owner") as Hex | undefined
   if (owner && !/^0x[0-9a-fA-F]{40}$/.test(owner)) throw new Error(`${owner} is not an address.`)
   const { config, created } = initHome({
-    name: text(p, "--name") ?? `${hostname()} agent`,
+    // Not this machine's name: an agent's name goes on the public list.
+    name: text(p, "--name") ?? "My agent",
     network: p.flags.has("--local") ? "local" : "arkiv",
     accessKey: text(p, "--access-key") ?? process.env.ARKIV_ACCESS_KEY ?? "",
     owner,
@@ -256,6 +258,7 @@ async function cmdStatus(): Promise<void> {
   out(`Owner    ${config.owner.address}${keys.owner ? "" : "  (key held elsewhere)"}`)
   out(`Recalls  ${networkLine(config)}`)
   if (config.network === "arkiv" && config.rpc) out(`Node     ${config.rpc}, chosen by you`)
+  if (config.network === "arkiv") out(`Privacy  ${config.privacy === "private" ? "private: the list learns who your agents are, not what they run" : "open: the list shows which tools your agents run. To hide them: ceasenet privacy private"}`)
   if (config.network === "arkiv" && !config.accessKey && !config.rpc) {
     out(`Access   none, so reads use Arkiv's public endpoint, which has a rate limit. Get a free key at ${ACCESS_KEYS}, then: ceasenet access-key <key>`)
   }
@@ -531,6 +534,20 @@ async function main(argv: readonly string[]): Promise<void> {
       }
       for (const line of startReport((await res.json()) as StartResult)) out(line)
       out(`The console is at http://127.0.0.1:${info.port}`)
+      return
+    }
+    case "privacy": {
+      const choice = p.positional[0]
+      if (choice !== "private" && choice !== "open") throw new Error("Use: ceasenet privacy private, or ceasenet privacy open")
+      saveConfig({ ...loadConfig(), privacy: choice })
+      if (choice === "private") {
+        out("From now on the public list learns who your agents are, and never which tools, model or instructions they run.")
+        out("What they run is kept on this machine, so the console still shows it to you. A receipt still names a tool your STOP covered, because it proves the STOP was obeyed.")
+        out("Records already published stay readable: Arkiv keeps them until they expire.")
+      } else {
+        out("From now on the public list shows which tools your agents run, so anyone can see who a recall reaches.")
+      }
+      out("Start the console again, and restart your agents, so they follow.")
       return
     }
     case "rpc": {

@@ -13,6 +13,7 @@ export const inHome = (...parts: string[]): string => join(homeDir(), ...parts)
 export const mainHome = (): string => process.env.CEASENET_MAIN_HOME ?? homeDir()
 
 export type Network = "arkiv" | "local"
+export type Privacy = "open" | "private"
 
 export interface Config {
   /** arkiv: the public list, which reaches any machine. local: this machine only, with no wallet or tokens. */
@@ -24,6 +25,8 @@ export interface Config {
   accessKey: string
   /** An Arkiv node the owner chose, such as their own. Unset means Arkiv's public endpoint. */
   rpc?: string
+  /** private: the public list learns who the agent is, never which tools, model or instructions it runs. Unset means open. */
+  privacy?: Privacy
   /** Where the local list is kept, so several agents on one machine can share an owner. */
   ledgerFile?: string
   port: number
@@ -65,7 +68,7 @@ export function createMemberHome(dir: string, member: { name: string }, config: 
   if (existsSync(path)) {
     const existing = JSON.parse(readFileSync(path, "utf8")) as Config
     // The owner may have moved to the public list since this agent was made.
-    const next: Config = { ...existing, network: config.network, accessKey: config.accessKey, rpc: config.rpc, owner: config.owner, ledgerFile, team: true }
+    const next: Config = { ...existing, network: config.network, accessKey: config.accessKey, rpc: config.rpc, privacy: config.privacy, owner: config.owner, ledgerFile, team: true }
     writeAtomic(path, `${JSON.stringify(next, null, 2)}\n`)
     return next
   }
@@ -77,6 +80,7 @@ export function createMemberHome(dir: string, member: { name: string }, config: 
     owner: config.owner,
     accessKey: config.accessKey,
     rpc: config.rpc,
+    privacy: config.privacy,
     ledgerFile,
     port: config.port,
     team: true,

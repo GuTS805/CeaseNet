@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { DIARY_WINDOW_MS, type DiaryRow, diaryWindowOf, hashBytes, type Hex, SEALED_ON_SWARM } from "@ceasenet/core"
+import { DIARY_WINDOW_MS, type DiaryRow, diaryWindowOf, hashBytes, type Hex, KEPT_BY_OWNER, SEALED_ON_SWARM } from "@ceasenet/core"
 import { decodePart, DIARY_START, type DiaryData, type DiaryEntry, type DiaryStore, encodePart, entryHash, openSealedBytes, openSealedRef, sealBytes, sealText, type SwarmClient, verifyPart, writeAtomic } from "@ceasenet/guard"
 import { type JournalRecord, journalPath, readJournal } from "./journal"
 
@@ -270,6 +270,11 @@ export async function readBack(index: readonly DiaryRow[], get: (root: string, r
       const stored = await get(row.root, row)
       entries = decodePart(sealed ? openSealedBytes(stored, ownerKey!) : stored)
     } catch (e) {
+      // Kept on the owner's machine and not this one: out of reach by design, which says nothing against it.
+      if (row.storage === KEPT_BY_OWNER) {
+        views.push({ ...base, locked: true, check: { ok: true }, items: [] })
+        continue
+      }
       views.push({ ...base, check: { ok: false, problem: `Could not read it: ${(e as Error).message.split("\n")[0]}` }, items: [] })
       continue
     }

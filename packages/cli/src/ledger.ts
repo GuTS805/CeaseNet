@@ -1,5 +1,5 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs"
-import { dirname } from "node:path"
+import { dirname, join } from "node:path"
 import {
   type AckIntent,
   type AckRow,
@@ -16,6 +16,7 @@ import {
   type GateView,
   hashBytes,
   type HeartbeatRow,
+  identityOnly,
   type Hex,
   type LiftKind,
   type LiftRow,
@@ -36,7 +37,7 @@ import {
   type TimeRange,
   type TrustPolicy,
 } from "@ceasenet/core"
-import { ArkivGuardNet, type GuardNet, ReadOnlyNet } from "@ceasenet/guard"
+import { ArkivGuardNet, type GuardNet, ReadOnlyNet, writeAtomic } from "@ceasenet/guard"
 import { formatEther } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 import { type Config, inHome, obeyingOwner } from "./home"
@@ -100,14 +101,22 @@ class ArkivReadNet extends ReadOnlyNet {
   }
 }
 
-class ArkivAgentNet extends ArkivGuardNet {
+export class ArkivAgentNet extends ArkivGuardNet {
   constructor(
     private readonly clientFor: ReturnType<typeof arkivPublicClient>,
     private readonly ownerAddress: string,
     writer: ArkivWriter,
     ttl: number,
+    /** Set when the owner keeps what this agent runs private: it is kept here instead, and the list gets only who the agent is. */
+    private readonly keepPrivate?: (seq: bigint, files: LoadedFile[]) => void,
   ) {
     super(clientFor, ownerAddress, writer, ttl)
+  }
+
+  override async writeLoadout(seq: bigint, files: LoadedFile[]): Promise<void> {
+    if (!this.keepPrivate) return super.writeLoadout(seq, files)
+    this.keepPrivate(seq, files)
+    return super.writeLoadout(seq, identityOnly(files))
   }
 
   override readView(policy: TrustPolicy, remembered: readonly Hex[]): Promise<GateView> {
@@ -122,6 +131,31 @@ async function readObeyingOwner(client: ReturnType<typeof arkivPublicClient>, ow
   return { ...view, policy }
 }
 
+/**
+ * What a private agent runs, kept on this machine only, next to the local list that every agent here shares. The
+ * console reads it back, so its owner still sees everything while the public list sees only who the agent is.
+ */
+const privateLoadoutPath = (config: Config, agent: string): string =>
+  join(dirname(config.ledgerFile ?? inHome("ledger.jsonl")), "private-loadouts", `${agent.toLowerCase()}.json`)
+
+export function savePrivateLoadout(config: Config, agent: string, seq: bigint, files: LoadedFile[]): void {
+  writeAtomic(privateLoadoutPath(config, agent), `${JSON.stringify({ seq: seq.toString(), files }, null, 2)}\n`)
+}
+
+/** Puts back what a private agent runs, from this machine, when the public record is the one it belongs to. */
+export function withPrivateLoadout(config: Config, row: LoadoutRow | undefined): LoadoutRow | undefined {
+  if (!row) return row
+  const path = privateLoadoutPath(config, row.agent)
+  if (!existsSync(path)) return row
+  try {
+    const kept = JSON.parse(readFileSync(path, "utf8")) as { seq: string; files: LoadedFile[] }
+    if (kept.seq !== row.seq.toString()) return row
+    return { ...row, files: kept.files, fingerprint: agentFingerprint(kept.files) }
+  } catch {
+    return row
+  }
+}
+
 export function arkivLedger(config: Config): Ledger {
   const client = arkivPublicClient(config.accessKey, config.rpc)
   const owner = config.owner.address
@@ -129,7 +163,11 @@ export function arkivLedger(config: Config): Ledger {
   return {
     kind: "arkiv",
     readOnlyNet: () => new ArkivReadNet(client, owner),
-    agentNet: (agentKey, ttl) => new ArkivAgentNet(client, owner, writerFor(agentKey), ttl),
+    agentNet: (agentKey, ttl) => {
+      const writer = writerFor(agentKey)
+      const keepPrivate = config.privacy === "private" ? (seq: bigint, files: LoadedFile[]) => savePrivateLoadout(config, writer.address, seq, files) : undefined
+      return new ArkivAgentNet(client, owner, writer, ttl, keepPrivate)
+    },
     writer: (key) => {
       const writer = writerFor(key)
       return {
@@ -151,7 +189,7 @@ export function arkivLedger(config: Config): Ledger {
     acks: (recalls) => readAcks(client, recalls),
     agents: (o) => readAgents(client, [o]),
     heartbeat: (agent) => readHeartbeat(client, agent),
-    loadout: (agent) => readLatestLoadout(client, agent),
+    loadout: async (agent) => withPrivateLoadout(config, await readLatestLoadout(client, agent)),
     diaries: (agent, range) => readDiaryIndex(client, agent, owner, range),
     balance: (address) => client.getBalance({ address }),
   }

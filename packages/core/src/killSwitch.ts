@@ -21,6 +21,9 @@ export const identityFiles = (agent: string, owner: string): LoadedFile[] => [
 
 const isIdentity = (file: LoadedFile) => file.kind === "agent" || file.kind === "fleet" || file.kind === "team"
 
+/** Only who the agent is, which every STOP aimed at it or its owner's fleet needs. What it runs is left out. */
+export const identityOnly = (files: readonly LoadedFile[]): LoadedFile[] => files.filter(isIdentity)
+
 /**
  * What an agent is made of, in one value: its exact tools, model and instructions.
  * It leaves out who the agent is, so two agents built the same way share one, and any change to what one runs changes it.
