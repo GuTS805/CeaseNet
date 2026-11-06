@@ -71,9 +71,11 @@ export const statusLabel = (status: AgentStatus | undefined): string =>
           : "Unknown"
 
 /** Polls while the page is open and keeps the last good result if a read fails. */
-export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknown[] = []) {
-  const [data, setData] = useState<T>()
+export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknown[] = [], initial?: T) {
+  const [data, setData] = useState<T | undefined>(initial)
   const [error, setError] = useState<string>()
+  /** Whether a read has finished since this page opened, as opposed to showing what was already known. */
+  const [fresh, setFresh] = useState(false)
   const latest = useRef(read)
   latest.current = read
   useEffect(() => {
@@ -84,6 +86,7 @@ export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknow
         const next = await latest.current()
         if (live) {
           setData(next)
+          setFresh(true)
           setError(undefined)
         }
       } catch (e) {
@@ -97,12 +100,43 @@ export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknow
       clearTimeout(timer)
     }
   }, [everyMs, ...deps])
-  return { data, error }
+  const refresh = async () => {
+    try {
+      setData(await latest.current())
+      setFresh(true)
+      setError(undefined)
+    } catch (e) {
+      setError((e as Error).message.split("\n")[0])
+    }
+  }
+  return { data, error, fresh, refresh }
 }
 
 /** Everything public, read straight from Arkiv with no server of ours in between. */
-export const usePublicView = (everyMs = 2500) =>
-  usePoll<PublicView>(() => (HOSTED ? readWholeList(client) : readPublicView(client)), HOSTED ? Math.max(everyMs, 15_000) : everyMs)
+export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(readView, HOSTED ? Math.max(everyMs, 20_000) : everyMs, [], known?.view)
+
+/** The list, shared between pages, so moving to another page shows it at once rather than reading it all again. */
+let known: { view: PublicView; at: number } | undefined
+let reading: Promise<PublicView> | undefined
+const KEEP_VIEW_MS = HOSTED ? 15_000 : 1_000
+
+function readView(): Promise<PublicView> {
+  if (known && Date.now() - known.at < KEEP_VIEW_MS) return Promise.resolve(known.view)
+  reading ??= (HOSTED ? readWholeList(client) : readPublicView(client))
+    .then((view) => {
+      known = { view, at: Date.now() }
+      return view
+    })
+    .finally(() => {
+      reading = undefined
+    })
+  return reading
+}
+
+/** Something has just been written, so what is known is out of date. It stays on screen until the next read. */
+export const forgetView = (): void => {
+  if (known) known.at = 0
+}
 
 /**
  * How to read one recall on a page that shows everyone's. Only its own issuer can end it, and on the demo's pages

@@ -26,13 +26,14 @@ const post = async <T,>(path: string, body: unknown = {}): Promise<T> => {
  * The browser only passes the proof along. The verifier checks it with World, and nothing here is believed
  * until it has. People see what happened either way, including when they cancel.
  */
-export function WorldConfirm({ recall }: { recall: Hex }) {
+export function WorldConfirm({ recall, onCounted }: { recall: Hex; onCounted?: () => void }) {
   const [config, setConfig] = useState<WorldConfig | null>()
   const [stance, setStance] = useState<Stance>("CONFIRM")
   const [rpContext, setRpContext] = useState<RpContext>()
   const [open, setOpen] = useState(false)
   const [outcome, setOutcome] = useState<Outcome>()
   const [starting, setStarting] = useState(false)
+  const [adding, setAdding] = useState(false)
 
   useEffect(() => {
     if (!VERIFIER_URL) {
@@ -80,14 +81,20 @@ export function WorldConfirm({ recall }: { recall: Hex }) {
         </button>
         {config.simulated && (
           <button
-            disabled={starting}
-            onClick={() =>
+            disabled={starting || adding}
+            onClick={() => {
+              setAdding(true)
+              setOutcome(undefined)
               void post("/api/simulated/vote", { recall, stance: "CONFIRM" })
-                .then(() => setOutcome({ kind: "counted", stance: "CONFIRM" }))
+                .then(() => {
+                  setOutcome({ kind: "counted", stance: "CONFIRM" })
+                  onCounted?.()
+                })
                 .catch((e: Error) => setOutcome({ kind: "stopped", message: e.message }))
-            }
+                .finally(() => setAdding(false))
+            }}
           >
-            Add a simulated person
+            {adding ? "Adding, which takes a few seconds…" : "Add a simulated person"}
           </button>
         )}
       </div>
@@ -130,7 +137,10 @@ export function WorldConfirm({ recall }: { recall: Hex }) {
               throw e
             }
           }}
-          onSuccess={() => setOutcome({ kind: "counted", stance })}
+          onSuccess={() => {
+            setOutcome({ kind: "counted", stance })
+            onCounted?.()
+          }}
           onError={(code) => {
             setOutcome((current) => current ?? { kind: "stopped", message: `Not counted: World ID reported ${code}.` })
           }}

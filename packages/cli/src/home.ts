@@ -20,7 +20,7 @@ export interface Config {
   agent: { name: string; address: Hex }
   /** Who answers for this agent. Their key may live on another machine. */
   owner: { address: Hex }
-  /** Not a secret: the Arkiv SDK puts it in the RPC URL. Optional, but the public endpoint is heavily rate limited. */
+  /** Not a secret: the Arkiv SDK puts it in the RPC URL. Optional: it has a quota, and the public endpoint takes over when that runs out. */
   accessKey: string
   /** Where the local list is kept, so several agents on one machine can share an owner. */
   ledgerFile?: string

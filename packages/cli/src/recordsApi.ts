@@ -14,7 +14,7 @@ import { readSettings } from "./settings"
 /** One stored part per agent every this often. Each one costs a little, and an agent can make many calls a minute. */
 const STORE_EVERY_MS = 2 * 60_000
 const TICK_MS = 10_000
-const REPORTS_EVERY_MS = 20_000
+const REPORTS_EVERY_MS = 30_000
 /** Enough for about one part. Below this, trying would only fail. */
 const LOW_ZERO_G = 2_000_000_000_000_000n
 const ZERO_G_FAUCET = "https://faucet.0g.ai"

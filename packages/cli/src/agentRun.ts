@@ -37,8 +37,11 @@ const MODEL_RETRY_MS = 30_000
 const MODEL_RETRY_LIMIT_MS = 10 * 60_000
 const NUDGE_POLL_MS = 400
 const CLOSE_REPORT_LIMIT_MS = 45_000
-/** Reading is free but limited on the public endpoint, and three agents share it. */
-const CHECK_MS = { local: 2_000, keyed: 3_000, publicEndpoint: 6_000 }
+/**
+ * Reading costs part of an access key's quota, and three agents add up: every 3 seconds used one up in an afternoon.
+ * A recall made on this machine is noticed at once whatever this says. This is how soon one from elsewhere is.
+ */
+const CHECK_MS = { local: 2_000, keyed: 10_000, publicEndpoint: 10_000 }
 const MAX_TURNS = 8
 
 export interface JobResult {

@@ -47,7 +47,7 @@ function GoPublic({ view, onAsk, run }: { view: ArkivState; onAsk: (ask: Ask) =>
 }
 
 export function ArkivPage({ onAsk, run }: { onAsk: (ask: Ask) => void; run: Run }) {
-  const { data: view, error } = usePoll<ArkivState>("/api/arkiv", 6000)
+  const { data: view, error } = usePoll<ArkivState>("/api/arkiv", 20_000)
   const [tab, setTab] = useState("Recalls")
   if (!view) return <div className="loading">{error ?? "Reading the chain…"}</div>
 
@@ -80,10 +80,17 @@ export function ArkivPage({ onAsk, run }: { onAsk: (ask: Ask) => void; run: Run 
         <Tile label="Latest block" value={chain.block ?? "None"} note={chain.latencyMs !== undefined ? `Read in ${chain.latencyMs} ms` : undefined} />
         <Tile
           label="Access key"
-          value={chain.accessKey ? "In use" : "None"}
+          value={!chain.accessKey ? "None" : chain.keyExhausted ? "Used up" : "In use"}
           note={
-            chain.accessKey ? (
-              "Not rate limited like the public endpoint"
+            chain.keyExhausted ? (
+              <>
+                Reading through the public endpoint, which works just the same. Get a new one at the{" "}
+                <a href={ACCESS_KEYS} target="_blank" rel="noreferrer">
+                  Arkiv hub
+                </a>
+              </>
+            ) : chain.accessKey ? (
+              chain.keyUsedPercent !== undefined ? `${chain.keyUsedPercent}% of its quota used` : "When its quota runs out, the public endpoint takes over"
             ) : (
               <a href={ACCESS_KEYS} target="_blank" rel="noreferrer">
                 Get a free one

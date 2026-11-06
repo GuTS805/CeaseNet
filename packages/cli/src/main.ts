@@ -37,7 +37,7 @@ Set up
                                   Take it away again.
   ceasenet console [--no-open]    Open the console, to watch and stop your agents.
   ceasenet status                 What is protected, what is not, and what is running.
-  ceasenet access-key <key>       Use your own Arkiv access key, which is not rate limited like the public endpoint.
+  ceasenet access-key <key>       Use your own Arkiv access key. It has a quota, and when that runs out reads carry on through the public endpoint.
   ceasenet import-settings <file> Copy the settings CeaseNet uses from a .env file. A wallet's secret phrase is left behind.
   ceasenet network <arkiv|local>  Keep recalls on the public list, or in a file on this machine.
 
@@ -247,7 +247,7 @@ async function cmdStatus(): Promise<void> {
   out(`Owner    ${config.owner.address}${keys.owner ? "" : "  (key held elsewhere)"}`)
   out(`Recalls  ${networkLine(config)}`)
   if (config.network === "arkiv" && !config.accessKey) {
-    out(`Access   none, so reads use Arkiv's public endpoint, which is heavily rate limited. Get a free key at ${ACCESS_KEYS}, then: ceasenet access-key <key>`)
+    out(`Access   none, so reads use Arkiv's public endpoint, which has a rate limit. Get a free key at ${ACCESS_KEYS}, then: ceasenet access-key <key>`)
   }
   try {
     const [mine, its] = await Promise.all([ledger.balance(config.owner.address), ledger.balance(config.agent.address)])

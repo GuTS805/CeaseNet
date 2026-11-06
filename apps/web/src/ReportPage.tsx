@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { reportSignal } from "@ceasenet/core"
 import { IDKitRequestWidget, proofOfHuman, type RpContext } from "@worldcoin/idkit"
-import { VERIFIER_URL } from "./lib"
+import { forgetView, VERIFIER_URL } from "./lib"
 
 interface WorldConfig {
   appId: `app_${string}`
@@ -50,7 +50,10 @@ export function ReportPage({ agent }: { agent?: string }) {
   const target = kind === "agent" ? { kind, address: address.trim() } : { kind, name: name.trim(), ...(version.trim() ? { version: version.trim() } : {}) }
   const artifact = kind === "agent" ? `agent:${address.trim().toLowerCase()}` : `package:${name.trim()}`.toLowerCase()
   const text = reason.trim()
-  const ready = text.length >= 10 && (kind === "agent" ? /^0x[0-9a-fA-F]{40}$/.test(address.trim()) : name.trim().length > 0)
+  const targetReady = kind === "agent" ? /^0x[0-9a-fA-F]{40}$/.test(address.trim()) : name.trim().length > 0
+  const ready = text.length >= 10 && targetReady
+  // A greyed-out button with no reason looks broken.
+  const missing = !targetReady ? (kind === "agent" ? "the agent's address, which starts with 0x and is 42 characters long" : "the tool's package name") : text.length < 10 ? "what is wrong, in at least 10 characters" : undefined
 
   const start = async () => {
     setError(undefined)
@@ -71,6 +74,7 @@ export function ReportPage({ agent }: { agent?: string }) {
     setBusy(true)
     try {
       setFiled(await post("/api/simulated/report", { target, reason: text }))
+      forgetView()
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -137,7 +141,7 @@ export function ReportPage({ agent }: { agent?: string }) {
       {config && (
         <div className="buttons">
           <button className="primary" disabled={!ready || busy} onClick={() => void start()}>
-            File with World ID
+            {busy ? "Working, which takes a few seconds…" : "File with World ID"}
           </button>
           {config.simulated && (
             <button disabled={!ready || busy} onClick={() => void fileSimulated()}>
@@ -146,6 +150,7 @@ export function ReportPage({ agent }: { agent?: string }) {
           )}
         </div>
       )}
+      {config && missing && <p className="small muted">To file this, fill in {missing}.</p>}
       {error && <p className="error">{error}</p>}
       {config && config.environment !== "production" && (
         <p className="small muted">
@@ -172,6 +177,7 @@ export function ReportPage({ agent }: { agent?: string }) {
           handleVerify={async (result) => {
             try {
               setFiled(await post("/api/report", { target, reason: text, result }))
+              forgetView()
             } catch (e) {
               setError((e as Error).message)
               throw e

@@ -237,20 +237,22 @@ export function AgentsPage({ onAsk, run }: { onAsk: (ask: Ask) => void; run: Run
         <div className="page-actions">
           {team.preparing && <span className="muted small">{team.preparing}…</span>}
           <button className="primary" disabled={!canStart} onClick={() => void act(() => post("/api/team/start"))}>
-            {anyStarted ? "Start any that are off" : "Start the agents"}
+            {team.preparing ? "Starting…" : anyStarted ? "Start any that are off" : "Start the agents"}
           </button>
-          <button disabled={alive === 0} onClick={() => void act(() => post("/api/team/shutdown"))} title="Ends them with no recall, to put this away">
+          <button disabled={alive === 0} onClick={() => void act(() => post("/api/team/shutdown"))} title={alive === 0 ? "Nothing is running" : "Ends them with no recall, to put this away"}>
             Shut down
           </button>
           {team.teamRecall ? (
             <button onClick={() => void act(() => post("/api/lift", { recall: team.teamRecall!.key, note: "Lifted from the console" }))}>Lift the stop</button>
           ) : (
-            <button className="danger" disabled={alive === 0 || !team.canSign} onClick={stopAll}>
+            <button className="danger" disabled={alive === 0 || !team.canSign} title={alive === 0 ? "Nothing is running" : !team.canSign ? "The owner's key is on another machine" : undefined} onClick={stopAll}>
               Stop all three
             </button>
           )}
         </div>
       </div>
+
+      {alive === 0 && !team.preparing && <p className="small muted">Nothing is running, so Shut down and Stop all three are greyed out. Start the agents first.</p>}
 
       {team.choices.length > 0 && (
         <label className="thinking">

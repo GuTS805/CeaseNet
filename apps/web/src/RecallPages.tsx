@@ -12,7 +12,7 @@ import {
   type RecallRow,
 } from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
-import { explorerAddress, HOSTED, nameOf, shortHash, SWARM_GATEWAY, swarmLink, trustForRecall, usePublicView } from "./lib"
+import { explorerAddress, forgetView, HOSTED, nameOf, shortHash, SWARM_GATEWAY, swarmLink, trustForRecall, usePublicView } from "./lib"
 import { WorldConfirm } from "./WorldConfirm"
 
 const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : r.severity === "REPORT" ? "Report" : "Warning")
@@ -121,10 +121,12 @@ function FixOnSwarm({ fix }: { fix: LiftRow }) {
 
 /** One recall: what it says, who issued it, who confirmed it and who obeyed. */
 export function RecallPage({ recallKey }: { recallKey: Hex }) {
-  const { data: view, error } = usePublicView(3000)
+  const { data: view, error, fresh, refresh } = usePublicView(3000)
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
   const recall = view.recalls.find((r) => r.key === recallKey)
+  // What this page already knows may be from before this recall was made, so that is not an answer yet.
+  if (!recall && !fresh) return <div className="page muted">Reading Arkiv…</div>
   if (!recall) {
     const receipt = view.acks.find((a) => a.recall === recallKey)
     return (
@@ -228,7 +230,14 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
               : `${counts.disputes} disputed. At ${trust.threshold} confirmations within 72 hours, while confirmations outnumber disputes, agents must ask a human before using this tool. Only the keys an owner follows can stop it outright.`}
           </p>
           <div style={{ marginTop: 10 }}>
-            <WorldConfirm recall={recall.key} />
+            <WorldConfirm
+              recall={recall.key}
+              onCounted={() => {
+                // The vote is written. Give the network a block to show it.
+                forgetView()
+                setTimeout(() => void refresh(), 2500)
+              }}
+            />
           </div>
         </div>
       )}

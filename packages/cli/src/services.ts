@@ -1,4 +1,4 @@
-import { ARKIV_EXPLORER, arkivPublicClient, type ArkivPublic, readWholeList } from "@ceasenet/core"
+import { accessKeyStatus, ARKIV_EXPLORER, arkivPublicClient, type ArkivPublic, readWholeList } from "@ceasenet/core"
 import { chooseThinking, claudeAvailable, type ModelTest, testModel } from "./fleet"
 import type { Config } from "./home"
 import type { Ledger } from "./ledger"
@@ -182,6 +182,9 @@ export interface ArkivView {
     latencyMs?: number
     error?: string
     accessKey: boolean
+    /** How much of its quota the key has used, and whether it has run out. */
+    keyUsedPercent?: number
+    keyExhausted: boolean
   }
   /** Every record of ours on the public chain, whoever wrote it. */
   publicList?: { recalls: number; stops: number; warnings: number; agents: number; receipts: number; lifts: number; files: number }
@@ -234,6 +237,7 @@ export async function readArkiv({ config, ledger, client, agents }: ArkivInputs)
     explorer: ARKIV_EXPLORER,
     reachable: false,
     accessKey: Boolean(config.accessKey),
+    keyExhausted: false,
   }
   const startedAt = Date.now()
   try {
@@ -364,6 +368,9 @@ export async function readArkiv({ config, ledger, client, agents }: ArkivInputs)
       : [],
   }
 
+  const key = accessKeyStatus()
+  chain.keyUsedPercent = key.usedPercent
+  chain.keyExhausted = key.exhausted
   const ownerWallet = wallets[0]!
   const activeLocal = mode === "local" && recalls.some((r) => !lifts.some((l) => l.recall === r.key && l.kind === "WITHDRAWN"))
 

@@ -48,7 +48,7 @@ const REPORT_ERROR_SHOWS_MS = 2 * 60_000
 /** With no guards running and nobody at the console for this long, the background service leaves. */
 const IDLE_EXIT_MS = 10 * 60_000
 /** Each of these pages reads several things from the network, so an answer is kept for a moment. */
-const ARKIV_CACHE_MS = 6_000
+const ARKIV_CACHE_MS = 20_000
 const SERVICES_CACHE_MS = 20_000
 /** Another copy of this program is leaving, and needs a moment to let go of the port. */
 const PORT_RETRY_MS = 250
@@ -594,8 +594,8 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
 
   const timers = [
     setInterval(() => void syncLoadout(), STATE_REFRESH_MS),
-    // The public endpoint without an access key is heavily rate limited, and gates need it more than this page does.
-    setInterval(() => void refreshRecalls(), config.accessKey || ledger.kind === "local" ? STATE_REFRESH_MS : SLOW_REFRESH_MS),
+    // Reads cost part of an access key's quota, and gates need it more than this page does. Pressing a button refreshes at once.
+    setInterval(() => void refreshRecalls(), ledger.kind === "local" ? STATE_REFRESH_MS : SLOW_REFRESH_MS),
     setInterval(() => void refreshSlow(), SLOW_REFRESH_MS),
     setInterval(() => void maintain(), PUBLISH_RETRY_MS),
     setInterval(() => {

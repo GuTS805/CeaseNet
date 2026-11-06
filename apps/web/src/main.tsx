@@ -22,7 +22,11 @@ import { ReportPage } from "./ReportPage"
 function useHash() {
   const [hash, setHash] = useState(window.location.hash)
   useEffect(() => {
-    const on = () => setHash(window.location.hash)
+    const on = () => {
+      setHash(window.location.hash)
+      // A new page starts at its top, or it opens partway down with its heading out of sight.
+      window.scrollTo(0, 0)
+    }
     window.addEventListener("hashchange", on)
     return () => window.removeEventListener("hashchange", on)
   }, [])

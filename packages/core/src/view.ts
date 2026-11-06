@@ -13,9 +13,12 @@ import {
   readDisclosures,
   readEndorsements,
   readHeartbeat,
+  readHeartbeats,
   readLatestLoadout,
+  readLatestLoadouts,
   readLifts,
   readRecallsBy,
+  readTrustPolicies,
   readTrustPolicy,
 } from "./reader"
 import type { AckRow, ArtifactRow, EndorseRow, LiftRow, RecallRow } from "./types"
@@ -42,15 +45,21 @@ export interface PublicView {
  */
 export async function readWholeList(client: ArkivPublic): Promise<PublicView> {
   const [passports, { rows, block }, artifacts] = await Promise.all([readAllAgents(client, PUBLIC_AGENT_LIMIT), readAllRecalls(client), readAllArtifacts(client)])
-  const agents = await Promise.all(
-    passports.map(async (agent) => {
-      const [loadout, heartbeat, policy] = await Promise.all([
-        readLatestLoadout(client, agent.agent),
-        readHeartbeat(client, agent.agent),
-        readTrustPolicy(client, agent.owner),
-      ])
-      return { agent, loadout, heartbeat, policy } satisfies BoardAgent
-    }),
+  // One read of each kind for all the agents. One each per agent ran through an access key's quota in an afternoon.
+  const addresses = passports.map((p) => p.agent)
+  const [loadouts, heartbeats, policies] = await Promise.all([
+    readLatestLoadouts(client, addresses),
+    readHeartbeats(client, addresses),
+    readTrustPolicies(client, [...new Set(passports.map((p) => p.owner.toLowerCase()))]),
+  ])
+  const agents = passports.map(
+    (agent) =>
+      ({
+        agent,
+        loadout: loadouts.get(agent.agent.toLowerCase()),
+        heartbeat: heartbeats.get(agent.agent.toLowerCase()),
+        policy: policies.get(agent.owner.toLowerCase()),
+      }) satisfies BoardAgent,
   )
   // A STOP says who issued it and binds only those who follow that key. A report means nothing unless a verifier
   // checked the people behind it, so one from any other key is not shown at all.

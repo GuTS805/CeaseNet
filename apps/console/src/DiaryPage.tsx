@@ -50,6 +50,7 @@ export function DiaryPage({ run }: { run: Run }) {
   const { data: list, refresh: refreshList } = usePoll<DiaryList>("/api/diary", 5000)
   const [chosen, setChosen] = useState<string>()
   const [onlyRefused, setOnlyRefused] = useState(false)
+  const [storing, setStoring] = useState(false)
   const now = useNow()
   const agent = list?.agents.find((a) => a.id === chosen) ?? list?.agents[1] ?? list?.agents[0]
   const { data: read, error, refresh } = usePoll<DiaryRead>(agent ? `/api/diary/${agent.id}` : "/api/diary/main", 10_000)
@@ -65,8 +66,10 @@ export function DiaryPage({ run }: { run: Run }) {
     .sort((a, b) => b.seq - a.seq)
 
   const storeNow = async () => {
+    setStoring(true)
     await run(() => post("/api/diary/store"))
     await Promise.all([refreshList(), refresh()])
+    setStoring(false)
   }
 
   return (
@@ -79,8 +82,8 @@ export function DiaryPage({ run }: { run: Run }) {
           </p>
         </div>
         <div className="page-actions">
-          <button onClick={() => void storeNow()} disabled={agent.waiting === 0}>
-            Store what is waiting
+          <button onClick={() => void storeNow()} disabled={agent.waiting === 0 || storing}>
+            {storing ? "Storing, which takes about 16 seconds…" : agent.waiting === 0 ? "Nothing is waiting to be stored" : "Store what is waiting"}
           </button>
         </div>
       </div>

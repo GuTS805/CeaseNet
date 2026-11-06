@@ -238,11 +238,7 @@ export async function readAgent(client: ArkivPublic, agent: Hex): Promise<AgentR
   return res.entities.map(toAgent).find((a: AgentRow) => a.owner.toLowerCase() === a.creator.toLowerCase())
 }
 
-/** An agent's newest loadout. Only its own key can have created it. */
-export async function readLatestLoadout(client: ArkivPublic, agent: Hex): Promise<LoadoutRow | undefined> {
-  const res = await client.select().from(Loadout).where(eq("$creator", addr(agent))).orderBy(desc("seq")).limit(1).fetch()
-  const r = res.entities[0] as any
-  if (!r) return undefined
+function toLoadout(r: any): LoadoutRow {
   return {
     key: r.$key,
     agent: r.agent.value,
@@ -252,6 +248,58 @@ export async function readLatestLoadout(client: ArkivPublic, agent: Hex): Promis
     creator: r.$creator,
     createdAt: r.$createdAt,
   }
+}
+
+/** An agent's newest loadout. Only its own key can have created it. */
+export async function readLatestLoadout(client: ArkivPublic, agent: Hex): Promise<LoadoutRow | undefined> {
+  const res = await client.select().from(Loadout).where(eq("$creator", addr(agent))).orderBy(desc("seq")).limit(1).fetch()
+  const r = res.entities[0] as any
+  return r ? toLoadout(r) : undefined
+}
+
+/** Everything of one kind from these keys, in one read. A page about many agents must not read once per agent. */
+async function readFromCreators(client: ArkivPublic, schema: any, creators: readonly string[]): Promise<any[]> {
+  if (creators.length === 0) return []
+  const res = await readAll<any>((after) =>
+    client
+      .select()
+      .from(schema)
+      .where(or(creators.map((c) => eq("$creator", addr(c)))), ...afterKey(after))
+      .orderBy(asc("$key"))
+      .limit(PAGE)
+      .fetch() as any,
+  )
+  return res.rows
+}
+
+/** The one with the highest value from each creator. */
+function newestByCreator<T extends { creator: string }>(rows: readonly T[], rank: (row: T) => bigint): Map<string, T> {
+  const newest = new Map<string, T>()
+  for (const row of rows) {
+    const id = row.creator.toLowerCase()
+    const held = newest.get(id)
+    if (!held || rank(row) > rank(held)) newest.set(id, row)
+  }
+  return newest
+}
+
+/** Each agent's newest loadout, by lowercase address. */
+export async function readLatestLoadouts(client: ArkivPublic, agents: readonly string[]): Promise<Map<string, LoadoutRow>> {
+  return newestByCreator((await readFromCreators(client, Loadout, agents)).map(toLoadout), (l) => l.seq)
+}
+
+/** Each agent's newest heartbeat, by lowercase address. An agent with none has nobody vouching for it. */
+export async function readHeartbeats(client: ArkivPublic, agents: readonly string[]): Promise<Map<string, HeartbeatRow>> {
+  const rows = (await readFromCreators(client, Heartbeat, agents)).map(
+    (r): HeartbeatRow => ({ key: r.$key, agent: r.agent.value, mode: r.mode.value as AgentStatus, loadoutSeq: BigInt(r.loadoutSeq.value), creator: r.$creator, updatedAt: r.$updatedAt, expiresAt: r.$expiresAt }),
+  )
+  return newestByCreator(rows, (h) => h.updatedAt)
+}
+
+/** Each owner's newest trust list, by lowercase address. */
+export async function readTrustPolicies(client: ArkivPublic, owners: readonly string[]): Promise<Map<string, TrustPolicy>> {
+  const rows = (await readFromCreators(client, TrustList, owners)).map((r) => ({ creator: r.$creator as string, seq: BigInt(r.seq.value), policy: JSON.parse(utf8(r.policy)) as TrustPolicy }))
+  return new Map([...newestByCreator(rows, (t) => t.seq)].map(([id, row]) => [id, row.policy]))
 }
 
 /** An agent's heartbeat. No result means nobody can vouch for the agent right now. */
