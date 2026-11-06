@@ -1,3 +1,5 @@
 * text=auto
+# A hook with Windows line endings does not run.
+.githooks/* text eol=lf
 # A tool's hash covers these bytes exactly, so they must be the same on every machine.
 tools/** text eol=lf

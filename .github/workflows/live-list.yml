@@ -1,0 +1,32 @@
+name: Readers against the live list
+
+# Reads the live list on Arkiv with what uses none of our code: the Python gate and the SDK-only reader. It runs apart
+# from CI on purpose. A failure here means the network changed or was out of reach, and says nothing about a commit.
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  read:
+    runs-on: ubuntu-latest
+    env:
+      # Optional repository secret: an Arkiv node with a key, because shared runners can hit the public endpoint's limit.
+      ARKIV_RPC: ${{ secrets.ARKIV_RPC }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: The SDK-only reader reads the list
+        run: node examples/read-without-ceasenet.mjs
+      # Exit 3 means the list could not be read. For a key that has signed nothing, and a tool nobody has heard of, it must be 0.
+      - name: The Python gate reads the list, and lets through what nothing covers
+        run: python3 examples/ceasenet_gate.py --owner 0x000000000000000000000000000000000000dEaD --hash 0x0000000000000000000000000000000000000000000000000000000000000001 --rpc "${ARKIV_RPC:-https://rpc.rabdi.db-chain.testnet.arkiv.network/}"

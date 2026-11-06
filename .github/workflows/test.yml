@@ -1,7 +1,9 @@
 name: Test
 
-# Runs every test, and builds the public site, on each push. The site itself is published by Vercel from this
-# repository (see vercel.json), and reads Arkiv from the browser, with no server of ours.
+# Runs every check, and builds the public site and the program, on each push. The site itself is published by Vercel from
+# this repository (see vercel.json), and reads Arkiv from the browser, with no server of ours.
+#
+# Third-party actions are pinned to full commit hashes, so a moved tag can't change what runs here. Dependabot keeps them current.
 on:
   push:
     branches: [main]
@@ -15,18 +17,38 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run typecheck
       - run: npm test
+      # The rules are language-neutral: the same vectors our gate passes in npm test, checked in Python with nothing of ours.
+      - name: The Python gate gives the same verdicts
+        run: python3 examples/check_gate_vectors.py
       # The verifier the hosted site calls is api/verifier.mjs, a built file. Building it again here and finding no
       # difference shows it is exactly this source.
       - name: The hosted verifier is built from this source
         run: npm run build:verifier && git diff --exit-code api/verifier.mjs
+      - name: The list of licences is current
+        run: npm run notices && git diff --exit-code THIRD_PARTY_NOTICES.md
       - run: npm run build -w @ceasenet/web
         env:
           DEMO_URL: ""
           VERIFIER_URL: ""
+      # Known advisories that have no fix yet are listed in SECURITY.md.
+      - name: No critical advisory in what ships
+        run: npm audit --omit=dev --audit-level=critical
+      - name: The packed program installs and runs in an empty project
+        run: |
+          npm pack -w ceasenet --pack-destination "$RUNNER_TEMP"
+          mkdir "$RUNNER_TEMP/stranger" && cd "$RUNNER_TEMP/stranger"
+          echo '{"private":true}' > package.json
+          npm install --no-audit --no-fund "$RUNNER_TEMP"/ceasenet-*.tgz
+          npx --no-install ceasenet help | grep -q "ceasenet protect"
+          CEASENET_HOME="$RUNNER_TEMP/home" npx --no-install ceasenet init --local --name "A stranger's agent" | grep -q "CeaseNet is set up"
+          CEASENET_HOME="$RUNNER_TEMP/home" npx --no-install ceasenet status | grep -q "A stranger's agent"

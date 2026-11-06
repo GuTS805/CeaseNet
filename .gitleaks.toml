@@ -1,0 +1,14 @@
+# Secret scan for the workflow in .github/workflows/secret-scan.yml. The default rules apply everywhere. Arkiv entity keys
+# and transaction hashes are 32 bytes of hex, readable by anyone on the explorer, and a pattern can mistake them for a
+# private key, which has the same shape. So bare 32-byte hex is allowed in the documents that record public ones, and
+# `npm run check:secrets -- --history`, which compares against the real keys on a machine that holds them, is the check
+# that counts for those.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Public Arkiv entity keys, transaction hashes and Swarm references in documents"
+condition = "AND"
+paths = ['''^(README\.md|arkiv/.*\.md|docs/.*\.md|deployment\.json)$''']
+regexTarget = "match"
+regexes = ['''(0x)?[0-9a-fA-F]{64}"?$''']

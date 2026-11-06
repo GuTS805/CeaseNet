@@ -2,6 +2,10 @@
   "name": "ceasenet",
   "private": true,
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GuTS805/CeaseNet.git"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.10.0"
@@ -18,6 +22,9 @@
     "records-check": "tsx scripts/records-check.ts",
     "fund-owner": "tsx --env-file=.env scripts/fund-owner.ts",
     "test": "vitest run",
+    "test:vectors": "python examples/check_gate_vectors.py",
+    "check:secrets": "tsx scripts/check-secrets.ts",
+    "notices": "node scripts/notices.mjs",
     "test:design": "node scripts/design-check.mjs",
     "keys": "tsx scripts/keys.ts",
     "fund": "tsx --env-file=.env scripts/fund.ts",

@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Major versions change behaviour and are upgraded by hand, with a full test run. Dependabot proposes minor and patch
+  # updates, and security fixes of any size.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

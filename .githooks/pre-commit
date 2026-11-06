@@ -1,0 +1,3 @@
+#!/bin/sh
+# Refuses a commit if a real secret from this machine appears in a tracked or staged file.
+exec npm run --silent check:secrets

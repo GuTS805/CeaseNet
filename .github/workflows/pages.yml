@@ -1,0 +1,55 @@
+name: Pages mirror
+
+# A second, independent host for the site: GitHub Pages, built from this repository by GitHub, not by Vercel. The site
+# reads Arkiv straight from the browser, so the mirror shows the same data.
+#
+# It stays off until a repository sets it up, in a fork too: Settings, Pages, source "GitHub Actions", and a repository
+# variable PAGES_MIRROR set to true.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: vars.PAGES_MIRROR == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @ceasenet/web
+        env:
+          # No access key in a public copy. It reads Arkiv's public endpoint, and logs in through the hosted verifier.
+          ARKIV_ACCESS_KEY: ""
+          DEMO_URL: ""
+          VERIFIER_URL: https://ceasenet.vercel.app
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

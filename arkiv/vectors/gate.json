@@ -1,0 +1,3147 @@
+{
+ "about": "What a CeaseNet gate must decide, in any language. Each case in `decide` runs the rules on `input`, and states the agent's own mode and the verdict for one call to the tool hashed `ask`. Each case in `covers` states whether a recall covers a file. Block numbers are strings. See arkiv/schema.md.",
+ "version": 1,
+ "decide": [
+  {
+   "id": "nothing-on-the-list",
+   "why": "No recall, so the call goes ahead.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "owner-stops-the-tool",
+   "why": "A STOP signed by the owner on this tool's exact hash blocks the tool. The rest of the agent keeps working.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "other-tool-keeps-working",
+   "why": "A STOP on one tool says nothing about another.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "stranger-stops-the-tool",
+   "why": "Anyone can write a record. A STOP from a key the owner did not sign with changes nothing.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x2222222222222222222222222222222222222222",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "stranger-stops-the-agent",
+   "why": "Aiming straight at the agent does not help a stranger.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "agent:0x5555555555555555555555555555555555555555",
+      "level": "STOP",
+      "creator": "0x2222222222222222222222222222222222222222",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "owner-stops-the-agent",
+   "why": "An owner's STOP on the agent's identity stops every tool it has.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "agent:0x5555555555555555555555555555555555555555",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "STOPPED",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "owner-stops-the-fleet",
+   "why": "An owner's STOP on the fleet stops all of that owner's agents.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "fleet:0x1111111111111111111111111111111111111111",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "STOPPED",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "owner-stops-the-team",
+   "why": "An owner's STOP on the team stops the agents of that team.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "team:0x1111111111111111111111111111111111111111",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "STOPPED",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "owner-stops-the-model",
+   "why": "A model is part of the agent itself, so a STOP on it stops the whole agent.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "STOPPED",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "address-case-does-not-matter",
+   "why": "Addresses compare in lowercase. The same key written in capitals is the same key.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "owner-withdraws",
+   "why": "The key that issued a STOP can take it back.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "kind": "WITHDRAWN",
+      "creator": "0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "stranger-cannot-withdraw",
+   "why": "A lift from anyone else is ignored, so nobody can undo an owner's STOP.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "kind": "WITHDRAWN",
+      "creator": "0x2222222222222222222222222222222222222222"
+     }
+    ],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "regulator-can-withdraw",
+   "why": "Only where an older trust list names a regulator can another key lift a STOP.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "kind": "WITHDRAWN",
+      "creator": "0x4444444444444444444444444444444444444444"
+     }
+    ],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [
+      "0x4444444444444444444444444444444444444444"
+     ],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "lift-of-another-recall",
+   "why": "A lift counts only for the recall it names.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [
+     {
+      "recall": "0x0202020202020202020202020202020202020202020202020202020202020202",
+      "kind": "WITHDRAWN",
+      "creator": "0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "a-fix-does-not-unblock",
+   "why": "Publishing a fix says what to move to. The old version stays blocked.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "kind": "FIX",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "fixedHash": "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+     }
+    ],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "stop-by-name-and-range",
+   "why": "A STOP can name a package and a version range.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "npm:demo-tool",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000",
+      "pkg": "demo-tool",
+      "versions": ">=1.2.0 <1.3.0"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "stop-outside-the-range",
+   "why": "A version outside the range is not covered.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "npm:demo-tool",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000",
+      "pkg": "demo-tool",
+      "versions": ">=2.0.0"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "tool-never-measured",
+   "why": "A tool the gate was not told about is never let through.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "list-out-of-reach-briefly",
+   "why": "With the list out of reach, an agent keeps working through the grace period.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": false,
+     "offlineForMs": 299999
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "list-out-of-reach-for-a-while",
+   "why": "After the grace period, each call needs a person.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": false,
+     "offlineForMs": 300000
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "SUPERVISED",
+    "verdict": "NEEDS_APPROVAL"
+   }
+  },
+  {
+   "id": "list-out-of-reach-for-long",
+   "why": "After both periods, it fails closed.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": false,
+     "offlineForMs": 600000
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "STOPPED",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "remembered-stop-while-offline",
+   "why": "Losing the internet never brings back what was stopped.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": false,
+     "offlineForMs": 1000
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "normal-recall-with-votes",
+   "why": "A normal recall is written by the verifier, not the owner. However many votes it has, it binds nobody until the owner approves it with a STOP.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x3333333333333333333333333333333333333333",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x3333333333333333333333333333333333333333",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "b",
+      "creator": "0x3333333333333333333333333333333333333333",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "c",
+      "creator": "0x3333333333333333333333333333333333333333",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "owner-approves-the-recall",
+   "why": "The owner's approval is an ordinary STOP from the owner, so it binds at once.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [
+     {
+      "key": "0x0202020202020202020202020202020202020202020202020202020202020202",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "STOP",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x3333333333333333333333333333333333333333",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "BLOCK"
+   }
+  },
+  {
+   "id": "trusted-warning-enough-votes",
+   "why": "Where the verifier is one this gate listens to, a warning with enough votes makes each call need a person.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "b",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "c",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "NEEDS_APPROVAL"
+   }
+  },
+  {
+   "id": "trusted-warning-too-few-votes",
+   "why": "Below the threshold it changes nothing.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "b",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "one-person-one-vote",
+   "why": "One person voting three times counts once.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "disputes-cancel-votes",
+   "why": "Votes count only while they outnumber votes against.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "b",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "c",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "DISPUTE",
+      "human": "d",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "DISPUTE",
+      "human": "e",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "DISPUTE",
+      "human": "f",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "votes-from-anyone-else-are-ignored",
+   "why": "Only the verifier's own records count as votes.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x2222222222222222222222222222222222222222",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "b",
+      "creator": "0x2222222222222222222222222222222222222222",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "c",
+      "creator": "0x2222222222222222222222222222222222222222",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "old-votes-do-not-count",
+   "why": "A vote from outside the window is not counted, whatever its expiry says.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "b",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "c",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "200000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "dismissed-warning",
+   "why": "A regulator's dismissal ends a warning.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "kind": "DISMISSED",
+      "creator": "0x4444444444444444444444444444444444444444"
+     }
+    ],
+    "advisories": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "endorsements": [
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "a",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "b",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     },
+     {
+      "recall": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "stance": "CONFIRM",
+      "human": "c",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": true,
+     "offlineForMs": 0
+    },
+    "lastSupervised": [],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [
+      "0x4444444444444444444444444444444444444444"
+     ],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "ALLOW"
+   }
+  },
+  {
+   "id": "warning-remembered-offline",
+   "why": "A warning that needed a person when the list was last readable still does.",
+   "input": {
+    "files": [
+     {
+      "kind": "tool",
+      "name": "demo-tool",
+      "version": "1.2.3",
+      "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     {
+      "kind": "tool",
+      "name": "other-tool",
+      "version": "9.0.0",
+      "hash": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     {
+      "kind": "model",
+      "name": "some-model",
+      "version": "1.0.0",
+      "hash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+     },
+     {
+      "kind": "agent",
+      "name": "agent",
+      "version": "1.0.0",
+      "hash": "agent:0x5555555555555555555555555555555555555555"
+     },
+     {
+      "kind": "fleet",
+      "name": "fleet",
+      "version": "1.0.0",
+      "hash": "fleet:0x1111111111111111111111111111111111111111"
+     },
+     {
+      "kind": "team",
+      "name": "team",
+      "version": "1.0.0",
+      "hash": "team:0x1111111111111111111111111111111111111111"
+     }
+    ],
+    "rememberedStops": [],
+    "rememberedLifts": [],
+    "advisories": [],
+    "endorsements": [],
+    "currentBlock": "2000",
+    "connectivity": {
+     "online": false,
+     "offlineForMs": 1000
+    },
+    "lastSupervised": [
+     {
+      "key": "0x0101010101010101010101010101010101010101010101010101010101010101",
+      "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "level": "ADVISORY",
+      "creator": "0x1111111111111111111111111111111111111111",
+      "createdAt": "1000"
+     }
+    ],
+    "trust": {
+     "stopKeys": [
+      "0x1111111111111111111111111111111111111111"
+     ],
+     "regulators": [],
+     "verifier": "0x1111111111111111111111111111111111111111",
+     "threshold": 3,
+     "windowBlocks": "129600"
+    },
+    "timers": {
+     "graceMs": 300000,
+     "offlineSupervisedMs": 300000
+    }
+   },
+   "ask": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "expect": {
+    "agent": "RUNNING",
+    "verdict": "NEEDS_APPROVAL"
+   }
+  }
+ ],
+ "covers": [
+  {
+   "id": "exact-hash",
+   "why": "The exact hash covers the file.",
+   "recall": {
+    "artifact": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "hash-any-case",
+   "why": "Hashes compare in lowercase.",
+   "recall": {
+    "artifact": "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "other-hash",
+   "why": "Another hash does not.",
+   "recall": {
+    "artifact": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "name-without-range",
+   "why": "A name alone covers nothing.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "range-without-name",
+   "why": "A range alone covers nothing.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "versions": "*"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "other-name",
+   "why": "A range on another package does not apply.",
+   "recall": {
+    "artifact": "npm:other-tool",
+    "pkg": "other-tool",
+    "versions": "*"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "exact-version",
+   "why": "An exact version.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "1.2.3"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "other-version",
+   "why": "Another exact version.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "1.2.4"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "any-version",
+   "why": "Any version.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "*"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "two-comparators",
+   "why": "The form the README uses.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": ">=1.2.0 <1.2.4"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "upper-bound-excluded",
+   "why": "The upper bound itself is outside.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": ">=1.0.0 <1.2.3"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "caret",
+   "why": "Caret keeps the major version.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "^1.0.0"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "caret-next-major",
+   "why": "Caret stops at the next major.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "^1.0.0"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "2.0.0",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "caret-zero",
+   "why": "Below 1.0.0, caret keeps the minor version.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "^0.2.3"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "0.3.0",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "tilde",
+   "why": "Tilde keeps the minor version.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "~1.2.0"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "tilde-next-minor",
+   "why": "Tilde stops at the next minor.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "~1.2.0"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.3.0",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "x-range",
+   "why": "An x-range.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "1.2.x"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "x-range-other",
+   "why": "An x-range that does not match.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "1.3.x"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "either-range",
+   "why": "Either side of || may match.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "<1.0.0 || >=1.2.0"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "hyphen-range",
+   "why": "A hyphen range is inclusive.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "1.0.0 - 1.2.3"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "prerelease-outside",
+   "why": "A prerelease is not covered by a plain range.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": ">=1.0.0"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "2.0.0-beta.1",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "prerelease-same-version",
+   "why": "It is covered when the range names a prerelease of the same version.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": ">=2.0.0-alpha"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "2.0.0-beta.1",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": true
+  },
+  {
+   "id": "unreadable-range",
+   "why": "A range that cannot be read covers nothing, so a badly written recall cannot stop what it did not name.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "not a range"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "1.2.3",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  },
+  {
+   "id": "unreadable-version",
+   "why": "A version that cannot be read is not covered by a range.",
+   "recall": {
+    "artifact": "npm:demo-tool",
+    "pkg": "demo-tool",
+    "versions": "*"
+   },
+   "file": {
+    "kind": "tool",
+    "name": "demo-tool",
+    "version": "latest",
+    "hash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+   },
+   "covers": false
+  }
+ ]
+}

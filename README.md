@@ -2,7 +2,9 @@
 
 **Recalls for AI agents. Stop your agents, recall the tools they use, and see exactly what they did.**
 
-[Live site](https://ceasenet.vercel.app/) · [Get started](#start) · [How it works](#how-it-works) · [CROPS](#crops) · [What this does not do](#what-this-does-not-do)
+[Live site](https://ceasenet.vercel.app/) · [Get started](#start) · [How it works](#how-it-works) · [Build on it](#open-source-build-on-it-or-replace-us) · [CROPS](#crops) · [What this does not do](#what-this-does-not-do)
+
+[![Test](https://github.com/GuTS805/CeaseNet/actions/workflows/test.yml/badge.svg)](https://github.com/GuTS805/CeaseNet/actions/workflows/test.yml) [![Licence: MIT](docs/images/licence-mit.svg)](LICENSE)
 
 CeaseNet sits between an AI agent and its tools, with no change to either. Press Stop and the next call is refused, the agent is told why, and the tool's process is ended. Everything the agent did goes in a diary nobody can quietly change.
 
@@ -224,12 +226,44 @@ That is the open setting, and an owner can turn it off with `ceasenet privacy pr
 - **It only binds agents that run the gate.** A silent agent proves nothing: from outside, a lost connection and ignoring a recall look the same, so the public board says "silent", not "disobeying".
 - **It runs on test networks,** and it has no users yet.
 
+## Open source: build on it, or replace us
+
+Everything here is [MIT](LICENSE), and so is what it stands on: all 200 packages that ship are under permissive licences, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), which CI keeps current. Being able to read the code is only part of it. This project is built so that you don't need us at all.
+
+**The rules can be followed with none of our code.** [arkiv/schema.md](arkiv/schema.md#build-your-own-gate) says what each record means and what a gate must decide, and [arkiv/vectors/gate.json](arkiv/vectors/gate.json) states it as 56 cases any language can run. Our gate passes them in `npm test`. [examples/ceasenet_gate.py](examples/ceasenet_gate.py) is a second gate in Python, using only the standard library, and CI holds it to the same cases:
+
+```bash
+python examples/check_gate_vectors.py                       # 56 of 56 vectors give the verdict the rules state
+python examples/ceasenet_gate.py --owner 0x... --hash 0x... # may this call go ahead? It reads the live list itself
+node examples/read-without-ceasenet.mjs                     # every STOP and who obeyed it, with only the Arkiv SDK
+```
+
+When we compared the two gates on the live list, they agreed on all 46 cases we tried, and the Python gate's reading of version ranges agreed with npm's own `semver` on all 6,572 we tried. The Python gate reads the list once and keeps no memory, so unlike ours it can't keep obeying a STOP after it is deleted. Its opening comment says so.
+
+**Every part can be replaced.** This is what depends on whom, and what happens if each one goes away:
+
+| If this goes away | What keeps working | What stops, and how to replace it |
+|---|---|---|
+| **Us, and this repository** | Every gate, on its own machine, and the whole list | Updates. Anyone may fork it, and a copy of the code has all it needs |
+| **Our domain, or Vercel** | Gates, the program, the console and every owner's STOP. The site is static, and also [on Swarm](#tradeoffs-we-accept) | The hosted site. `npm run web`, any static host, or [a Pages mirror](.github/workflows/pages.yml) serves it |
+| **The verifier** | Every owner's STOP, which never goes near it | New logins, normal recalls and votes. `npm run verifier` runs another, and owners choose whose to hear with `REPORT_VERIFIER` |
+| **World** | The same | New logins from real people. The login is one check in [the verifier](apps/verifier/src/verifier.ts) |
+| **Arkiv's public endpoint** | Any other node, with `ceasenet rpc <url>` | With no other node, gates fail closed in 10 minutes |
+| **The Arkiv network** | A gate keeps obeying each STOP it has seen. `ceasenet network local` works with no network at all | The public list, so owners can't reach agents on other machines. The contract would need another home |
+| **npm** | Tools already pinned and installed | Pinning new ones |
+| **Your model service** | Everything, because a gate uses no model | The sample agents. They take any service with the OpenAI chat API, including one you host |
+| **Swarm or 0G** | Agents keep working, and diary parts wait in a file on the machine | Storing new parts |
+
+**Nobody has to trust our laptops.** `npm ci` builds from a lockfile, and GitHub Actions are pinned to commit hashes. CI rebuilds the [hosted verifier](api/verifier.mjs) from source on every push and fails if it differs by a byte, and installs the packed program in an empty project to see that it runs. A tagged release publishes to npm [with provenance](.github/workflows/release.yml), linking the package to the commit that built it. Nothing has been released yet, so for now you install from a clone.
+
+**To join in,** see [CONTRIBUTING.md](CONTRIBUTING.md). [SECURITY.md](SECURITY.md) says how to report a problem, and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) says what we defend against and what we don't. Built something on the list? [Tell us](https://github.com/GuTS805/CeaseNet/issues/new?template=implementation.yml), and we will list it.
+
 ## CROPS
 
 **Lead property: censorship resistance.** A recall has to reach an agent even when the tool's maker, a registry, a crowd or we would rather it didn't, and nobody but the agent's owner may stop it. Everything below serves that.
 
 - **C, censorship resistance (lead).** Each gate reads Arkiv itself and obeys only a STOP its owner's wallet signed, so no server of ours stands between an owner and their agent, and nobody else can stop it or keep it from being stopped. A node that stops following the chain makes a gate fail closed, an owner can move to a node they run with `ceasenet rpc`, and the site also lives on Swarm, so losing our domain or Vercel loses nothing an owner needs.
-- **O, open source.** MIT licence, and `npm ci && npm test && npm run build` works from a clean clone with no keys and no account with us. CI rebuilds the hosted verifier on every push and fails if [api/verifier.mjs](api/verifier.mjs), the file the site runs, differs from this source by a byte.
+- **O, open source.** MIT licence, and `npm ci && npm test && npm run build` works from a clean clone with no keys and no account with us. [A second gate in Python](#open-source-build-on-it-or-replace-us), using none of our code, passes the same 56 conformance vectors as ours, and every part we run has a stated replacement.
 - **P, privacy.** A gate downloads its owner's whole list and matches it locally, so no node learns which tools it is checking, and `ceasenet privacy private` keeps them off the public list too. The client loads no trackers or analytics, a diary's contents are sealed to its owner, and both the program and the site can read through a node you run.
 - **S, security.** Agent and owner keys are separate, the owner's can stay in a browser wallet on another machine, and the site never holds a key: every record is signed in your wallet. A pinned tool is blocked if its code changes, and the tools a gate runs get none of CeaseNet's settings or keys.
 
@@ -351,8 +385,10 @@ apps/web         The public site: login, recalls and votes, agent pages, "Check 
 apps/verifier    Checks World ID proofs and signed requests, and writes logins, normal recalls and votes
 api              The verifier, built for Vercel
 apps/demo, tools An earlier scripted demo. The program also uses its model and 0G code
+examples         A whole gate in Python, and a reader, that use none of this code
 scripts          Setup and live checks
-arkiv, docs      Sponsor documents, the plan and AI usage
+arkiv            The public contract, its conformance vectors, and sponsor documents
+docs             The threat model, the plan and AI usage
 ```
 
 ## How this was built
@@ -361,4 +397,4 @@ Built at ETHGlobal Mumbai 2026 with heavy use of AI. See [docs/ai-usage.md](docs
 
 ## Licence
 
-[MIT](LICENSE)
+[MIT](LICENSE). See also [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), the [Code of Conduct](CODE_OF_CONDUCT.md), the [changelog](CHANGELOG.md) and the [third-party notices](THIRD_PARTY_NOTICES.md).

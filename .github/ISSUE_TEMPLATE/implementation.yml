@@ -1,0 +1,24 @@
+name: I built on CeaseNet's list
+description: A gate, reader or watcher that uses the public contract, so it can be listed.
+labels: [implementation]
+body:
+  - type: input
+    id: link
+    attributes:
+      label: Link
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: What it does
+      options: [A gate, Reads the list, Writes recalls, Watches for deleted records, Something else]
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Conformance
+      options:
+        - label: If it decides anything, it gives the stated verdict on every vector in arkiv/vectors/gate.json
+        - label: It takes authorship from $creator, and never from a label in a record

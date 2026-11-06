@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security or privacy problem
+    url: https://github.com/GuTS805/CeaseNet/security/advisories/new
+    about: Please report privately, not in a public issue.
+  - name: The public contract
+    url: https://github.com/GuTS805/CeaseNet/blob/main/arkiv/schema.md
+    about: What every record means, the rules for building your own gate, and the conformance vectors.

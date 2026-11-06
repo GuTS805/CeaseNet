@@ -3,6 +3,13 @@
   "version": "0.1.0",
   "description": "Stop AI agents and recall the tools they use. A gate in front of any MCP server that obeys a public recall list.",
   "license": "MIT",
+  "homepage": "https://github.com/GuTS805/CeaseNet#readme",
+  "bugs": "https://github.com/GuTS805/CeaseNet/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GuTS805/CeaseNet.git",
+    "directory": "packages/cli"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.10.0"
