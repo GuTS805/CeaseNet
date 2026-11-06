@@ -563,7 +563,7 @@ export function LivePage() {
                 </button>
               </div>
               {busy && <div className="rail-busy">{busy}: waiting for the chain…</div>}
-              {!busy && (stop || erasedKey) && <div className="rail-again">To run it again: stop the demo, then npm run reset and npm run seed.</div>}
+              {!busy && (stop || erasedKey) && <div className="rail-again">To run it again, type npm run fresh in a terminal, then refresh this page.</div>}
             </div>
           </div>
 

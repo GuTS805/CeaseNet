@@ -13,6 +13,8 @@ npm run web
 npm run verifier
 ```
 
+`npm run fresh` does the first two lines in one go, and also stops a demo that is already running. If PowerShell says running scripts is disabled, type `npm.cmd` instead of `npm`.
+
 Open `http://localhost:5173` and press F11, so the screen fills the recording. Sound starts after your first click: use the **sound on** button if it competes with your voice. Wait until each company has sent a few emails, and check that the stranger's inbox is filling up. Say out loud that the timers are shortened: the page checks every 2 seconds, where production settings use 30.
 
 ## The script
