@@ -1,10 +1,11 @@
 import { useState } from "react"
-import { isDismissed, isWithdrawn, recallCovers, type LoadedFile, type RecallRow } from "@ceasenet/core"
-import { nameOf, trustForRecall, usePublicView } from "./lib"
+import { followersOf, isDismissed, isWithdrawn, recallCovers, type LoadedFile, type RecallRow } from "@ceasenet/core"
+import { MeasureNpm } from "./IssuePage"
+import { nameOf, trustForRecall, useNetworkView } from "./lib"
 
 /** Answers one question for anyone, with no account: is this tool recalled? */
 export function CheckPage() {
-  const { data: view, error } = usePublicView(5000)
+  const { data: view, error } = useNetworkView(5000)
   const [name, setName] = useState("")
   const [version, setVersion] = useState("")
   const [hash, setHash] = useState("")
@@ -22,7 +23,8 @@ export function CheckPage() {
   const fromIssuer = (r: RecallRow) => !issuer.trim() || r.creator.toLowerCase() === issuer.trim().toLowerCase()
   const asked = Boolean(file.name || hash.trim())
   const matches = asked ? view.recalls.filter((r) => recallCovers(r, file) && live(r) && fromIssuer(r)) : []
-  const stops = matches.filter((r) => r.level === "STOP")
+  const stops = matches.filter((r) => r.level === "STOP" && followersOf(r, view.agents) > 0)
+  const unfollowed = matches.filter((r) => r.level === "STOP" && followersOf(r, view.agents) === 0)
 
   return (
     <div className="page" style={{ display: "grid", gap: 12 }}>
@@ -50,9 +52,27 @@ export function CheckPage() {
           <input value={issuer} onChange={(e) => setIssuer(e.target.value)} placeholder="0x…" spellCheck={false} />
         </label>
       </div>
+      <div className="card">
+        <div className="small muted" style={{ marginBottom: 6 }}>
+          Or measure a real package on npm, in this browser. Nothing is installed or run.
+        </div>
+        <MeasureNpm
+          onMeasured={(measured) => {
+            setName(measured.name)
+            setVersion(measured.version)
+            setHash(measured.hash)
+          }}
+        />
+      </div>
       {asked && (
         <div className={`plate-head ${stops.length ? "red" : matches.length ? "amber" : "green"} result`}>
-          {stops.length ? `Recalled by ${stops.length === 1 ? "one key" : `${stops.length} keys`}. Check who issued it.` : matches.length ? "There is a warning about this." : "Nothing on the list covers this."}
+          {stops.length
+            ? `Recalled by ${stops.length === 1 ? "one key" : `${stops.length} keys`} that owners follow. Check who issued it.`
+            : unfollowed.length === matches.length && matches.length > 0
+              ? "Someone recalled this, but no owner follows their key."
+              : matches.length
+                ? "There is a warning about this."
+                : "Nothing on the list covers this."}
         </div>
       )}
       {matches.map((r) => (
@@ -63,7 +83,7 @@ export function CheckPage() {
           <p style={{ margin: "6px 0" }}>{r.reason}</p>
           {r.advice && <div className="notice">What to do: {r.advice}</div>}
           <div className="small muted" style={{ marginTop: 6 }}>
-            Issued by {nameOf(r.creator)}
+            Issued by {nameOf(r.creator)}, a key {followersOf(r, view.agents)} owner(s) follow
           </div>
         </div>
       ))}

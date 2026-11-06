@@ -2,9 +2,10 @@ import { spawn } from "node:child_process"
 import { runAgent } from "./agentRun"
 import { memberView, type StartResult, startReport, TEAM } from "./fleet"
 import { importSettings } from "./settings"
-import { existsSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 import { hostname } from "node:os"
-import { agentArtifact, fleetArtifact, type Hex, recallCovers } from "@ceasenet/core"
+import { agentArtifact, fleetArtifact, type Hex, type LoadedFile, recallCovers } from "@ceasenet/core"
+import { measurePackage } from "@ceasenet/guard"
 import { currentPolicy, enrollAgent, isEnded, liftRecall, publishFix, publishIdentity, setFollowing, stopAgent, stopFleet, stopTool } from "./actions"
 import { liveGuards, recentCalls } from "./activity"
 import { startDaemon } from "./daemon"
@@ -70,6 +71,7 @@ Whom you obey
 Look things up
   ceasenet recalls                Recalls from everyone you follow.
   ceasenet check <tool>@<version> Is this version recalled by anyone you follow?
+  ceasenet check <folder>         The same for a package on disk, and prints its exact hash, which a recall names.
   ceasenet activity [-n <count>]  The latest calls your agents made, and what was decided.
   ceasenet update <spec>          Forget the pinned version of a tool, so its next start looks for a new one.
 
@@ -387,16 +389,24 @@ async function cmdCheck(p: Parsed): Promise<void> {
   const config = loadConfig()
   const ledger = ledgerFor(config)
   const target = p.positional[0]
-  if (!target) throw new Error("Use: ceasenet check <tool>@<version>")
-  const at = target.lastIndexOf("@")
-  if (at <= 0) throw new Error("Say which version: ceasenet check <tool>@<version>")
-  const file = { kind: "tool", name: target.slice(0, at), version: target.slice(at + 1), hash: text(p, "--hash") ?? "0x" }
+  if (!target) throw new Error("Use: ceasenet check <tool>@<version>, or ceasenet check <folder>")
+  let file: LoadedFile
+  if (existsSync(target) && statSync(target).isDirectory()) {
+    // What is on disk, measured the way the gate measures it, so a recall naming this hash covers exactly this.
+    file = measurePackage(target)
+    out(`${file.name} ${file.version}
+  hash ${file.hash}`)
+  } else {
+    const at = target.lastIndexOf("@")
+    if (at <= 0) throw new Error("Say which version: ceasenet check <tool>@<version>")
+    file = { kind: "tool", name: target.slice(0, at), version: target.slice(at + 1), hash: text(p, "--hash") ?? "0x" }
+  }
   const policy = await currentPolicy(ledger, config)
   const { rows } = await ledger.recalls(policy.issuers)
   const lifts = await ledger.lifts(rows.map((r) => r.key))
   const hits = rows.filter((r) => recallCovers(r, file) && !isEnded(r, lifts, policy))
   if (hits.length === 0) {
-    out(`Nobody you follow has recalled ${target}. That does not prove it is safe.`)
+    out(`Nobody you follow has recalled ${file.name}@${file.version}. That does not prove it is safe.`)
     return
   }
   for (const r of hits) out(`${r.level === "STOP" ? "RECALLED" : "WARNING"}: ${r.reason}${r.advice ? `\n  What to do: ${r.advice}` : ""}\n  Issued by ${r.creator}`)

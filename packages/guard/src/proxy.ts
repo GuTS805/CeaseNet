@@ -9,6 +9,7 @@ import { fileStore } from "./fileStore"
 import { Guard, type GuardNet } from "./guard"
 import { measurePackage } from "./measure"
 import { runProxy } from "./proxyCore"
+import { toolEnv } from "./toolEnv"
 
 /**
  * Puts the gate in front of any MCP server that runs over stdio, with no change to the agent or the tool:
@@ -68,9 +69,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   guard.run()
 
   // The tool does not get the agent's key.
-  const env = { ...process.env }
-  delete env.CEASENET_AGENT_KEY
-  delete env.WORLD_IDP_CLIENT_SECRET
+  const env = toolEnv(process.env)
   const proxy = runProxy({
     guard,
     file,

@@ -22,6 +22,7 @@ declare const __DEMO_URL__: string
 declare const __VERIFIER_URL__: string
 declare const __SWARM_GATEWAY__: string
 
+export const ACCESS_KEY = __ARKIV_ACCESS_KEY__
 export const client = arkivPublicClient(__ARKIV_ACCESS_KEY__)
 export const DEMO_URL = __DEMO_URL__
 export const VERIFIER_URL = __VERIFIER_URL__
@@ -112,30 +113,46 @@ export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknow
   return { data, error, fresh, refresh }
 }
 
-/** Everything public, read straight from Arkiv with no server of ours in between. */
-export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(readView, HOSTED ? Math.max(everyMs, 20_000) : everyMs, [], known?.view)
-
-/** The list, shared between pages, so moving to another page shows it at once rather than reading it all again. */
-let known: { view: PublicView; at: number } | undefined
-let reading: Promise<PublicView> | undefined
-const KEEP_VIEW_MS = HOSTED ? 15_000 : 1_000
-
-function readView(): Promise<PublicView> {
-  if (known && Date.now() - known.at < KEEP_VIEW_MS) return Promise.resolve(known.view)
-  reading ??= (HOSTED ? readWholeList(client) : readPublicView(client))
-    .then((view) => {
-      known = { view, at: Date.now() }
-      return view
-    })
-    .finally(() => {
-      reading = undefined
-    })
-  return reading
+/** A view shared between pages, so moving to another page shows it at once rather than reading it all again. */
+function sharedView(read: () => Promise<PublicView>) {
+  let known: { view: PublicView; at: number } | undefined
+  let reading: Promise<PublicView> | undefined
+  const keepMs = HOSTED ? 15_000 : 1_000
+  return {
+    get known() {
+      return known?.view
+    },
+    read(): Promise<PublicView> {
+      if (known && Date.now() - known.at < keepMs) return Promise.resolve(known.view)
+      reading ??= read()
+        .then((view) => {
+          known = { view, at: Date.now() }
+          return view
+        })
+        .finally(() => {
+          reading = undefined
+        })
+      return reading
+    },
+    forget(): void {
+      if (known) known.at = 0
+    },
+  }
 }
+
+const publicView = sharedView(() => (HOSTED ? readWholeList(client) : readPublicView(client)))
+const networkView = sharedView(() => readWholeList(client))
+
+/** Everything public, read straight from Arkiv with no server of ours in between. */
+export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(() => publicView.read(), HOSTED ? Math.max(everyMs, 20_000) : everyMs, [], publicView.known)
+
+/** The whole network, from anyone, with no list of keys to start from. */
+export const useNetworkView = (everyMs = 4000) => usePoll<PublicView>(() => networkView.read(), HOSTED ? Math.max(everyMs, 15_000) : everyMs, [], networkView.known)
 
 /** Something has just been written, so what is known is out of date. It stays on screen until the next read. */
 export const forgetView = (): void => {
-  if (known) known.at = 0
+  publicView.forget()
+  networkView.forget()
 }
 
 /**

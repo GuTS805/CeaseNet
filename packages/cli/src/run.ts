@@ -1,5 +1,5 @@
 import { type LoadedFile, PRODUCTION_TIMERS, recallCovers, type Timers, verdictFor } from "@ceasenet/core"
-import { agentPassFromEnv, type Approver, approverFromPass, fileLinks, fileStore, type GatedProxy, Guard, runProxy } from "@ceasenet/guard"
+import { agentPassFromEnv, type Approver, approverFromPass, fileLinks, fileStore, type GatedProxy, Guard, runProxy, toolEnv } from "@ceasenet/guard"
 import { type GuardStatus, recordCall, removeStatus, writeStatus } from "./activity"
 import { approverFromDaemon, startDaemonIfNeeded } from "./daemonClient"
 import { type Config, identityOf, inHome, loadConfig, loadHolds, nudgeTime, obeyingOwner, safeName, startingPolicy } from "./home"
@@ -141,8 +141,8 @@ export async function runGuard(argv: readonly string[]): Promise<void> {
     writeStatus(status)
   }
 
-  // A tool's secrets come through its environment, and those stay. CeaseNet's own settings do not.
-  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CEASENET_") && k !== "WORLD_IDP_CLIENT_SECRET"))
+  // A tool's secrets come through its environment, and those stay. CeaseNet's own settings and keys do not.
+  const env = toolEnv(process.env)
 
   proxy = runProxy({
     guard,

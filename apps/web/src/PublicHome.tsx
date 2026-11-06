@@ -1,5 +1,6 @@
 import { RecallList } from "./RecallPages"
-import { nameOf, statusColour, statusLabel, usePublicView } from "./lib"
+import { nameOf, statusColour, statusLabel, useNetworkView } from "./lib"
+import { NetworkMap } from "./NetworkPage"
 
 const REPOSITORY = "https://github.com/GuTS805/CeaseNet"
 
@@ -12,7 +13,7 @@ const STEPS = [
 
 /** The front page. The agents are yours and run on your machines. Everything listed below comes straight from Arkiv. */
 export function PublicHome() {
-  const { data: view, error } = usePublicView()
+  const { data: view, error } = useNetworkView()
   return (
     <div className="page home">
       <section className="home-hero">
@@ -21,6 +22,20 @@ export function PublicHome() {
           CeaseNet sits between your agent and its MCP tools. Press Stop and the next call is refused, with the reason, and the tool's process is ended. Every call goes in a diary nobody can quietly change, and anyone can report a bad agent. It works from another machine, and it keeps working if we disappear, because each
           gate reads a public list on Arkiv by itself.
         </p>
+        <div className="buttons home-actions">
+          <a className="button primary" href="#/protect">
+            Protect an agent
+          </a>
+          <a className="button" href="#/issue">
+            Recall a tool
+          </a>
+          <a className="button" href="#/network">
+            See the network
+          </a>
+          <a className="button" href="#/check">
+            Check a tool
+          </a>
+        </div>
         <img className="home-shot" src="./console.png" alt="The CeaseNet console: three AI agents that closed themselves when a tool they use was recalled, each showing how long it took and that its process has ended." />
 
         <div className="card" style={{ marginTop: 16 }}>
@@ -74,6 +89,7 @@ export function PublicHome() {
 
       {view && (
         <>
+          <NetworkMap view={view} />
           <RecallList view={view} />
           <p className="small muted">Anyone can publish a recall, so this shows all of them with who issued each one. A recall binds only the agents whose owners follow that key.</p>
           {view.agents.length > 0 && (

@@ -33,7 +33,7 @@ export function encodeBundle(files: readonly PackageFile[]): Uint8Array {
 }
 
 /** A path inside a package. Anything that could climb out of the folder it is unpacked into is refused. */
-function safePath(path: unknown): string {
+export function safePath(path: unknown): string {
   if (typeof path !== "string" || path.length === 0 || path.length > 512) throw new Error("the package has an unusable file path")
   const unsafe = path.startsWith("/") || path.includes("\\") || path.includes(":") || path.includes("\0")
   if (unsafe || path.split("/").some((part) => part === "" || part === "." || part === "..")) {

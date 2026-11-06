@@ -46,6 +46,8 @@ If Agent Pass is connected, approve at 1:05 with **Approve with World ID**, and 
 
 ## For the finalist round: 4 minutes, then 3 minutes of questions
 
+**Show it isn't only a demo.** Open **Network**: every agent and line on it is read from Arkiv, with no list of keys. Then, with your own wallet, sign a real STOP on **Recall a tool**, and show an MCP client refused by `ceasenet`. Practise this first with a wallet that has tGLM.
+
 Add this with the extra time: press **Cut off** on one company before the STOP. It keeps working for the grace period, then asks a human, then refuses. The public board shows it as silent, not disobeying.
 
 | Likely question | Answer |

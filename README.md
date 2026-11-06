@@ -73,6 +73,15 @@ Each card then shows how long closing took, that the system confirms the process
 
 They think with the model in your settings, which can be any service that speaks the OpenAI chat API (Groq's free tier works), or with Claude Code if there is none. You can switch at the top of the page. Each terminal runs for 20 minutes. Started from the console alone, with no terminal, they pause after 2 minutes with nobody looking and shut down after 15. A free-tier key has a daily allowance for each model, and the page says when one is used up. On Groq's free tier the default model gets 200,000 tokens a day, and one 20-minute session with three agents uses roughly half of that, so switch model if it runs out.
 
+## On the website, with a browser wallet
+
+None of this needs the demo, our keys or the program. You need a browser wallet on the Rabdi testnet, with free tGLM from the [faucet](https://hub.arkiv.network/faucet).
+
+- **Protect an agent:** choose whose recalls your agents obey, and register an agent. Your choices go on Arkiv, signed by your wallet. An agent set up with `ceasenet init --owner <your wallet>` obeys that list, and your key never goes near its machine.
+- **Recall a tool:** measure any version on npm in your browser, then sign a STOP. Nothing is installed or run, and it binds only owners who follow your key. For something not on npm, `ceasenet check ./folder` prints its exact hash.
+- **Network:** every agent, key and recall on Arkiv, drawn live from the records, with no list of keys to start from.
+- **The recall's own page:** whoever issued a STOP can connect the same wallet there to withdraw it, or to publish the exact fixed version.
+
 ## Stop agents and recall tools
 
 | You do this | From the console, or | What happens |
@@ -204,13 +213,11 @@ World's simulator can only ever be one identity, so to show the whole flow use `
 | `npm run friction` | Reproduces each problem in our [Arkiv feedback](arkiv/friction.md). Needs the demo's keys |
 | `npm run model-check`, `diary-check`, `swarm-check`, `agent-pass-check` | The optional pieces against their live services |
 
-## For Arkiv judges
+With no tGLM the agent still obeys the list. It just publishes nothing about itself.
 
 **Queries you can run, with no key and no wallet:**
 
-```bash
-npm run query
-```
+`npm run product-check` runs all of this on the live testnet with new keys and this repository's own tool, and removes its records afterwards. `npm run product-check -- --npm` does it with a real package from npm, which means downloading that package and running it on your machine.
 
 That lists every STOP with who issued it and its receipts, the reports and their votes, and each agent's owner, fingerprint and diary. Or with nothing installed, on Rabdi (chain 7794095):
 
@@ -275,7 +282,8 @@ packages/cli     The ceasenet program: setup, protecting clients, the guard, the
 packages/core    Records, the gate's decisions, Arkiv reads and writes
 packages/guard   The gate and MCP proxy, the diary format, Swarm client and Agent Pass
 apps/console     The console's pages
-apps/web         The public site: recalls, reports and votes, agent pages, "Check a tool"
+apps/web         The public site: recalls, reports and votes, agent pages, "Check a tool", the network map,
+                 and protecting an agent or recalling a tool with a browser wallet
 apps/verifier    Checks World ID proofs on the server, and files reports and votes
 apps/demo, tools The scripted demo below. The program also uses its model and 0G code
 scripts          Setup and live checks

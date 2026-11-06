@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { deletedStops, type Hex, type DiaryRow, readDiaryIndex, recallCovers, statusColourOf } from "@ceasenet/core"
 import { decodePart, type DiaryCheck, type DiaryEntry, verifyPart } from "@ceasenet/guard/diary"
-import { client, explorerAddress, nameOf, shortHash, statusLabel, usePoll, usePublicView } from "./lib"
+import { client, explorerAddress, nameOf, shortHash, statusLabel, useNetworkView, usePoll } from "./lib"
 
 const HEAD: Record<string, string> = {
   green: "Running",
@@ -87,7 +87,7 @@ function DiaryPart({ part }: { part: DiaryRow }) {
 
 /** What anyone can see about an agent. Only records created by the right keys are shown. */
 export function AgentPage({ address }: { address: Hex }) {
-  const { data: view, error } = usePublicView(3000)
+  const { data: view, error } = useNetworkView(3000)
   const owner = view?.agents.find((a) => a.agent.agent.toLowerCase() === address.toLowerCase())?.agent.owner
   const { data: diaries } = usePoll<DiaryRow[]>(() => readDiaryIndex(client, address, owner), 8000, [address, owner])
 

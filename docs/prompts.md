@@ -96,8 +96,16 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 10:02 | do 1 |
 | 11-06 10:08 | done |
 | 11-06 10:29 | yes go ahead |
+| 11-06 11:30 | why its not working the stop one |
+| 11-06 11:34 | where the reset button how i do it |
+| 11-06 11:34 | [pasted a PowerShell error from running npm run reset] |
+| 11-06 11:39 | okay now whats nxt? |
+| 11-06 11:46 | okay now in arkiv what improves or get worse if we use entity network? |
+| 11-06 11:57 | okay now check every project which are for submissoin of ethglobal mumbai / and rate them |
+| 11-06 12:48 | okay so my friend is also working on this / probably main so from here make a branch and make this end to end working product / i mean it is just a flowchart graph right now. make it so that it works real end to end |
 | 11-06 16:58 | okay now i am telling you my idea / so just listen and dont chanmge / i am thinking of removing these agents and add as trading agents(3) in terminal |
 | 11-06 16:58 | real terminal real agents |
 | 11-06 16:58 | okay then if you got it / then les go and dont make any mistakres |
 | 11-06 17:26 | ek baar chla ke verify toh krle / end to end / work kr rha ya nhi / phir 1 guide de |
 | 11-06 17:48 | chotti galtiyan sahi karo / and phir merge krdo / no ai trace |
+| 11-06 17:57 | conflicts dekho unhe solve karo / and then merge |

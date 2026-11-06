@@ -22,6 +22,7 @@ Existing products leave a gap. Runtime gateways are run per company, with no sha
 | A proxy that needs no code change | Otherwise nobody would adopt it |
 | Diary on 0G, fixes and evidence on Swarm, hashes on Arkiv | Each store does what it's good at, and a hash on Arkiv catches any change |
 | Everything on the live screen moves only when a real reading changes | A demo that animates made-up events proves nothing. The screen compares readings of the demo server and of Arkiv, and tests cover that comparison |
+| The public pages read every record, not a list of known keys | A stranger's agent and recall have to show up with nobody's permission, labelled with who follows them |
 | The model is any OpenAI-compatible service | Nobody should have to trust one model provider. We first used 0G's router, and moved when its credits and request limit got in the way of the demo |
 
 ## Build order
@@ -37,6 +38,7 @@ Existing products leave a gap. Runtime gateways are run per company, with no sha
 9. Swarm: fixes and sealed evidence
 10. Documents, demo and submission
 11. The live screen: the map, the stranger's inbox, the strip of blocks, the erase moment and sound
+12. The public site beyond the demo: browser wallets, recalling a real npm tool measured in the browser, and the live network map
 
 ## From a demo to a product
 
