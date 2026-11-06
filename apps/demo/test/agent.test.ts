@@ -132,10 +132,10 @@ describe("OfficeAgent", () => {
     let blanks = 0
     const seen: string[] = []
     const brain: Brain = {
-      next: async (messages, tools, signal) => {
+      next: async (messages) => {
         seen.push(String(messages.at(-1)?.content))
         if (blanks++ === 0) return { message: { role: "assistant", content: "" }, requestId: "r", model: "m", source: "dev" }
-        return inner.next(messages.filter((x) => !String(x.content).startsWith("Carry on")), tools, signal)
+        return inner.next(messages.filter((x) => !String(x.content).startsWith("Carry on")))
       },
     }
     const m = make(brain)
