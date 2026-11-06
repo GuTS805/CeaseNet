@@ -39,6 +39,7 @@ export function latestOnly<T>(task: (input: T) => Promise<void>): (input: T) => 
 /** A robot's connection to Arkiv. Every record it writes is created by its own key. */
 export class ArkivRobotNet implements RobotNet {
   private heartbeatKey: Hex | undefined
+  private lastSent: { status: RobotStatus; seq: bigint } | undefined
   private readonly sendBeat = latestOnly<{ status: RobotStatus; seq: bigint }>((b) => this.writeBeat(b.status, b.seq))
 
   constructor(
@@ -60,22 +61,44 @@ export class ArkivRobotNet implements RobotNet {
     return this.sendBeat({ status, seq })
   }
 
+  /** The heartbeat on Arkiv, if there is one. */
+  protected readBeat(): Promise<{ key: Hex; mode: string; loadoutSeq: bigint } | undefined> {
+    return readHeartbeat(this.client, this.writer.address)
+  }
+
   private async writeBeat(status: RobotStatus, seq: bigint): Promise<void> {
     const input = { mode: status, loadoutSeq: seq, ttlSeconds: this.heartbeatTtlSeconds }
     if (!this.heartbeatKey) {
-      this.heartbeatKey = (await readHeartbeat(this.client, this.writer.address))?.key
-    }
-    if (this.heartbeatKey) {
-      try {
-        await this.writer.updateHeartbeat(this.heartbeatKey, input)
-        return
-      } catch {
-        // The heartbeat expired while the robot was offline. Start a new one.
-        this.heartbeatKey = undefined
+      const existing = await this.readBeat()
+      if (existing) {
+        this.heartbeatKey = existing.key
+        this.lastSent = { status: existing.mode as RobotStatus, seq: existing.loadoutSeq }
       }
     }
-    const { entityKey } = await this.writer.createHeartbeat(input)
+    if (!this.heartbeatKey) return this.createBeat(status, seq)
+
+    const unchanged = this.lastSent?.status === status && this.lastSent.seq === seq
+    try {
+      if (unchanged) await this.writer.extendHeartbeat(this.heartbeatKey, this.heartbeatTtlSeconds)
+      else await this.writer.updateHeartbeat(this.heartbeatKey, input)
+      this.lastSent = { status, seq }
+    } catch (e) {
+      // A new heartbeat is right only if the old one really is gone, such as after time offline.
+      // Any other failure must be reported, not papered over with another record.
+      const existing = await this.readBeat()
+      if (existing?.key === this.heartbeatKey) throw e
+      await this.createBeat(status, seq)
+    }
+  }
+
+  private async createBeat(status: RobotStatus, seq: bigint): Promise<void> {
+    const { entityKey } = await this.writer.createHeartbeat({
+      mode: status,
+      loadoutSeq: seq,
+      ttlSeconds: this.heartbeatTtlSeconds,
+    })
     this.heartbeatKey = entityKey
+    this.lastSent = { status, seq }
   }
 
   async writeAck(intent: AckIntent, artifact: string, newHash?: string): Promise<void> {

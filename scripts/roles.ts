@@ -15,6 +15,11 @@ export const ROLES = [
   "operatorA",
   "operatorB",
   "outsider",
+  // Live checks only. New wallets go at the end, so existing ones keep their addresses.
+  "testMaker",
+  "testVerifier",
+  "testRobot",
+  "testOutsider",
 ] as const
 
 export type Role = (typeof ROLES)[number]

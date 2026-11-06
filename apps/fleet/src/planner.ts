@@ -120,10 +120,10 @@ export class DevPlanner implements Planner {
 /** The job description in the planner prompt, as plain rules. */
 export function chooseMove(o: Observation): Move {
   const tray = o.boxes.findIndex((b) => b.at === "tray")
-  const onSideA = o.boxes.findIndex((b) => b.at === "slot" && b.slot < 4)
-  const free = (side: "A" | "B") => o.freeSlots.filter((s) => (side === "A" ? s < 4 : s >= 4))
   if (tray !== -1) return { box: tray, slot: o.freeSlots[0]! }
-  if (onSideA !== -1 && free("B").length > 0) return { box: onSideA, slot: free("B")[0]! }
-  const onSideB = o.boxes.findIndex((b) => b.at === "slot" && b.slot >= 4)
-  return { box: onSideB, slot: free("A")[0]! }
+  const box = o.lastMoved === null ? 0 : (o.lastMoved + 1) % o.boxes.length
+  const place = o.boxes[box]!
+  const onSideA = place.at === "slot" && place.slot < 4
+  const slot = o.freeSlots.find((s) => (onSideA ? s >= 4 : s < 4)) ?? o.freeSlots[0]!
+  return { box, slot }
 }

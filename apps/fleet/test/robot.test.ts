@@ -11,7 +11,7 @@ import {
 } from "@ceasenet/core"
 import { replay, RobotSim } from "@ceasenet/sim"
 import { chooseMove, DevPlanner, parseMove, PlannerInvalidReply, PlannerUnavailable, ZeroGPlanner } from "../src/planner"
-import { latestOnly } from "../src/arkivNet"
+import { ArkivRobotNet, latestOnly } from "../src/arkivNet"
 import { RobotRuntime, type RobotNet } from "../src/robot"
 import { loadSoftware, type PolicyVersion } from "../src/software"
 
@@ -381,6 +381,77 @@ describe("RobotRuntime", () => {
   })
 })
 
+describe("ArkivRobotNet heartbeats", () => {
+  class TestNet extends ArkivRobotNet {
+    onArkiv: { key: Hex; mode: string; loadoutSeq: bigint } | undefined
+    protected override readBeat() {
+      return Promise.resolve(this.onArkiv)
+    }
+  }
+  const setup = () => {
+    const calls: string[] = []
+    const writer = {
+      address: "0x00000000000000000000000000000000000000f1",
+      fail: undefined as Error | undefined,
+      async createHeartbeat() {
+        calls.push("create")
+        return { entityKey: "0xbeef" }
+      },
+      async updateHeartbeat() {
+        calls.push("update")
+        if (writer.fail) throw writer.fail
+      },
+      async extendHeartbeat() {
+        calls.push("extend")
+        if (writer.fail) throw writer.fail
+      },
+    }
+    return { net: new TestNet({} as any, writer as any, trust, 30), writer, calls }
+  }
+
+  it("creates one heartbeat, then only extends it while nothing changes", async () => {
+    const { net, calls } = setup()
+    await net.writeHeartbeat("RUNNING", 1n)
+    await net.writeHeartbeat("RUNNING", 1n)
+    await net.writeHeartbeat("RUNNING", 1n)
+    expect(calls).toEqual(["create", "extend", "extend"])
+  })
+
+  it("updates when the status or the loadout changes", async () => {
+    const { net, calls } = setup()
+    await net.writeHeartbeat("RUNNING", 1n)
+    await net.writeHeartbeat("STOPPED", 1n)
+    await net.writeHeartbeat("STOPPED", 2n)
+    await net.writeHeartbeat("STOPPED", 2n)
+    expect(calls).toEqual(["create", "update", "update", "extend"])
+  })
+
+  it("carries on with the heartbeat already on Arkiv after a restart", async () => {
+    const { net, calls } = setup()
+    net.onArkiv = { key: "0xaaaa", mode: "RUNNING", loadoutSeq: 1n }
+    await net.writeHeartbeat("RUNNING", 1n)
+    expect(calls).toEqual(["extend"])
+  })
+
+  it("reports a failed write instead of creating another record", async () => {
+    const { net, writer, calls } = setup()
+    await net.writeHeartbeat("RUNNING", 1n)
+    net.onArkiv = { key: "0xbeef", mode: "RUNNING", loadoutSeq: 1n }
+    writer.fail = new Error("something else went wrong")
+    await expect(net.writeHeartbeat("RUNNING", 1n)).rejects.toThrow("something else")
+    expect(calls).toEqual(["create", "extend"])
+  })
+
+  it("starts a new heartbeat only when the old one has really gone", async () => {
+    const { net, writer, calls } = setup()
+    await net.writeHeartbeat("RUNNING", 1n)
+    net.onArkiv = undefined
+    writer.fail = new Error("expired")
+    await net.writeHeartbeat("RUNNING", 1n)
+    expect(calls).toEqual(["create", "extend", "create"])
+  })
+})
+
 describe("latestOnly", () => {
   it("sends the first and the newest, and skips everything in between", async () => {
     const sent: string[] = []
@@ -445,6 +516,7 @@ describe("planner", () => {
     ],
     freeSlots: [4, 5, 6, 7],
     holding: null,
+    lastMoved: null,
   }
 
   it("reads a move from a plain or fenced reply", () => {
@@ -486,6 +558,16 @@ describe("planner", () => {
       throw new Error("offline")
     }) as unknown as typeof fetch
     await expect(new ZeroGPlanner("k", "m", boom).decide(obs, "p")).rejects.toThrow(PlannerUnavailable)
+  })
+
+  it("moves every box in turn instead of shuttling one back and forth", async () => {
+    const { robot, clock } = make()
+    await robot.start()
+    await run(robot, clock, 30000)
+    const boxes = robot.decisions.map((d) => d.move.box)
+    expect(boxes.length).toBeGreaterThan(5)
+    expect(new Set(boxes).size).toBe(4)
+    for (let i = 1; i < boxes.length; i++) expect(boxes[i]).not.toBe(boxes[i - 1])
   })
 
   it("dev rules always choose a possible move", () => {

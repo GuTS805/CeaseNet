@@ -17,7 +17,8 @@
     "smoke": "tsx --env-file=.env scripts/smoke.ts",
     "seed": "tsx --env-file=.env scripts/seed.ts",
     "fleet": "tsx --env-file=.env apps/fleet/src/server.ts",
-    "e2e": "tsx --env-file=.env scripts/e2e.ts"
+    "e2e": "tsx --env-file=.env scripts/e2e.ts",
+    "reset": "tsx --env-file=.env scripts/reset.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

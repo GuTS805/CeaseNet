@@ -19,10 +19,11 @@ const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
 const client = arkivPublicClient(accessKey)
 const writer = (role: Role) => new ArkivWriter(arkivWalletClient(accountFor(role), accessKey))
 
-const maker = writer("maker")
-const outsider = writer("outsider")
-const verifier = writer("verifier")
-const robot = writer("robot1")
+// These wallets are separate from the demo's, so test records never show up on a demo robot's plate.
+const maker = writer("testMaker")
+const outsider = writer("testOutsider")
+const verifier = writer("testVerifier")
+const robot = writer("testRobot")
 const artifact = keccak256(stringToHex(`smoke-${Date.now()}`))
 
 let failures = 0
@@ -102,6 +103,17 @@ const beat = await robot.createHeartbeat({ mode: "RUNNING", loadoutSeq: seq, ttl
 await robot.updateHeartbeat(beat.entityKey, { mode: "STOPPED", loadoutSeq: seq + 1n, ttlSeconds: 30 })
 const hb = await readHeartbeat(client, robot.address)
 check("heartbeat updates in place", hb?.key === beat.entityKey && hb.mode === "STOPPED", hb?.mode)
+let beatFailures = 0
+for (let i = 0; i < 5; i++) {
+  await robot
+    .updateHeartbeat(beat.entityKey, { mode: i % 2 ? "RUNNING" : "STOPPED", loadoutSeq: seq + BigInt(i), ttlSeconds: 30 })
+    .catch(() => beatFailures++)
+  await robot.extendHeartbeat(beat.entityKey, 30).catch(() => beatFailures++)
+}
+check("repeated heartbeat writes never fail", beatFailures === 0, `${beatFailures} failed`)
+const blockNow = await client.getBlockNumber({ cacheTime: 0 })
+const hb2 = await readHeartbeat(client, robot.address)
+check("an extension counts as an update", blockNow - (hb2?.updatedAt ?? 0n) <= 2n, `${blockNow - (hb2?.updatedAt ?? 0n)} blocks old`)
 
 const custody = await maker.custody({ robot: robot.address, operator: "A", contact: "a@example.com" })
 await maker.transfer(custody.entityKey, outsider.address)

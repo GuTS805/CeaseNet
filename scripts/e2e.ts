@@ -1,5 +1,7 @@
 import loadMujoco from "@mujoco/mujoco"
-import { ADDRESSES, type AckRow, arkivPublicClient, type Hex, readAcks, readHeartbeat, readLatestLoadout } from "@ceasenet/core"
+import { ADDRESSES, type AckRow, arkivPublicClient, Heartbeat, type Hex, readAcks, readHeartbeat, readLatestLoadout } from "@ceasenet/core"
+import { eq } from "@arkiv-network/sdk/query"
+import { addr } from "@arkiv-network/sdk/schema"
 import { replay, RobotSim } from "@ceasenet/sim"
 
 // Runs the demo story against a running fleet and the live testnet, and checks every step.
@@ -42,7 +44,14 @@ const s0 = await get("/api/state")
 console.log("     planner:", s0.plannerSource, "| run:", s0.salt)
 await until("robots make decisions", (s) => s.robots.every((r: any) => r.decisions >= 1), 60_000)
 
+for (const [name, address] of [["robot 1", ADDRESSES.robot1], ["robot 2", ADDRESSES.robot2], ["robot 3", ADDRESSES.robot3]] as const) {
+  await wait(1000)
+  const q: any = await client.select({ $key: true, $updatedAt: true }).from(Heartbeat).where(eq("$creator", addr(address))).limit(20).fetch()
+  check(`${name} has exactly one heartbeat record`, q.entities.length === 1, `${q.entities.length} found`)
+}
 const beat = await readHeartbeat(client, ADDRESSES.robot1)
+const age = Number((await client.getBlockNumber({ cacheTime: 0 })) - (beat?.updatedAt ?? 0n)) * 2
+check("the heartbeat is fresh", age <= 16, `${age} s old`)
 check("heartbeat is on Arkiv", beat?.creator.toLowerCase() === ADDRESSES.robot1.toLowerCase(), beat?.mode)
 const load = await readLatestLoadout(client, ADDRESSES.robot1)
 check("loadout is on Arkiv with the policy hash", load?.files.some((f) => f.hash === s0.recalledHash) === true)

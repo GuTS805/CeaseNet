@@ -217,8 +217,9 @@ export async function readLatestLoadout(client: ArkivPublic, robot: Hex): Promis
 
 /** A robot's heartbeat. No result means nobody can vouch for the robot right now. */
 export async function readHeartbeat(client: ArkivPublic, robot: Hex): Promise<HeartbeatRow | undefined> {
-  const res = await client.select().from(Heartbeat).where(eq("$creator", addr(robot))).limit(1).fetch()
-  const r = res.entities[0] as any
+  const res = await client.select().from(Heartbeat).where(eq("$creator", addr(robot))).limit(20).fetch()
+  // One is normal, but the newest is the one that counts if an old one has not expired yet.
+  const r = [...(res.entities as any[])].sort((a, b) => Number(b.$updatedAt - a.$updatedAt))[0]
   if (!r) return undefined
   return {
     key: r.$key,

@@ -11,6 +11,11 @@ const READ_ONLY = { readonly: true } as const
 const STOP_FLAGS = { readonly: true, permissionlessExtension: true } as const
 const LONG = () => ExpirationTime.fromDays(180)
 
+/** Plenty for one patch and one extension. Only the gas actually used is charged. */
+const HEARTBEAT_PATCH_GAS = 500_000n
+
+const isOutOfGas = (e: unknown) => e instanceof Error && e.message.includes("ran out of gas")
+
 const text = (value: string | undefined) => (value === undefined ? undefined : stringToBytes(value))
 
 /** Drops unset optional values, which the SDK treats as missing columns. */
@@ -42,7 +47,17 @@ export class ArkivWriter {
   }
 
   private enqueue<T>(task: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(task, task)
+    const attempt = async () => {
+      try {
+        return await task()
+      } catch (e) {
+        // The gas estimate is made before the state changes, so it can come up short. Nothing was applied,
+        // and the SDK's own advice is to send it again. This matters most for a STOP.
+        if (isOutOfGas(e)) return task()
+        throw e
+      }
+    }
+    const run = this.queue.then(attempt, attempt)
     this.queue = run.catch(() => undefined)
     return run
   }
@@ -199,13 +214,23 @@ export class ArkivWriter {
     )
   }
 
-  /** Updates and extends a heartbeat in one transaction. */
+  /** A new status: updates and extends a heartbeat in one transaction. */
   updateHeartbeat(entityKey: Hex, input: { mode: Mode | "PAUSED"; loadoutSeq: bigint; ttlSeconds: number }) {
     return this.enqueue(() =>
-      this.wallet.executeBatch({
-        patches: [{ schema: Heartbeat, entityKey, set: { mode: input.mode, loadoutSeq: u64(input.loadoutSeq) } }],
-        extensions: [{ entityKey, expiration: ExpirationTime.fromSeconds(input.ttlSeconds) }],
-      }),
+      this.wallet.executeBatch(
+        {
+          patches: [{ schema: Heartbeat, entityKey, set: { mode: input.mode, loadoutSeq: u64(input.loadoutSeq) } }],
+          extensions: [{ entityKey, expiration: ExpirationTime.fromSeconds(input.ttlSeconds) }],
+        },
+        { gas: HEARTBEAT_PATCH_GAS },
+      ),
+    )
+  }
+
+  /** Nothing has changed: just keeps the heartbeat alive. Arkiv still records the update time. */
+  extendHeartbeat(entityKey: Hex, ttlSeconds: number) {
+    return this.enqueue(() =>
+      this.wallet.extendEntity({ entityKey, expiration: ExpirationTime.fromSeconds(ttlSeconds) }),
     )
   }
 

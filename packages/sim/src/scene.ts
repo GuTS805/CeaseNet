@@ -52,7 +52,7 @@ export const SCENE_XML = `
     <geom name="sideB" type="box" size="0.14 0.13 0.001" pos="0.48 -0.24 ${TABLE_TOP + 0.0005}" rgba="0.2 0.38 0.34 1"/>
     <geom name="tray" type="box" size="0.14 0.06 0.002" pos="0.48 0 ${TABLE_TOP + 0.001}" rgba="0.75 0.58 0.16 1"/>
     <geom name="pedestal" type="cylinder" size="0.09 0.125" pos="0 0 0.125" rgba="0.2 0.22 0.27 1"/>
-    <geom name="led" type="sphere" size="0.035" pos="-0.1 0 0.21" rgba="0.2 0.8 0.4 1"/>
+    <geom name="led" type="sphere" size="0.042" pos="0.095 0 0.2" rgba="0.2 0.8 0.4 1"/>
     <body name="waist" pos="0 0 0.25" gravcomp="1">
       <joint name="waist" type="hinge" axis="0 0 1" range="-3.14 3.14"/>
       <geom name="turret" type="cylinder" size="0.075 0.03" pos="0 0 0.02" mass="2" rgba="0.92 0.55 0.13 1"/>

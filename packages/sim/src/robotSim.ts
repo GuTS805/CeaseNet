@@ -1,3 +1,4 @@
+import { exactAcos, exactAtan2, exactHypot } from "./exactMath"
 import { BOX_COUNT, BOX_SIZE, LINK, SCENE_XML, SHOULDER_HEIGHT, SLOTS, TABLE_TOP, TOOL_LENGTH, TRAY } from "./scene"
 
 export type SimMode = "RUNNING" | "SUPERVISED" | "STOPPED" | "PAUSED"
@@ -13,6 +14,8 @@ export interface Observation {
   boxes: BoxPlace[]
   freeSlots: number[]
   holding: number | null
+  /** The box moved last, so a planner with no memory can work through all of them. */
+  lastMoved: number | null
 }
 
 /** Speed and force limits for each mode. Motion itself always stays on the robot. */
@@ -40,17 +43,19 @@ const MASK = 0xffffffffffffffffn
 
 /** Solves the arm for a tool tip position, keeping the tool pointing straight down. */
 export function solveArm(x: number, y: number, z: number): [number, number, number, number] {
-  const r = Math.hypot(x, y)
+  const r = exactHypot(x, y)
   const wz = z + TOOL_LENGTH - SHOULDER_HEIGHT
   const reach = 2 * LINK - 1e-4
-  const d = Math.min(Math.hypot(r, wz), reach)
+  const d = Math.min(exactHypot(r, wz), reach)
   const cosElbow = Math.max(-1, Math.min(1, (d * d - 2 * LINK * LINK) / (2 * LINK * LINK)))
-  const elbow = Math.acos(cosElbow)
-  const shoulder = Math.atan2(r, wz) - Math.atan2(LINK * Math.sin(elbow), LINK + LINK * Math.cos(elbow))
-  return [Math.atan2(y, x), shoulder, elbow, -(shoulder + elbow)]
+  const elbow = exactAcos(cosElbow)
+  // With two links of equal length, the angle between the upper arm and the wrist is half the elbow angle.
+  const shoulder = exactAtan2(r, wz) - elbow / 2
+  return [exactAtan2(y, x), shoulder, elbow, -(shoulder + elbow)]
 }
 
-let fsReady = false
+/** Each loaded engine has its own file system, so the scene is written once per engine. */
+const enginesWithScene = new WeakSet<object>()
 
 /**
  * One robot's physics and motion. Works the same in Node and the browser, so a recorded run can be
@@ -71,19 +76,16 @@ export class RobotSim {
   private target: [number, number, number, number]
   private goal: [number, number, number, number]
   private plan: Step[] = []
+  private lastMoved: number | null = null
   private readonly mj: any
 
   constructor(mujoco: unknown) {
     const mj = mujoco as any
     this.mj = mj
-    if (!fsReady) {
-      try {
-        mj.FS.mkdir("/ceasenet")
-      } catch {
-        // Already there.
-      }
+    if (!enginesWithScene.has(mj)) {
+      mj.FS.mkdir("/ceasenet")
       mj.FS.writeFile("/ceasenet/cell.xml", SCENE_XML)
-      fsReady = true
+      enginesWithScene.add(mj)
     }
     this.model = mj.MjModel.mj_loadXML("/ceasenet/cell.xml")
     this.data = new mj.MjData(this.model)
@@ -120,6 +122,7 @@ export class RobotSim {
       boxes: this.boxes.map((b) => ({ ...b })),
       freeSlots: SLOTS.map((_, i) => i).filter((i) => !taken.has(i)),
       holding: this.holding,
+      lastMoved: this.lastMoved,
     }
   }
 
@@ -136,6 +139,7 @@ export class RobotSim {
     if (this.mode !== "RUNNING") throw new Error(`cannot start a move while ${this.mode}`)
     if (!this.idle) throw new Error("arm is busy")
     if (!this.isValidMove(m)) throw new Error(`invalid move ${JSON.stringify(m)}`)
+    this.lastMoved = m.box
     const [fx, fy, fz] = this.boxTop(m.box)
     const [tx, ty] = SLOTS[m.slot]!
     const placeZ = TABLE_TOP + BOX_SIZE + 0.002

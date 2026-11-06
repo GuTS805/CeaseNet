@@ -112,6 +112,23 @@ describe("RobotSim", () => {
     expect(Math.hypot(x - sx, y - sy)).toBeLessThan(0.02)
   })
 
+  it("works with more than one loaded engine", async () => {
+    const second = await loadMujoco()
+    expect(new RobotSim(mujoco).idle).toBe(true)
+    expect(new RobotSim(second).idle).toBe(true)
+    expect(new RobotSim(second).idle).toBe(true)
+  })
+
+  it("gives the same result on a separately loaded engine", async () => {
+    const run = (engine: unknown) => {
+      const sim = new RobotSim(engine)
+      sim.startMove({ box: 0, slot: 4 })
+      sim.step(2500)
+      return sim.stateHash()
+    }
+    expect(run(await loadMujoco())).toBe(run(mujoco))
+  })
+
   it("gives exactly the same result when the same run is repeated", () => {
     const run = () => {
       const sim = new RobotSim(mujoco)
