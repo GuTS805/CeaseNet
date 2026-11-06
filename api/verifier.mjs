@@ -27612,6 +27612,7 @@ function signRequest(params) {
 // apps/verifier/src/verifier.ts
 var CONFIRM_ACTION = "confirm-warning";
 var CREDENTIAL = "proof_of_human";
+var LEGACY_CREDENTIALS = ["proof_of_human", "orb"];
 var SIGNATURE_TTL_SECONDS = 300;
 var CLOCK_SKEW_MS = 6e4;
 var AlreadyReported = class extends Error {
@@ -27772,7 +27773,7 @@ var Verifier = class {
     if (result.action !== CONFIRM_ACTION) throw new Refused("wrong_action", "This proof was made for something else.");
     const response = Array.isArray(result.responses) ? result.responses[0] : void 0;
     if (!response) throw new Refused("no_proof", "This result has no proof in it.");
-    if (response.identifier !== CREDENTIAL) {
+    if (response.identifier !== CREDENTIAL && !(result.protocol_version === "3.0" && LEGACY_CREDENTIALS.includes(response.identifier))) {
       throw new Refused("wrong_credential", "Logging in needs Proof of Human.");
     }
     if (String(response.signal_hash).toLowerCase() !== hashSignal(signal).toLowerCase()) {

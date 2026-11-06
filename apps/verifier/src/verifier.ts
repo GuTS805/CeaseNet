@@ -11,6 +11,8 @@ import { recoverMessageAddress } from "viem"
  */
 export const CONFIRM_ACTION = "confirm-warning"
 export const CREDENTIAL = "proof_of_human"
+/** The same check, as World App answered before World ID 4. */
+const LEGACY_CREDENTIALS = ["proof_of_human", "orb"]
 const SIGNATURE_TTL_SECONDS = 300
 /** A wallet's clock can be a little ahead of this one. */
 const CLOCK_SKEW_MS = 60_000
@@ -254,7 +256,8 @@ export class Verifier {
 
     const response = Array.isArray(result.responses) ? result.responses[0] : undefined
     if (!response) throw new Refused("no_proof", "This result has no proof in it.")
-    if (response.identifier !== CREDENTIAL) {
+    // An older World App answers in the legacy format, where an Orb-verified person can be named "orb".
+    if (response.identifier !== CREDENTIAL && !(result.protocol_version === "3.0" && LEGACY_CREDENTIALS.includes(response.identifier))) {
       throw new Refused("wrong_credential", "Logging in needs Proof of Human.")
     }
     if (String(response.signal_hash).toLowerCase() !== hashSignal(signal).toLowerCase()) {

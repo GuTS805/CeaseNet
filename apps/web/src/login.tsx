@@ -244,7 +244,9 @@ export function LoginPage({ next }: { next: string }) {
           action={config.action}
           rp_context={rpContext}
           environment={config.environment}
-          allow_legacy_proofs={false}
+          // Most people's World App still holds its Orb credential in the older format. Without this it has nothing to
+          // answer with, and opens its home screen instead.
+          allow_legacy_proofs={true}
           preset={proofOfHuman({ signal: loginSignal(address) })}
           handleVerify={async (result) => {
             // Throwing here makes the widget show the failure instead of a success.

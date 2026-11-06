@@ -204,6 +204,16 @@ describe("logging in with World", () => {
     await refusedWith(m.verifier.login({ ...s, result: m.result(ALICE.address, {}, { identifier: "passport" }) }), "wrong_credential")
   })
 
+  it("takes the legacy format an older World App answers in, and still checks it", async () => {
+    const m = make()
+    const legacy = { ...m.result(ALICE.address, { protocol_version: "3.0" }, { identifier: "orb", nullifier: "0xabc", merkle_root: "0x1" }) }
+    const done = await m.verifier.login({ ...(await m.signLogin()), result: legacy })
+    expect(done.already).toBe(false)
+    expect(m.sentToWorld[0]).toEqual(legacy)
+    await refusedWith(m.verifier.login({ ...(await m.signLogin()), result: m.result(ALICE.address, { protocol_version: "3.0" }, { identifier: "device" }) }), "wrong_credential")
+    await refusedWith(m.verifier.login({ ...(await m.signLogin()), result: m.result(ALICE.address, {}, { identifier: "orb" }) }), "wrong_credential")
+  })
+
   it("logs nobody in when World says no, or cannot be reached", async () => {
     const no = make({ world: () => new Response(JSON.stringify({ success: false, code: "invalid_proof", detail: "Bad proof" }), { status: 400 }) })
     await refusedWith(no.login(), "invalid_proof")
