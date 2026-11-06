@@ -39,6 +39,7 @@ AI use is disclosed in docs/ai-usage.md.
 ## Links
 
 - Code: https://github.com/GuTS805/CeaseNet
+- npm: https://www.npmjs.com/package/ceasenet (with provenance)
 - Live pages: **ADD THE LINK**
 - Demo video: **ADD THE LINK**
 

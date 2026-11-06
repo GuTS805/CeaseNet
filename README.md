@@ -58,15 +58,14 @@ In the run below, three real AI trading agents closed themselves 35 to 97 millis
 You need Node 22.10 or newer.
 
 ```bash
-git clone https://github.com/GuTS805/CeaseNet.git && cd CeaseNet
-npm install && npm run install-cli
+npm install -g ceasenet    # the program, from npm
 
 ceasenet init              # creates this agent's identity, and yours as its owner. Add --local to keep everything on this machine
 ceasenet protect           # puts the gate in front of your agents' tools
 ceasenet console           # opens the console at http://127.0.0.1:7787
 ```
 
-Then restart your agent's client and use it as usual. `protect` finds the settings of Claude Code, Claude Desktop, Cursor, VS Code, Windsurf and Gemini CLI, keeps a copy of each file it changes, and `ceasenet unprotect` undoes it. If PowerShell says running scripts is disabled, type `npm.cmd` instead of `npm`.
+Then restart your agent's client and use it as usual. `protect` finds the settings of Claude Code, Claude Desktop, Cursor, VS Code, Windsurf and Gemini CLI, keeps a copy of each file it changes, and `ceasenet unprotect` undoes it. If PowerShell says running scripts is disabled, type `npm.cmd` instead of `npm`. To run the site, the verifier or the checks, clone this repository and run `npm install`.
 
 On the public list, you can stop your agents from any machine. Writing to it needs free test tokens: [tGLM](https://hub.arkiv.network/faucet) for Arkiv and [0G tokens](https://faucet.0g.ai) for diaries, sent to the address `ceasenet init` prints. With `--local` nothing is public and nothing is needed, and `ceasenet network arkiv` moves you to the public list later. `ceasenet rpc <url>` reads through an Arkiv node you run, and `ceasenet import-settings .env` copies your model key and other settings. No tool ever sees them.
 
@@ -192,14 +191,14 @@ On the live list, the two gates agreed on all 46 cases we tried.
 | **Your model service** | Everything, because a gate uses no model | The sample agents. They take any OpenAI-compatible service, including one you host |
 | **Swarm or 0G** | Agents keep working, and diary parts wait in a file on the machine | Storing new parts |
 
-CI builds from a lockfile with GitHub Actions pinned to commit hashes, and rebuilds the [hosted verifier](api/verifier.mjs) on every push, failing if it differs from the source by a byte. To join in, see [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the [threat model](docs/THREAT_MODEL.md).
+The program is [on npm](https://www.npmjs.com/package/ceasenet) with provenance, so npm shows the commit and the CI run that built it. CI builds from a lockfile with GitHub Actions pinned to commit hashes, and rebuilds the [hosted verifier](api/verifier.mjs) on every push, failing if it differs from the source by a byte. To join in, see [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the [threat model](docs/THREAT_MODEL.md).
 
 ## CROPS
 
 **Lead property: censorship resistance.** A recall has to reach an agent even when the tool's maker, a registry, a crowd or we would rather it didn't, and nobody but the agent's owner may stop it. Everything below serves that.
 
 - **C, censorship resistance (lead).** Each gate reads Arkiv itself and obeys only a STOP its owner's wallet signed, so no server of ours stands between an owner and their agent, and nobody else can stop it or keep it from being stopped. A node that stops following the chain makes a gate fail closed, an owner can move to a node they run with `ceasenet rpc`, and the site also lives on Swarm, so losing our domain or Vercel loses nothing an owner needs.
-- **O, open source.** MIT licence, and `npm ci && npm test && npm run build` works from a clean clone with no keys and no account with us. [A second gate in Python](#open-source-build-on-it-or-replace-us), using none of our code, passes the same 56 conformance vectors as ours, and every part we run has a stated replacement.
+- **O, open source.** MIT licence, and `npm ci && npm test && npm run build` works from a clean clone with no keys and no account with us. The program on npm carries provenance tying it to the commit that built it. [A second gate in Python](#open-source-build-on-it-or-replace-us), using none of our code, passes the same 56 conformance vectors as ours, and every part we run has a stated replacement.
 - **P, privacy.** A gate downloads its owner's whole list and matches it locally, so no node learns which tools it is checking, and `ceasenet privacy private` keeps them off the public list too. The client loads no trackers or analytics, a diary's contents are sealed to its owner, and both the program and the site can read through a node you run.
 - **S, security.** Agent and owner keys are separate, the owner's can stay in a browser wallet on another machine, and the site never holds a key: every record is signed in your wallet. A pinned tool is blocked if its code changes, and the tools a gate runs get none of CeaseNet's settings or keys.
 
