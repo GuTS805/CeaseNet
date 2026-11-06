@@ -98,8 +98,9 @@ export interface ModelSettings {
 }
 
 const DEFAULT_URL = "https://api.groq.com/openai/v1"
-const DEFAULT_MODEL = "llama-3.3-70b-versatile"
-const DEFAULT_REQUESTS_PER_MINUTE = 20
+const DEFAULT_MODEL = "openai/gpt-oss-20b"
+/** Groq's free tier allows 8,000 tokens a minute, and one step of this demo uses about 470. */
+const DEFAULT_REQUESTS_PER_MINUTE = 16
 
 /** Reads the model's settings, or explains what is missing. */
 export function modelFromEnv(env: NodeJS.ProcessEnv = process.env): ModelSettings {

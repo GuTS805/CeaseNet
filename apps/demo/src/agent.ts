@@ -53,6 +53,8 @@ export interface AgentOptions {
 }
 
 const FEED_LIMIT = 60
+/** Models occasionally reply with nothing at all, and nothing is not an answer. */
+const REMINDER = "Carry on with the job: use a tool, or say in one short sentence what happened."
 const RETRY_MS = 3_000
 /** A model that stays away gets asked less and less often. */
 const MAX_RETRY_MS = 30_000
@@ -135,19 +137,26 @@ export class OfficeAgent {
       { role: "user", content: `Job: invoice ${job}` },
     ]
 
+    let reminded = false
     const maxTurns = this.opts.maxTurns ?? 6
     for (let turn = 0; turn < maxTurns && this.running; turn++) {
       if (this.guard.status === "STOPPED") return
       const reply = await this.think(messages)
       if (!reply) return
-      messages.push(reply.message)
 
       const calls = reply.message.tool_calls ?? []
       if (calls.length === 0) {
+        const said = reply.message.content?.trim()
+        if (!said && !reminded) {
+          reminded = true
+          messages.push({ role: "user", content: REMINDER })
+          continue
+        }
         this.jobs += 1
-        this.say("said", reply.message.content ?? "Done.", reply.requestId)
+        if (said) this.say("said", said, reply.requestId)
         return
       }
+      messages.push(reply.message)
       let finished = false
       for (const call of calls) {
         const { text, allowed } = await this.runTool(call.function.name, call.function.arguments, reply.requestId, reply.model)

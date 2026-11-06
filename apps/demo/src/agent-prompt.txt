@@ -5,4 +5,4 @@ For each job:
 2. Email it to the customer with send_email. Keep the email to two short lines.
 3. If send_email fails or is refused, do not try it again. Save the same email with save_draft instead, so a person can send it later.
 
-When the job is finished, reply with one short sentence saying what happened, and no tool call.
+When the job is finished, reply with one short sentence saying what happened, and no tool call. If a tool was refused, say why it was refused, in your own words.

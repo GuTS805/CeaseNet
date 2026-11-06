@@ -127,6 +127,40 @@ describe("OfficeAgent", () => {
     expect(m.reached).toEqual(["2.1.0:read_invoice", "2.1.0:save_draft"])
   })
 
+  it("reminds a model that replied with nothing, and carries on with the job", async () => {
+    const inner = new DevBrain()
+    let blanks = 0
+    const seen: string[] = []
+    const brain: Brain = {
+      next: async (messages, tools, signal) => {
+        seen.push(String(messages.at(-1)?.content))
+        if (blanks++ === 0) return { message: { role: "assistant", content: "" }, requestId: "r", model: "m", source: "dev" }
+        return inner.next(messages.filter((x) => !String(x.content).startsWith("Carry on")), tools, signal)
+      },
+    }
+    const m = make(brain)
+    await prepare(m)
+    await m.agent.runJob()
+    expect(seen[1]).toContain("Carry on with the job")
+    expect(m.reached).toEqual(["2.1.0:read_invoice", "1.0.16:send_email"])
+    expect(m.agent.feed.some((f) => f.kind === "said" && f.text === "")).toBe(false)
+  })
+
+  it("reminds only once, and never prints a blank line", async () => {
+    let requests = 0
+    const brain: Brain = {
+      next: async () => {
+        requests++
+        return { message: { role: "assistant", content: "  " }, requestId: "r", model: "m", source: "dev" }
+      },
+    }
+    const m = make(brain)
+    await prepare(m)
+    await m.agent.runJob()
+    expect(requests).toBe(2)
+    expect(m.agent.feed.filter((f) => f.kind === "said")).toHaveLength(0)
+  })
+
   it("says the model is gone once, however many times it retries", async () => {
     let failures = 0
     const brain: Brain = {
