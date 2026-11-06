@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative, sep } from "node:path"
-import { hashBytes, type Hex, type LoadedFile } from "@ceasenet/core"
+import { type Hex, type LoadedFile, measureFiles, type PackageFile } from "@ceasenet/core"
 
 const SKIP = new Set(["node_modules", ".git"])
 
@@ -13,16 +13,12 @@ function listFiles(dir: string): string[] {
     })
 }
 
-/**
- * Hashes what a package really contains, not what it says about itself.
- * Each file counts by its path and content, in a fixed order, so the same package always gives the same hash.
- */
-export function measureDir(dir: string): Hex {
-  const lines = listFiles(dir)
-    .map((path) => `${relative(dir, path).split(sep).join("/")}\0${hashBytes(readFileSync(path))}`)
-    .sort()
-  return hashBytes(lines.join("\n"))
-}
+/** Reads a package from disk, with paths written the same way on every system. */
+export const readPackage = (dir: string): PackageFile[] =>
+  listFiles(dir).map((path) => ({ path: relative(dir, path).split(sep).join("/"), content: readFileSync(path) }))
+
+/** Hashes what a package really contains, not what it says about itself. */
+export const measureDir = (dir: string): Hex => measureFiles(readPackage(dir))
 
 /** Measures an installed package. Its name and version come from its own package.json. */
 export function measurePackage(dir: string, kind = "tool"): LoadedFile {

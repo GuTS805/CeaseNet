@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
+import { join } from "node:path"
 import {
   ADDRESSES,
   arkivPublicClient,
@@ -7,18 +8,32 @@ import {
   DEMO_TIMERS,
   demoPolicy,
   type Hex,
+  type LiftRow,
   readDiaries,
   readLatestLoadout,
+  readRecallsBy,
   readTrustPolicy,
   type TrustPolicy,
 } from "@ceasenet/core"
-import { type ApprovalResult, type Approver, ArkivGuardNet, Diary, type DiaryData, Guard } from "@ceasenet/guard"
+import {
+  type ApprovalResult,
+  type Approver,
+  ArkivGuardNet,
+  Diary,
+  type DiaryData,
+  fetchPackage,
+  Guard,
+  openSealedRef,
+  sealRef,
+  SwarmClient,
+} from "@ceasenet/guard"
 import { toHex } from "viem"
 import { accountFor, type Role } from "../../../scripts/roles"
 import { argsHash, connectWith, OfficeAgent } from "./agent"
 import { type Brain, DevBrain, ZeroGBrain } from "./brain"
 import { catalog, coreFiles, SYSTEM_PROMPT, toolProcess } from "./catalog"
-import { countLines, gateStore, sandboxDir } from "./store"
+import { countLines, gateStore, sandboxDir, STATE_DIR } from "./store"
+import { uploadPackage, uploadPublicEvidence, uploadSealedEvidence } from "./swarmFiles"
 import { ZeroGStore } from "./zeroG"
 
 const PORT = Number(process.env.DEMO_PORT ?? 8787)
@@ -46,6 +61,14 @@ function makeBrain(): { brain: Brain; source: "0g" | "dev" } {
 
 const { brain, source: brainSource } = makeBrain()
 const diaryStore = new ZeroGStore(toHex(accountFor("treasury").getHdKey().privateKey!))
+
+/** Reading from Swarm is free, so a gateway is enough. Uploading needs your own Bee node or service, and a postage batch. */
+const SWARM_GATEWAY = process.env.SWARM_GATEWAY_URL || "https://api.gateway.ethswarm.org"
+const swarm = new SwarmClient({ url: process.env.BEE_API_URL || SWARM_GATEWAY, batch: process.env.SWARM_POSTAGE_BATCH_ID || undefined })
+const swarmOn = Boolean(process.env.BEE_API_URL && swarm.canUpload)
+const FIXES_DIR = join(STATE_DIR, "fixes")
+/** Set ahead of time, so a STOP never waits for Swarm. */
+let sealedEvidence: string | undefined
 
 interface Company {
   id: string
@@ -100,6 +123,13 @@ const someoneWatching = () => Date.now() - lastSeen < IDLE_AFTER_MS
 
 const toolPackages = [tools.badMail, tools.fixedMail, tools.files]
 
+/** With a reference on the record, the fix comes from Swarm and its hash decides. Otherwise this machine has a copy. */
+async function findFix(lift: LiftRow) {
+  const hash = lift.fixedHash ?? ""
+  if (lift.fixedRef) return { ...(await fetchPackage(swarm, lift.fixedRef, hash, FIXES_DIR)), from: "downloaded from Swarm, hash checked" }
+  return toolPackages.find((p) => p.file.hash.toLowerCase() === hash.toLowerCase())
+}
+
 const fleet = await Promise.all(
   COMPANIES.map(async (c) => {
     const agentWriter = writer(c.agentRole)
@@ -142,7 +172,7 @@ const fleet = await Promise.all(
       systemPrompt: SYSTEM_PROMPT,
       tools: [tools.badMail, tools.files],
       connect: connectWith(guard, (pkg) => toolProcess(pkg, sandbox, c.company)),
-      findFix: (hash) => toolPackages.find((p) => p.file.hash.toLowerCase() === hash.toLowerCase()),
+      findFix,
       autoUpdate: c.autoUpdate,
       firstInvoice: c.firstInvoice,
       shouldWork: someoneWatching,
@@ -190,6 +220,7 @@ function snapshot() {
     timers,
     tools: { bad: tools.badMail.file, fixed: tools.fixedMail.file, files: tools.files.file },
     diaryWallet: diaryStore.address,
+    swarm: { on: swarmOn, evidenceReady: Boolean(sealedEvidence) },
     idle: !someoneWatching(),
     agents: fleet.map((f) => {
       const pending = approvals.get(f.id)
@@ -294,16 +325,18 @@ const routes: Record<string, (body: any, match: RegExpMatchArray) => Promise<unk
 
   "POST /api/maker/stop": async () => {
     const t0 = Date.now()
-    const res = await maker.stop(RECALL)
+    const res = await maker.stop({ ...RECALL, sealedEvidence })
     log(`maker STOP written in ${Date.now() - t0} ms: ${res.entityKey}`)
     return { key: res.entityKey, txHash: res.txHash, sentAt: t0 }
   },
 
   "POST /api/maker/fix": async (b) => {
+    const fixedRef = swarmOn ? await uploadPackage(swarm, tools.fixedMail) : undefined
     const res = await maker.lift({
       recall: b.recall as Hex,
       artifact: tools.badMail.file.hash,
       kind: "FIX",
+      fixedRef,
       fixedHash: tools.fixedMail.file.hash,
       fixedVersion: tools.fixedMail.file.version,
       note: "demo-mail-tool 1.0.17 removes the hidden copy",
@@ -327,6 +360,27 @@ const routes: Record<string, (body: any, match: RegExpMatchArray) => Promise<unk
     const res = await maker.deleteRecord(b.recall as Hex)
     log(`maker deleted its own STOP: ${b.recall}`)
     return { txHash: res.txHash }
+  },
+
+  /** Only the key the evidence was sealed to can do this, and only here: the server holds that key for the demo. */
+  "POST /api/regulator/open-evidence": async (b) => {
+    const { rows } = await readRecallsBy(client, [ADDRESSES.maker, ADDRESSES.regulator])
+    const recall = rows.find((r) => r.key === b.recall)
+    if (!recall?.sealedEvidence) throw new Error("this recall has no sealed evidence")
+    const reference = openSealedRef(recall.sealedEvidence, toHex(accountFor("regulator").getHdKey().privateKey!))
+    return { evidence: new TextDecoder().decode(await swarm.read(reference)) }
+  },
+
+  /** The disclosure deadline has passed: the description and evidence become public. */
+  "POST /api/maker/disclose": async (b) => {
+    const reproductionRef = swarmOn ? await uploadPublicEvidence(swarm, tools.badMail) : undefined
+    const res = await maker.disclose({
+      recall: b.recall as Hex,
+      description: "demo-mail-tool 1.0.16 copied every email it sent to an address nobody asked for. Version 1.0.17 removes the copy.",
+      reproductionRef,
+    })
+    log(`maker disclosed: ${res.entityKey}`)
+    return { key: res.entityKey, txHash: res.txHash, reproductionRef }
   },
 
   "POST /api/regulator/stop": async () => {
@@ -391,6 +445,19 @@ const server = createServer(async (req, res) => {
   return send(res, 404, { error: "not found" })
 })
 
+/** Stores the files ahead of time. If Swarm is unreachable the demo still runs, and says so. */
+async function prepareSwarm(): Promise<void> {
+  if (!swarmOn) return log("Swarm is off: set BEE_API_URL and SWARM_POSTAGE_BATCH_ID to keep fixes and evidence there")
+  try {
+    const [fix, evidence] = await Promise.all([uploadPackage(swarm, tools.fixedMail), uploadSealedEvidence(swarm, tools.badMail)])
+    sealedEvidence = sealRef(evidence, accountFor("regulator").publicKey)
+    log(`Swarm ready. The fix is at ${fix}. The evidence is encrypted, and its reference is only ever shown sealed.`)
+  } catch (e) {
+    log(`Swarm is not ready: ${(e as Error).message.split("\n")[0]}`)
+  }
+}
+
+void prepareSwarm()
 await refreshPolicies()
 await Promise.all(fleet.map((f) => f.agent.start()))
 fleet.forEach((f, i) => {

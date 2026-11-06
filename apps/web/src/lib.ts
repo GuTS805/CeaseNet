@@ -13,10 +13,14 @@ import {
 declare const __ARKIV_ACCESS_KEY__: string
 declare const __DEMO_URL__: string
 declare const __VERIFIER_URL__: string
+declare const __SWARM_GATEWAY__: string
 
 export const client = arkivPublicClient(__ARKIV_ACCESS_KEY__)
 export const DEMO_URL = __DEMO_URL__
 export const VERIFIER_URL = __VERIFIER_URL__
+export const SWARM_GATEWAY = __SWARM_GATEWAY__.replace(/\/+$/, "")
+
+export const swarmLink = (reference: string) => `${SWARM_GATEWAY}/bzz/${reference}`
 
 export const shortHash = (h: string) => (h.length > 14 ? `${h.slice(0, 8)}…${h.slice(-4)}` : h)
 
@@ -139,5 +143,6 @@ export interface DemoState {
   model: string
   idle: boolean
   tools: { bad: LoadedFile; fixed: LoadedFile; files: LoadedFile }
+  swarm: { on: boolean; evidenceReady: boolean }
   agents: DemoAgent[]
 }

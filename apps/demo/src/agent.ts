@@ -1,4 +1,4 @@
-import { canonicalJson, hashBytes, type LoadedFile } from "@ceasenet/core"
+import { canonicalJson, hashBytes, type LiftRow, type LoadedFile } from "@ceasenet/core"
 import { type CallResult, Guard, GuardedTool, type ToolProcess, type ToolSpec } from "@ceasenet/guard"
 import { type Brain, BrainUnavailable, type Message } from "./brain"
 import type { ToolPackage } from "./catalog"
@@ -37,8 +37,8 @@ export interface AgentOptions {
   systemPrompt: string
   tools: ToolPackage[]
   connect: Connect
-  /** Finds the published version for a fix. */
-  findFix: (hash: string) => ToolPackage | undefined
+  /** Gets the published version for a fix. Where it comes from does not matter: the guard checks its hash. */
+  findFix: (lift: LiftRow) => Promise<(ToolPackage & { from?: string }) | undefined>
   autoUpdate: boolean
   /** Called for every step, so the diary can keep the model request behind each call. */
   onCall?: (info: { file: LoadedFile; action: string; args: Record<string, unknown>; result: CallResult; requestId: string; model: string }) => void
@@ -52,6 +52,8 @@ export interface AgentOptions {
 
 const FEED_LIMIT = 60
 const RETRY_MS = 3_000
+/** A fix that could not be fetched is tried again this much later. */
+const FIX_RETRY_MS = 10_000
 
 const pause = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
@@ -68,6 +70,7 @@ export class OfficeAgent {
   private invoice: number
   private running = false
   private updating = false
+  private nextFixTry = 0
   private loop: Promise<void> | undefined
   private readonly wait: (ms: number) => Promise<void>
 
@@ -198,11 +201,19 @@ export class OfficeAgent {
   /** Moves to a published fix, if one applies. The guard refuses anything that does not match the published hash. */
   async installFix(): Promise<boolean> {
     const fix = this.guard.lastCheck?.fixes[0]
-    if (!fix || this.updating || !this.guard.networkUp) return false
-    const next = this.opts.findFix(fix.lift.fixedHash ?? "")
-    if (!next) return false
+    if (!fix || this.updating || !this.guard.networkUp || Date.now() < this.nextFixTry) return false
     this.updating = true
     try {
+      let next: Awaited<ReturnType<AgentOptions["findFix"]>>
+      try {
+        next = await this.opts.findFix(fix.lift)
+      } catch (e) {
+        // Staying blocked is the safe outcome. The agent says why and tries again later.
+        this.nextFixTry = Date.now() + FIX_RETRY_MS
+        this.say("problem", `Could not get the fix: ${(e as Error).message.split("\n")[0]}`)
+        return false
+      }
+      if (!next) return false
       const fresh = await this.opts.connect(next)
       const adopted = await this.guard.adoptFix(fix, next.file)
       if (!adopted) {
@@ -212,7 +223,7 @@ export class OfficeAgent {
       const old = this.connections.find((c) => c.file.hash === fix.file.hash)
       this.connections = this.connections.map((c) => (c === old ? fresh : c))
       await old?.close()
-      this.say("update", `Moved to ${next.file.name} ${next.file.version}, the published fix`)
+      this.say("update", `Moved to ${next.file.name} ${next.file.version}, the published fix${next.from ? ` (${next.from})` : ""}`)
       return true
     } finally {
       this.updating = false

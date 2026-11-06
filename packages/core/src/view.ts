@@ -2,9 +2,11 @@ import type { ArkivPublic } from "./arkiv"
 import type { BoardAgent } from "./board"
 import { ADDRESSES, DEMO_OWNERS, demoPolicy } from "./deployment"
 import {
+  type DisclosureRow,
   readAcksByAgents,
   readAgents,
   readArtifacts,
+  readDisclosures,
   readEndorsements,
   readHeartbeat,
   readLatestLoadout,
@@ -22,6 +24,8 @@ export interface PublicView {
   lifts: LiftRow[]
   endorsements: EndorseRow[]
   artifacts: ArtifactRow[]
+  /** Public descriptions of recalls, only from the key that issued the recall or a regulator. */
+  disclosures: DisclosureRow[]
 }
 
 /** Everything the public pages show. Read straight from Arkiv, with no server of ours in between. */
@@ -47,7 +51,7 @@ export async function readPublicView(client: ArkivPublic, owners: readonly strin
   const { rows: recalls, block } = await readRecallsBy(client, [...issuers])
   recalls.sort((a, b) => Number(b.createdAt - a.createdAt))
 
-  const [acks, lifts, endorsements, artifacts] = await Promise.all([
+  const [acks, lifts, endorsements, artifacts, disclosures] = await Promise.all([
     readAcksByAgents(
       client,
       passports.map((p) => p.agent),
@@ -62,6 +66,15 @@ export async function readPublicView(client: ArkivPublic, owners: readonly strin
       defaults.verifier,
     ),
     readArtifacts(client, [ADDRESSES.maker, ADDRESSES.publisher]),
+    readDisclosures(
+      client,
+      recalls.map((r) => r.key),
+    ),
   ])
-  return { block, agents, recalls, acks, lifts, endorsements, artifacts }
+  const fromIssuer = (d: DisclosureRow) => {
+    const recall = recalls.find((r) => r.key === d.recall)
+    const by = d.creator.toLowerCase()
+    return recall !== undefined && (by === recall.creator.toLowerCase() || by === ADDRESSES.regulator.toLowerCase())
+  }
+  return { block, agents, recalls, acks, lifts, endorsements, artifacts, disclosures: disclosures.filter(fromIssuer) }
 }

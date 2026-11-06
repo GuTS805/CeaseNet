@@ -79,7 +79,7 @@ function make(brain: Brain = new DevBrain(), over: { model?: LoadedFile } = {}) 
     systemPrompt: "p",
     tools: [BAD, FILES],
     connect,
-    findFix: (hash) => (hash === GOOD.file.hash ? GOOD : undefined),
+    findFix: async (lift) => (lift.fixedHash === GOOD.file.hash ? GOOD : undefined),
     autoUpdate: true,
     wait: async () => undefined,
   })

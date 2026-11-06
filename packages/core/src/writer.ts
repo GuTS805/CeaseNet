@@ -4,6 +4,7 @@ import { stringToBytes } from "viem"
 import type { ArkivWallet } from "./arkiv"
 import { recallContentHash } from "./hash"
 import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Lift, Loadout, Recall, TrustList } from "./schema"
+import { assertPublicRef } from "./swarmRef"
 import type { AckAction, AgentStatus, Hex, LiftKind, LoadedFile, Stance, TrustPolicy } from "./types"
 
 const READ_ONLY = { readonly: true } as const
@@ -151,6 +152,7 @@ export class ArkivWriter {
     fixedRef?: string
     note?: string
   }) {
+    assertPublicRef(input.fixedRef)
     return this.enqueue(() =>
       this.wallet.createEntity(
         Lift,
@@ -252,6 +254,7 @@ export class ArkivWriter {
   }
 
   disclose(input: { recall: Hex; description: string; reproductionRef?: string }) {
+    assertPublicRef(input.reproductionRef)
     return this.enqueue(() =>
       this.wallet.createEntity(
         Disclose,

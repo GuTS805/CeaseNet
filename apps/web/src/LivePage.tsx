@@ -147,6 +147,7 @@ export function LivePage() {
   const [timer, setTimer] = useState<{ start: number; end?: number }>()
   const [, tick] = useState(0)
   const [humans, setHumans] = useState(0)
+  const [evidence, setEvidence] = useState<string>()
 
   const badHash = state?.tools.bad.hash
   const recalls = useMemo(
@@ -161,6 +162,8 @@ export function LivePage() {
   )
   const focus: RecallRow | undefined = stop ?? warning
   const counts = warning && view ? countConfirmations(warning, view.endorsements, view.block, trust) : undefined
+  const fixOnSwarm = stopLifts?.find((l) => l.kind === "FIX")?.fixedRef
+  const disclosed = stop ? view?.disclosures.some((d) => d.recall === stop.key) : false
 
   const agents = state?.agents ?? []
   const stolen = agents.reduce((sum, a) => sum + a.stolen, 0)
@@ -283,7 +286,12 @@ export function LivePage() {
                   {focus.level === "STOP" ? "STOP" : "Warning"}
                 </a>
                 <p style={{ margin: "6px 0" }}>{focus.reason}</p>
-                {hasFix && <div className="status green">Fix published: {state?.tools.fixed.version}</div>}
+                {hasFix && (
+                  <div className="status green">
+                    Fix published: {state?.tools.fixed.version}
+                    {fixOnSwarm ? ", stored on Swarm" : ""}
+                  </div>
+                )}
               </>
             ) : (
               <p className="muted" style={{ margin: 0 }}>
@@ -334,7 +342,23 @@ export function LivePage() {
               <button disabled={!stop || Boolean(busy)} onClick={() => void act("Delete", "/api/maker/delete", { recall: stop?.key })}>
                 Maker deletes its STOP
               </button>
+              {stop?.sealedEvidence && (
+                <button
+                  disabled={Boolean(busy)}
+                  onClick={() =>
+                    void act("Open evidence", "/api/regulator/open-evidence", { recall: stop.key }).then((r) => {
+                      if (r) setEvidence((r as { evidence: string }).evidence)
+                    })
+                  }
+                >
+                  Open sealed evidence as the council
+                </button>
+              )}
+              <button disabled={!stop || Boolean(busy) || disclosed} onClick={() => void act("Disclose", "/api/maker/disclose", { recall: stop?.key })}>
+                Disclose publicly
+              </button>
             </div>
+            {evidence && <pre className="evidence">{evidence}</pre>}
             <p className="small muted" style={{ marginBottom: 0 }}>
               Simulated people let you reach three quickly in a demo. The World ID buttons above are the real path.
             </p>

@@ -584,3 +584,11 @@ input:focus {
     font-size: 52px;
   }
 }
+
+.evidence {
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  margin: 10px 0 0;
+}

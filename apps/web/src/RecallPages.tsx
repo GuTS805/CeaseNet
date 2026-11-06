@@ -1,6 +1,18 @@
-import { countConfirmations, demoPolicy, type Hex, isDismissed, isWithdrawn, type RecallRow, trustFromPolicy } from "@ceasenet/core"
+import { useState } from "react"
+import {
+  countConfirmations,
+  decodeBundle,
+  demoPolicy,
+  type Hex,
+  isDismissed,
+  isWithdrawn,
+  type LiftRow,
+  measureFiles,
+  type RecallRow,
+  trustFromPolicy,
+} from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
-import { explorerAddress, nameOf, shortHash, usePublicView } from "./lib"
+import { explorerAddress, nameOf, shortHash, SWARM_GATEWAY, swarmLink, usePublicView } from "./lib"
 import { WorldConfirm } from "./WorldConfirm"
 
 const trust = trustFromPolicy(demoPolicy())
@@ -49,6 +61,49 @@ export function RecallsPage() {
   )
 }
 
+/** Fetches the fix from Swarm in this browser and hashes it here, so nobody has to take this site's word for it. */
+function FixOnSwarm({ fix }: { fix: LiftRow }) {
+  const [said, setSaid] = useState<{ ok: boolean; text: string }>()
+  const [busy, setBusy] = useState(false)
+  const check = async () => {
+    setBusy(true)
+    setSaid(undefined)
+    try {
+      const res = await fetch(`${SWARM_GATEWAY}/bzz/${fix.fixedRef}`)
+      if (!res.ok) throw new Error(`Swarm answered HTTP ${res.status}`)
+      const files = decodeBundle(new Uint8Array(await res.arrayBuffer()))
+      const hash = measureFiles(files)
+      const ok = hash.toLowerCase() === fix.fixedHash?.toLowerCase()
+      setSaid({
+        ok,
+        text: ok
+          ? `Matches the published fix: ${files.length} files, unchanged.`
+          : `Does not match the published fix. Do not run this file. It hashes to ${shortHash(hash)}.`,
+      })
+    } catch (e) {
+      setSaid({ ok: false, text: `Could not read it from Swarm: ${(e as Error).message}` })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div className="small">
+        Stored on Swarm:{" "}
+        <a className="mono" href={swarmLink(fix.fixedRef ?? "")} target="_blank" rel="noreferrer">
+          {shortHash(fix.fixedRef ?? "")}
+        </a>
+      </div>
+      <div className="buttons" style={{ marginTop: 6 }}>
+        <button disabled={busy} onClick={() => void check()}>
+          {busy ? "Reading from Swarm…" : "Download from Swarm and check"}
+        </button>
+      </div>
+      {said && <div className={`small ${said.ok ? "ok" : "warn"}`} style={{ marginTop: 6 }}>{said.text}</div>}
+    </div>
+  )
+}
+
 /** One recall: what it says, who issued it, who confirmed it and who obeyed. */
 export function RecallPage({ recallKey }: { recallKey: Hex }) {
   const { data: view, error } = usePublicView(3000)
@@ -73,6 +128,7 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
   const fix = lifts.find((l) => l.kind === "FIX")
   const ended = recall.level === "STOP" ? isWithdrawn(recall, lifts, trust) : isDismissed(recall, lifts, trust)
   const known = view.artifacts.find((a) => a.hash.toLowerCase() === recall.artifact.toLowerCase())
+  const disclosure = view.disclosures.find((d) => d.recall === recall.key)
 
   return (
     <div className="page" style={{ display: "grid", gap: 12 }}>
@@ -122,7 +178,13 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
             </tr>
             <tr>
               <th>Evidence</th>
-              <td>{recall.sealedEvidence ? "Sealed until disclosure" : "None attached"}</td>
+              <td>
+                {disclosure?.reproductionRef
+                  ? "Public: see the disclosure below"
+                  : recall.sealedEvidence
+                    ? "Encrypted on Swarm. Only the security council can open it until it is disclosed."
+                    : "None attached"}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -152,9 +214,25 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
           <h2>Fix{fix.fixedVersion ? `: version ${fix.fixedVersion}` : ""}</h2>
           <p style={{ marginTop: 0 }}>{fix.note}</p>
           <div className="mono">{fix.fixedHash}</div>
+          {fix.fixedRef && <FixOnSwarm fix={fix} />}
           <p className="small muted" style={{ marginBottom: 0 }}>
             Agents that move to this exact file use the tool again. Agents still on the old file stay blocked.
           </p>
+        </div>
+      )}
+
+      {disclosure && (
+        <div className="card">
+          <h2>Disclosed</h2>
+          <p style={{ marginTop: 0 }}>{disclosure.description}</p>
+          {disclosure.reproductionRef && (
+            <div className="small">
+              Evidence on Swarm:{" "}
+              <a className="mono" href={swarmLink(disclosure.reproductionRef)} target="_blank" rel="noreferrer">
+                {shortHash(disclosure.reproductionRef)}
+              </a>
+            </div>
+          )}
         </div>
       )}
 
