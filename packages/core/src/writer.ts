@@ -3,8 +3,8 @@ import { addr, key, u64 } from "@arkiv-network/sdk/schema"
 import { stringToBytes } from "viem"
 import type { ArkivWallet } from "./arkiv"
 import { recallContentHash } from "./hash"
-import { Ack, Agent, Artifact, Custody, Disclose, Endorse, Episode, Heartbeat, Lift, Loadout, Recall, Robot, TrustList } from "./schema"
-import type { AckAction, Hex, LiftKind, LoadedFile, Mode, Stance } from "./types"
+import { Ack, Agent, Artifact, Diary, Disclose, Endorse, Heartbeat, Lift, Loadout, Recall, TrustList } from "./schema"
+import type { AckAction, AgentStatus, Hex, LiftKind, LoadedFile, Stance, TrustPolicy } from "./types"
 
 const READ_ONLY = { readonly: true } as const
 /** Nobody can edit a STOP, and anyone can keep it alive, so it cannot quietly lapse. */
@@ -119,7 +119,7 @@ export class ArkivWriter {
   ack(input: {
     recall: Hex
     recallHash: string
-    robot: Hex
+    agent: Hex
     artifact: string
     action: AckAction
     issuer: Hex
@@ -131,7 +131,7 @@ export class ArkivWriter {
         clean({
           recall: key(input.recall),
           recallHash: input.recallHash,
-          robot: addr(input.robot),
+          agent: addr(input.agent),
           artifact: input.artifact.toLowerCase(),
           action: input.action,
           issuer: addr(input.issuer),
@@ -142,7 +142,15 @@ export class ArkivWriter {
     )
   }
 
-  lift(input: { recall: Hex; artifact: string; kind: LiftKind; fixedHash?: string; fixedRef?: string; note?: string }) {
+  lift(input: {
+    recall: Hex
+    artifact: string
+    kind: LiftKind
+    fixedHash?: string
+    fixedVersion?: string
+    fixedRef?: string
+    note?: string
+  }) {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Lift,
@@ -151,6 +159,7 @@ export class ArkivWriter {
           artifact: input.artifact.toLowerCase(),
           kind: input.kind,
           fixedHash: input.fixedHash?.toLowerCase(),
+          fixedVersion: input.fixedVersion,
           fixedRef: input.fixedRef,
           note: text(input.note),
         }) as any,
@@ -159,21 +168,11 @@ export class ArkivWriter {
     )
   }
 
-  robot(input: { robot: Hex; model: string; serial: string; city: string }) {
-    return this.enqueue(() =>
-      this.wallet.createEntity(
-        Robot,
-        { robot: addr(input.robot), maker: addr(this.address), model: input.model, serial: input.serial, city: input.city },
-        { expiration: LONG(), flags: READ_ONLY },
-      ),
-    )
-  }
-
   loadout(input: { seq: bigint; files: LoadedFile[] }) {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Loadout,
-        { robot: addr(this.address), seq: u64(input.seq), files: stringToBytes(JSON.stringify(input.files)) },
+        { agent: addr(this.address), seq: u64(input.seq), files: stringToBytes(JSON.stringify(input.files)) },
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )
@@ -204,18 +203,18 @@ export class ArkivWriter {
     )
   }
 
-  createHeartbeat(input: { mode: Mode | "PAUSED"; loadoutSeq: bigint; ttlSeconds: number }) {
+  createHeartbeat(input: { mode: AgentStatus; loadoutSeq: bigint; ttlSeconds: number }) {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Heartbeat,
-        { robot: addr(this.address), mode: input.mode, loadoutSeq: u64(input.loadoutSeq) },
+        { agent: addr(this.address), mode: input.mode, loadoutSeq: u64(input.loadoutSeq) },
         { expiration: ExpirationTime.fromSeconds(input.ttlSeconds) },
       ),
     )
   }
 
   /** A new status: updates and extends a heartbeat in one transaction. */
-  updateHeartbeat(entityKey: Hex, input: { mode: Mode | "PAUSED"; loadoutSeq: bigint; ttlSeconds: number }) {
+  updateHeartbeat(entityKey: Hex, input: { mode: AgentStatus; loadoutSeq: bigint; ttlSeconds: number }) {
     return this.enqueue(() =>
       this.wallet.executeBatch(
         {
@@ -234,51 +233,20 @@ export class ArkivWriter {
     )
   }
 
-  /** Created by the maker, then handed to the operator: `$creator` proves who issued it, `$owner` who holds it now. */
-  custody(input: { robot: Hex; operator: string; contact: string; insurance?: string }) {
+  /** One part of an agent's diary: where it lives on 0G Storage and the hash its entries must end on. */
+  diary(input: { root: string; head: string; entries: bigint; firstSeq: bigint; lastSeq: bigint }) {
     return this.enqueue(() =>
       this.wallet.createEntity(
-        Custody,
-        clean({
-          robot: addr(input.robot),
-          operator: input.operator,
-          contact: input.contact,
-          insurance: input.insurance,
-        }) as any,
-        { expiration: LONG() },
-      ),
-    )
-  }
-
-  transfer(entityKey: Hex, newOwner: Hex) {
-    return this.enqueue(() => this.wallet.changeOwnership({ entityKey, newOwner }))
-  }
-
-  updateCustody(entityKey: Hex, input: { operator: string; contact: string }) {
-    return this.enqueue(() =>
-      this.wallet.patchEntity(Custody, entityKey, { set: { operator: input.operator, contact: input.contact } }),
-    )
-  }
-
-  episode(input: {
-    softwareHash: string
-    root: string
-    decisions: bigint
-    firstRequestId: string
-    lastRequestId: string
-  }) {
-    return this.enqueue(() =>
-      this.wallet.createEntity(
-        Episode,
+        Diary,
         {
-          robot: addr(this.address),
-          softwareHash: input.softwareHash.toLowerCase(),
+          agent: addr(this.address),
           root: input.root,
-          decisions: u64(input.decisions),
-          firstRequestId: input.firstRequestId,
-          lastRequestId: input.lastRequestId,
+          head: input.head,
+          entries: u64(input.entries),
+          firstSeq: u64(input.firstSeq),
+          lastSeq: u64(input.lastSeq),
         },
-        { expiration: ExpirationTime.fromDays(30), flags: READ_ONLY },
+        { expiration: LONG(), flags: READ_ONLY },
       ),
     )
   }
@@ -297,21 +265,29 @@ export class ArkivWriter {
     )
   }
 
-  agent(input: { owner: Hex; framework: string; purpose: string }) {
+  /** Written by the owner, which is what ties an agent to someone responsible. */
+  agent(input: { agent: Hex; name: string; framework: string; purpose: string }) {
     return this.enqueue(() =>
       this.wallet.createEntity(
         Agent,
-        { agent: addr(this.address), owner: addr(input.owner), framework: input.framework, purpose: stringToBytes(input.purpose) },
+        {
+          agent: addr(input.agent),
+          owner: addr(this.address),
+          name: input.name,
+          framework: input.framework,
+          purpose: stringToBytes(input.purpose),
+        },
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )
   }
 
-  trustList(input: { seq: bigint; issuers: string[] }) {
+  /** Publishes whose STOPs this owner's agents obey. The highest number wins. */
+  trustList(input: { seq: bigint; policy: TrustPolicy }) {
     return this.enqueue(() =>
       this.wallet.createEntity(
         TrustList,
-        { owner: addr(this.address), seq: u64(input.seq), issuers: stringToBytes(JSON.stringify(input.issuers)) },
+        { owner: addr(this.address), seq: u64(input.seq), policy: stringToBytes(JSON.stringify(input.policy)) },
         { expiration: LONG(), flags: READ_ONLY },
       ),
     )

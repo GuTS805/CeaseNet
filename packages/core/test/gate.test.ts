@@ -4,12 +4,15 @@ import {
   ackId,
   countConfirmations,
   evaluate,
+  evaluateAgent,
   type GateInput,
   makeTrust,
   recallContentHash,
+  recallCovers,
   vanishedStops,
+  verdictFor,
 } from "../src/index"
-import type { EndorseRow, Hex, LiftRow, RecallRow } from "../src/types"
+import type { EndorseRow, Hex, LiftRow, LoadedFile, RecallRow } from "../src/types"
 
 const MAKER: Hex = "0x00000000000000000000000000000000000000aa"
 const REGULATOR: Hex = "0x00000000000000000000000000000000000000bb"
@@ -19,6 +22,14 @@ const OTHER_MAKER: Hex = "0x00000000000000000000000000000000000000ee"
 
 const H = "0xpolicy152"
 const FIXED = "0xpolicy153"
+
+const file = (hash: string, over: Partial<LoadedFile> = {}): LoadedFile => ({
+  kind: "tool",
+  name: "demo-mail-tool",
+  version: "1.0.16",
+  hash,
+  ...over,
+})
 
 const trust = makeTrust({
   stopKeys: [MAKER, REGULATOR, OTHER_MAKER],
@@ -67,7 +78,7 @@ const lift = (recall: Hex, kind: LiftRow["kind"], creator: Hex, over: Partial<Li
 })
 
 const input = (over: Partial<GateInput> = {}): GateInput => ({
-  hashes: [H],
+  files: [file(H)],
   rememberedStops: [],
   rememberedLifts: [],
   advisories: [],
@@ -93,7 +104,7 @@ describe("STOP", () => {
     expect(evaluate(input({ rememberedStops: [stop({ creator: OUTSIDER })] })).mode).toBe("RUNNING")
   })
 
-  it("ignores a STOP for software this robot does not run", () => {
+  it("ignores a STOP for software this agent does not load", () => {
     expect(evaluate(input({ rememberedStops: [stop({ artifact: "0xother" })] })).mode).toBe("RUNNING")
   })
 
@@ -102,16 +113,16 @@ describe("STOP", () => {
     expect(evaluate(input({ rememberedStops: [s] })).mode).toBe("STOPPED")
   })
 
-  it("stays stopped after a fix if the robot still runs the old file", () => {
+  it("stays stopped after a fix if the agent still loads the old file", () => {
     const s = stop()
     const fix = lift(s.key, "FIX", MAKER, { fixedHash: FIXED })
     expect(evaluate(input({ rememberedStops: [s], rememberedLifts: [fix] })).mode).toBe("STOPPED")
   })
 
-  it("returns to work once the fixed file is installed", () => {
+  it("allows it once the fixed file is loaded", () => {
     const s = stop()
     const fix = lift(s.key, "FIX", MAKER, { fixedHash: FIXED })
-    expect(evaluate(input({ hashes: [FIXED], rememberedStops: [s], rememberedLifts: [fix] })).mode).toBe("RUNNING")
+    expect(evaluate(input({ files: [file(FIXED)], rememberedStops: [s], rememberedLifts: [fix] })).mode).toBe("RUNNING")
   })
 
   it("resumes when the issuer withdraws the STOP", () => {
@@ -245,7 +256,7 @@ describe("SUPERVISED", () => {
     expect(evaluate(input({ advisories: [a], endorsements: ends })).mode).toBe("RUNNING")
   })
 
-  it("ignores an advisory on software this robot does not run", () => {
+  it("ignores an advisory on software this agent does not load", () => {
     const a = advisory({ artifact: "0xother" })
     const ends = ["h1", "h2", "h3"].map((h) => endorse(a.key, h))
     expect(evaluate(input({ advisories: [a], endorsements: ends })).mode).toBe("RUNNING")
@@ -267,7 +278,7 @@ describe("losing Arkiv", () => {
     expect(evaluate(input(offline(2000))).mode).toBe("STOPPED")
   })
 
-  it("never restarts a stopped robot during the grace period", () => {
+  it("never brings back something stopped during the grace period", () => {
     expect(evaluate(input({ rememberedStops: [stop()], ...offline(1) })).mode).toBe("STOPPED")
   })
 
@@ -307,23 +318,131 @@ describe("deleted STOPs", () => {
 })
 
 describe("receipts", () => {
+  const agent = (over: Partial<GateInput> = {}) => evaluateAgent(input(over))
+
   it("are owed once for a STOP", () => {
     const s = stop()
-    const d = evaluate(input({ rememberedStops: [s] }))
-    expect(acksOwed(d, [], new Set()).map((a) => a.action)).toEqual(["STOPPED"])
-    expect(acksOwed(d, [], new Set([ackId(s.key, "STOPPED")]))).toEqual([])
+    const d = agent({ rememberedStops: [s] })
+    expect(acksOwed(d, [], new Set()).map((a) => a.action)).toEqual(["BLOCKED"])
+    expect(acksOwed(d, [], new Set([ackId(s.key, "BLOCKED")]))).toEqual([])
   })
 
-  it("record leaving slow mode", () => {
-    const a = advisory()
-    const d = evaluate(input())
-    expect(acksOwed(d, [a], new Set()).map((x) => x.action)).toEqual(["LEFT_SLOW"])
+  it("are owed once when one STOP covers two loaded tools", () => {
+    const s = stop({ pkg: "demo-mail-tool", versions: "*" })
+    const d = agent({ rememberedStops: [s], files: [file("0xa"), file("0xb")] })
+    expect(acksOwed(d, [], new Set())).toHaveLength(1)
   })
 
-  it("do not record leaving slow mode when a STOP takes over", () => {
+  it("record a warning clearing", () => {
     const a = advisory()
-    const d = evaluate(input({ rememberedStops: [stop()] }))
-    expect(acksOwed(d, [a], new Set()).map((x) => x.action)).toEqual(["STOPPED"])
+    expect(acksOwed(agent(), [a], new Set()).map((x) => x.action)).toEqual(["CLEARED"])
+  })
+
+  it("do not record a warning clearing when a STOP takes over on the same file", () => {
+    const a = advisory()
+    const d = agent({ rememberedStops: [stop()] })
+    expect(acksOwed(d, [a], new Set()).map((x) => x.action)).toEqual(["BLOCKED"])
+  })
+
+  it("record a warning clearing even while a different tool is under a STOP", () => {
+    const warned = advisory({ artifact: "0xfiles" })
+    const s = stop({ artifact: "0xmail" })
+    const d = agent({ rememberedStops: [s], files: [file("0xmail"), file("0xfiles", { name: "demo-files-tool" })] })
+    expect(acksOwed(d, [warned], new Set()).map((x) => x.action).sort()).toEqual(["BLOCKED", "CLEARED"])
+  })
+})
+
+describe("what a recall covers", () => {
+  const range = (versions: string, pkg = "demo-mail-tool") => stop({ artifact: "0xother", pkg, versions })
+
+  it("matches an exact hash whatever the name says", () => {
+    expect(recallCovers(stop({ artifact: "0xABC" }), file("0xabc", { name: "renamed-copy" }))).toBe(true)
+  })
+
+  it("matches a package and version range", () => {
+    expect(recallCovers(range(">=1.0.16 <1.0.17"), file("0x1", { version: "1.0.16" }))).toBe(true)
+    expect(recallCovers(range(">=1.0.16 <1.0.17"), file("0x1", { version: "1.0.17" }))).toBe(false)
+    expect(recallCovers(range(">=1.0.16 <1.0.17"), file("0x1", { version: "1.0.15" }))).toBe(false)
+  })
+
+  it("does not match a different package", () => {
+    expect(recallCovers(range("*", "other-tool"), file("0x1"))).toBe(false)
+  })
+
+  it("covers nothing when the range cannot be read", () => {
+    expect(recallCovers(range("not a range"), file("0x1"))).toBe(false)
+  })
+
+  it("covers nothing by range when the loaded version cannot be read", () => {
+    expect(recallCovers(range("*"), file("0x1", { version: "latest" }))).toBe(false)
+  })
+
+  it("needs both a name and a range", () => {
+    expect(recallCovers(stop({ artifact: "0xother", pkg: "demo-mail-tool" }), file("0x1"))).toBe(false)
+  })
+})
+
+describe("one bad tool", () => {
+  const MAIL = file("0xmail")
+  const FILES = file("0xfiles", { name: "demo-files-tool", version: "2.1.0" })
+  const MODEL = file("0xmodel", { kind: "model", name: "glm" })
+  const files = [MAIL, FILES, MODEL]
+
+  it("blocks only that tool and leaves the agent working", () => {
+    const d = evaluateAgent(input({ files, rememberedStops: [stop({ artifact: "0xmail" })] }))
+    expect(d.core.mode).toBe("RUNNING")
+    expect(verdictFor(d, "0xmail")).toBe("BLOCK")
+    expect(verdictFor(d, "0xfiles")).toBe("ALLOW")
+  })
+
+  it("asks a human for a tool with a confirmed warning, and only for that tool", () => {
+    const a = advisory({ artifact: "0xmail" })
+    const ends = ["h1", "h2", "h3"].map((h) => endorse(a.key, h))
+    const d = evaluateAgent(input({ files, advisories: [a], endorsements: ends }))
+    expect(verdictFor(d, "0xmail")).toBe("NEEDS_APPROVAL")
+    expect(verdictFor(d, "0xfiles")).toBe("ALLOW")
+  })
+
+  it("stops every tool when the agent's model is recalled", () => {
+    const d = evaluateAgent(input({ files, rememberedStops: [stop({ artifact: "0xmodel" })] }))
+    expect(d.core.mode).toBe("STOPPED")
+    expect(verdictFor(d, "0xfiles")).toBe("BLOCK")
+  })
+
+  it("asks a human for every tool when the agent's prompt has a confirmed warning", () => {
+    const a = advisory({ artifact: "0xmodel" })
+    const ends = ["h1", "h2", "h3"].map((h) => endorse(a.key, h))
+    const d = evaluateAgent(input({ files, advisories: [a], endorsements: ends }))
+    expect(verdictFor(d, "0xfiles")).toBe("NEEDS_APPROVAL")
+  })
+
+  it("lets the stricter state win when a tool is blocked and the agent is supervised", () => {
+    const a = advisory({ artifact: "0xmodel" })
+    const ends = ["h1", "h2", "h3"].map((h) => endorse(a.key, h))
+    const d = evaluateAgent(
+      input({ files, advisories: [a], endorsements: ends, rememberedStops: [stop({ artifact: "0xmail" })] }),
+    )
+    expect(verdictFor(d, "0xmail")).toBe("BLOCK")
+  })
+
+  it("does not let an unknown tool through", () => {
+    const d = evaluateAgent(input({ files }))
+    expect(verdictFor(d, "0xnever-measured")).toBe("BLOCK")
+  })
+
+  it("applies the offline steps to every tool", () => {
+    const offline = (offlineForMs: number) => ({ connectivity: { online: false, offlineForMs } })
+    const at = (ms: number) => evaluateAgent(input({ files, ...offline(ms) }))
+    expect(verdictFor(at(10), "0xmail")).toBe("ALLOW")
+    expect(verdictFor(at(1000), "0xmail")).toBe("NEEDS_APPROVAL")
+    expect(verdictFor(at(2000), "0xfiles")).toBe("BLOCK")
+  })
+
+  it("keeps a warning applying only to its own tool while offline", () => {
+    const a = advisory({ artifact: "0xmail" })
+    const d = evaluateAgent(input({ files, lastSupervised: [a], connectivity: { online: false, offlineForMs: 5 } }))
+    expect(verdictFor(d, "0xmail")).toBe("NEEDS_APPROVAL")
+    expect(verdictFor(d, "0xfiles")).toBe("ALLOW")
   })
 })
 

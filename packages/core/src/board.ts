@@ -1,85 +1,100 @@
-import { lower } from "./gate"
-import type { AckRow, HeartbeatRow, Hex, LoadoutRow, RecallRow, RobotRow } from "./types"
+import { lower, recallCovers } from "./gate"
+import type { AckRow, AgentRow, HeartbeatRow, Hex, LoadoutRow, RecallRow, TrustPolicy } from "./types"
 
 /**
- * Where a robot stands on one recall.
+ * Where an agent stands on one recall.
  *
- * "Silent" and "no receipt" are kept apart on purpose. A silent robot may have lost its internet or may be
+ * "Silent" and "no receipt" are kept apart on purpose. A silent agent may have lost its internet or may be
  * ignoring the recall: nobody can tell, so the board never claims which.
  */
-export type RobotRecallState =
-  | "FIXED" // runs the fixed software and has said so
-  | "STOPPED" // has receipted the STOP and still runs the recalled file
-  | "SLOWED" // has receipted a confirmed advisory
-  | "SILENT" // runs the recalled file, no receipt, no live heartbeat
-  | "NO_RECEIPT" // runs the recalled file, no receipt, but its heartbeat is alive
+export type AgentRecallState =
+  | "FIXED" // runs the fixed version and has said so
+  | "BLOCKED" // has receipted the STOP and refuses to use the file
+  | "SUPERVISED" // has receipted a confirmed warning and asks a human first
+  | "SILENT" // loads the recalled file, no receipt, no live heartbeat
+  | "NO_RECEIPT" // loads the recalled file, no receipt, but its heartbeat is alive
+  | "NOT_FOLLOWING" // its owner has chosen not to obey this issuer
 
-export interface BoardRobot {
-  robot: RobotRow
+export interface BoardAgent {
+  agent: AgentRow
   loadout?: LoadoutRow
   heartbeat?: HeartbeatRow
+  /** The owner's public trust list. */
+  policy?: TrustPolicy
 }
 
-export interface BoardRow extends BoardRobot {
-  state: RobotRecallState
+export interface BoardRow extends BoardAgent {
+  state: AgentRecallState
   receipts: AckRow[]
 }
 
 export interface RecallBoard {
   rows: BoardRow[]
-  /** Robots that have acted on this recall. */
+  /** Agents that have acted on this recall. */
   obeyed: number
   silent: number
   noReceipt: number
+  notFollowing: number
+  /** Agents whose owners follow this issuer and that load the file or have receipted it. */
   affected: number
 }
 
-const runsFile = (loadout: LoadoutRow | undefined, hash: string) =>
-  loadout?.files.some((f) => lower(f.hash) === lower(hash)) ?? false
+const loadsFile = (loadout: LoadoutRow | undefined, recall: RecallRow) =>
+  loadout?.files.some((f) => recallCovers(recall, f)) ?? false
 
-/** A receipt counts only if the robot it names created it, so nobody can obey on a robot's behalf. */
-export function genuineReceipts(acks: readonly AckRow[], recall: Hex, robot: Hex): AckRow[] {
+/** A receipt counts only if the agent it names created it, so nobody can obey on an agent's behalf. */
+export function genuineReceipts(acks: readonly AckRow[], recall: Hex, agent: Hex): AckRow[] {
   return acks.filter(
-    (a) => a.recall === recall && lower(a.robot) === lower(robot) && lower(a.creator) === lower(robot),
+    (a) => a.recall === recall && lower(a.agent) === lower(agent) && lower(a.creator) === lower(agent),
   )
+}
+
+export function follows(policy: TrustPolicy | undefined, recall: RecallRow): boolean {
+  if (!policy) return true
+  return recall.level === "STOP"
+    ? policy.issuers.some((i) => lower(i) === lower(recall.creator))
+    : lower(policy.verifier) === lower(recall.creator)
 }
 
 /**
  * Who is affected by a recall and whether they obeyed.
  *
- * It starts from every registered robot's loadout, not from the receipts. Starting from receipts would
- * leave out exactly the robots that matter most: the ones that never answered.
+ * It starts from every registered agent's loadout, not from the receipts. Starting from receipts would
+ * leave out exactly the agents that matter most: the ones that never answered.
  */
-export function buildRecallBoard(recall: RecallRow, robots: readonly BoardRobot[], acks: readonly AckRow[]): RecallBoard {
+export function buildRecallBoard(recall: RecallRow, agents: readonly BoardAgent[], acks: readonly AckRow[]): RecallBoard {
   const rows: BoardRow[] = []
-  for (const entry of robots) {
-    const receipts = genuineReceipts(acks, recall.key, entry.robot.robot)
-    const running = runsFile(entry.loadout, recall.artifact)
-    if (!running && receipts.length === 0) continue
+  for (const entry of agents) {
+    const receipts = genuineReceipts(acks, recall.key, entry.agent.agent)
+    const loaded = loadsFile(entry.loadout, recall)
+    if (!loaded && receipts.length === 0) continue
 
-    let state: RobotRecallState
-    if (!running && receipts.some((r) => r.action === "UPDATED")) state = "FIXED"
-    else if (receipts.some((r) => r.action === "STOPPED")) state = "STOPPED"
-    else if (receipts.some((r) => r.action === "SLOWED")) state = "SLOWED"
+    let state: AgentRecallState
+    if (!loaded && receipts.some((r) => r.action === "UPDATED")) state = "FIXED"
+    else if (!follows(entry.policy, recall)) state = "NOT_FOLLOWING"
+    else if (receipts.some((r) => r.action === "BLOCKED")) state = "BLOCKED"
+    else if (receipts.some((r) => r.action === "SUPERVISED")) state = "SUPERVISED"
     else state = entry.heartbeat ? "NO_RECEIPT" : "SILENT"
     rows.push({ ...entry, state, receipts })
   }
-  rows.sort((a, b) => a.robot.serial.localeCompare(b.robot.serial))
-  const count = (...states: RobotRecallState[]) => rows.filter((r) => states.includes(r.state)).length
+  rows.sort((a, b) => a.agent.name.localeCompare(b.agent.name))
+  const count = (...states: AgentRecallState[]) => rows.filter((r) => states.includes(r.state)).length
+  const notFollowing = count("NOT_FOLLOWING")
   return {
     rows,
-    obeyed: count("FIXED", "STOPPED", "SLOWED"),
+    obeyed: count("FIXED", "BLOCKED", "SUPERVISED"),
     silent: count("SILENT"),
     noReceipt: count("NO_RECEIPT"),
-    affected: rows.length,
+    notFollowing,
+    affected: rows.length - notFollowing,
   }
 }
 
 /**
- * STOPs that robots have receipted but that no longer exist on Arkiv.
+ * STOPs that agents have receipted but that no longer exist on Arkiv.
  *
  * The network serves no history, so this is the lasting proof that a deleted STOP existed: the receipts,
- * created by the robots and out of the issuer's reach, carry its content hash and its issuer.
+ * created by the agents and out of the issuer's reach, carry its content hash and its issuer.
  */
 export function deletedStops(acks: readonly AckRow[], liveRecalls: readonly RecallRow[]): {
   recall: Hex
@@ -91,8 +106,8 @@ export function deletedStops(acks: readonly AckRow[], liveRecalls: readonly Reca
   const live = new Set(liveRecalls.map((r) => r.key))
   const byRecall = new Map<Hex, AckRow[]>()
   for (const a of acks) {
-    if (live.has(a.recall) || a.action !== "STOPPED") continue
-    if (lower(a.creator) !== lower(a.robot)) continue
+    if (live.has(a.recall) || a.action !== "BLOCKED") continue
+    if (lower(a.creator) !== lower(a.agent)) continue
     byRecall.set(a.recall, [...(byRecall.get(a.recall) ?? []), a])
   }
   return [...byRecall.entries()].map(([recall, receipts]) => ({
@@ -104,11 +119,11 @@ export function deletedStops(acks: readonly AckRow[], liveRecalls: readonly Reca
   }))
 }
 
-export type PlateColour = "green" | "amber" | "red" | "grey"
+export type StatusColour = "green" | "amber" | "red" | "grey"
 
-/** The colour on a robot's QR plate. Anything other than a live heartbeat from its own key is grey. */
-export function plateColour(robot: Hex, heartbeat: HeartbeatRow | undefined): PlateColour {
-  if (!heartbeat || lower(heartbeat.creator) !== lower(robot)) return "grey"
+/** The colour of an agent's status. Anything other than a live heartbeat from its own key is grey. */
+export function statusColourOf(agent: Hex, heartbeat: HeartbeatRow | undefined): StatusColour {
+  if (!heartbeat || lower(heartbeat.creator) !== lower(agent)) return "grey"
   if (heartbeat.mode === "RUNNING") return "green"
   if (heartbeat.mode === "STOPPED") return "red"
   return "amber"

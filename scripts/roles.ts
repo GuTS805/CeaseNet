@@ -20,6 +20,12 @@ export const ROLES = [
   "testVerifier",
   "testRobot",
   "testOutsider",
+  "ownerA",
+  "ownerB",
+  "ownerC",
+  "agentA",
+  "agentB",
+  "agentC",
 ] as const
 
 export type Role = (typeof ROLES)[number]

@@ -11,7 +11,7 @@ import { addr, bytes, defineSchema, key, str, u64 } from "@arkiv-network/sdk/sch
 
 const ns = (name: string) => `ceasenet.${name}`
 
-/** A piece of software: model, policy, firmware, planner prompt, tool or skill. */
+/** A piece of software an agent can load: tool, skill, model or prompt. */
 export const Artifact = defineSchema(ns("artifact"), {
   hash: str().indexed(),
   kind: str().indexed(),
@@ -22,26 +22,26 @@ export const Artifact = defineSchema(ns("artifact"), {
   derivedFrom: str().optional(),
 })
 
-/** A robot's passport. Trusted only if a known maker created it. */
-export const Robot = defineSchema(ns("robot"), {
-  robot: addr().indexed(),
-  maker: addr().indexed(),
-  model: str(),
-  serial: str().indexed(),
-  city: str(),
+/** An agent's passport. Its owner creates it, which is what ties the agent to a responsible party. */
+export const Agent = defineSchema(ns("agent"), {
+  agent: addr().indexed(),
+  owner: addr().indexed(),
+  name: str().indexed(),
+  framework: str(),
+  purpose: bytes(),
 })
 
-/** Exactly what a robot loaded. One read-only record per change. */
+/** Exactly what an agent loaded. One read-only record per change. Publishing it is the owner's choice. */
 export const Loadout = defineSchema(ns("loadout"), {
-  robot: addr().indexed(),
+  agent: addr().indexed(),
   seq: u64().indexed(),
   /** UTF-8 JSON array of {@link LoadedFile}. */
   files: bytes(),
 })
 
-/** One per robot, updated in place. Expired means "unknown". */
+/** One per agent, updated in place. Expired means "unknown". */
 export const Heartbeat = defineSchema(ns("heartbeat"), {
-  robot: addr().indexed(),
+  agent: addr().indexed(),
   mode: str().indexed(),
   loadoutSeq: u64(),
 })
@@ -57,24 +57,24 @@ export const Recall = defineSchema(ns("recall"), {
   sealedEvidence: bytes().optional(),
   /** Steps owners should take, such as "change your email password". */
   advice: bytes().optional(),
-  /** Package name for name-wide recalls of agent tools. */
+  /** Package name, for recalls that cover a range of versions. */
   pkg: str().indexed().optional(),
-  /** Version range for name-wide recalls, checked locally because queries cannot compare ranges. */
+  /** Version range, checked locally because queries cannot compare ranges. */
   versions: str().optional(),
 })
 
-/** One human's confirmation or dispute of an advisory. Created and kept by the verifier. */
+/** One human's confirmation or dispute of a warning. Created and kept by the verifier. */
 export const Endorse = defineSchema(ns("endorse"), {
   recall: key().indexed(),
   stance: str().indexed(),
   human: str().indexed(),
 })
 
-/** A robot's receipt: "I applied recall R, here is what I did". */
+/** An agent's receipt: "I applied recall R, here is what I did". */
 export const Ack = defineSchema(ns("ack"), {
   recall: key().indexed(),
   recallHash: str().indexed(),
-  robot: addr().indexed(),
+  agent: addr().indexed(),
   artifact: str().indexed(),
   action: str().indexed(),
   issuer: addr().indexed(),
@@ -87,26 +87,28 @@ export const Lift = defineSchema(ns("lift"), {
   artifact: str().indexed(),
   kind: str().indexed(),
   fixedHash: str().optional(),
+  fixedVersion: str().optional(),
   fixedRef: str().optional(),
   note: bytes().optional(),
 })
 
-/** Who is responsible for a robot today. Created by the maker, then owned by the operator. */
-export const Custody = defineSchema(ns("custody"), {
-  robot: addr().indexed(),
-  operator: str(),
-  contact: str(),
-  insurance: str().optional(),
+/** Whose STOPs an owner's agents obey. Each change is a new read-only record with a higher number. */
+export const TrustList = defineSchema(ns("trust"), {
+  owner: addr().indexed(),
+  seq: u64().indexed(),
+  /** UTF-8 JSON of {@link TrustPolicy}. */
+  policy: bytes(),
 })
 
-/** Index of a robot's decision log, which lives on 0G Storage. */
-export const Episode = defineSchema(ns("episode"), {
-  robot: addr().indexed(),
-  softwareHash: str().indexed(),
+/** Index of a part of an agent's diary. The diary itself lives on 0G Storage. */
+export const Diary = defineSchema(ns("diary"), {
+  agent: addr().indexed(),
   root: str().indexed(),
-  decisions: u64(),
-  firstRequestId: str(),
-  lastRequestId: str(),
+  /** Hash at the end of the entries' chain, so a replaced part is caught. */
+  head: str(),
+  entries: u64(),
+  firstSeq: u64().indexed(),
+  lastSeq: u64().indexed(),
 })
 
 /** Public description of a problem, released at the disclosure deadline. */
@@ -114,20 +116,4 @@ export const Disclose = defineSchema(ns("disclose"), {
   recall: key().indexed(),
   description: bytes(),
   reproductionRef: str().optional(),
-})
-
-/** Passport of an ordinary AI agent. */
-export const Agent = defineSchema(ns("agent"), {
-  agent: addr().indexed(),
-  owner: addr().indexed(),
-  framework: str(),
-  purpose: bytes(),
-})
-
-/** Whose STOPs an owner's agents obey. Each change is a new read-only record with a higher number. */
-export const TrustList = defineSchema(ns("trust"), {
-  owner: addr().indexed(),
-  seq: u64().indexed(),
-  /** UTF-8 JSON array of issuer addresses. */
-  issuers: bytes(),
 })

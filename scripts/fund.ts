@@ -15,8 +15,8 @@ if (balance === 0n) {
 } else {
 
   const writers: Role[] = ROLES.filter((r) => r !== "treasury")
-  // Robots write the most, because of heartbeats.
-  const weights: Partial<Record<Role, bigint>> = { robot1: 4n, robot2: 4n, robot3: 4n, verifier: 3n, officeAgent: 2n }
+  // Agents write the most, because of heartbeats, receipts and diary entries.
+  const weights: Partial<Record<Role, bigint>> = { agentA: 4n, agentB: 4n, agentC: 4n, verifier: 3n, maker: 2n }
   const total = writers.reduce((sum, r) => sum + (weights[r] ?? 1n), 0n)
   const spendable = (balance * 80n) / 100n
   const unit = spendable / total

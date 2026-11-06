@@ -2,18 +2,19 @@ import {
   ackId,
   acksOwed,
   type AckIntent,
+  type AgentDecision,
   countConfirmations,
-  evaluate,
+  evaluateAgent,
   fixFor,
-  type GateDecision,
   isTrustedStop,
-  lower,
+  recallCovers,
   type TrustConfig,
+  trustFromPolicy,
   vanishedStops,
 } from "./gate"
 import type { GateView } from "./reader"
 import type { Timers } from "./timers"
-import type { AckAction, Hex, LiftRow, RecallRow } from "./types"
+import type { AckAction, Hex, LiftRow, LoadedFile, RecallRow, TrustPolicy } from "./types"
 
 /** What a gate must not forget, even across restarts. */
 export interface GateMemory {
@@ -23,6 +24,8 @@ export interface GateMemory {
   supervised: RecallRow[]
   /** STOPs that vanished from Arkiv without a lift. */
   vanished: Hex[]
+  /** The owner's trust list as last read, so it still applies while Arkiv cannot be reached. */
+  policy?: TrustPolicy
 }
 
 export interface GateStore {
@@ -52,45 +55,53 @@ export interface AdvisoryStatus {
 }
 
 export interface CheckResult {
-  decision: GateDecision
+  decision: AgentDecision
   acks: AckIntent[]
   online: boolean
   block: bigint
-  /** A fix exists for a STOP this robot is under: installing the fixed file gets it working again. */
-  fixes: { stop: RecallRow; lift: LiftRow }[]
+  /** A fix exists for a STOP this agent is under: moving to the fixed version gets it working again. */
+  fixes: { stop: RecallRow; lift: LiftRow; file: LoadedFile }[]
   advisories: AdvisoryStatus[]
   vanished: RecallRow[]
-  /** Active STOPs close to expiring, which this robot should extend. */
+  /** Active STOPs close to expiring, which this agent should extend. */
   toExtend: Hex[]
+  policy: TrustPolicy
 }
 
 /** STOPs with less than this many blocks left get extended. About two weeks. */
 const EXTEND_BELOW_BLOCKS = 600_000n
 
 /**
- * Runs the gate on a robot: reads Arkiv, remembers what it must not forget, and works out what to do.
+ * Runs the gate for an agent: reads Arkiv, remembers what it must not forget, and works out what is allowed.
  *
- * Reads fail closed. If Arkiv cannot be read, the robot goes through grace, then supervised, then stop.
+ * Reads fail closed. If Arkiv cannot be read, the agent goes through grace, then human approval, then stop.
  */
 export class GateRunner {
   private memory: GateMemory
   private lastReadOk: number
   private lastBlock = 0n
+  private policy: TrustPolicy
 
   constructor(
     private readonly options: {
-      trust: TrustConfig
+      /** Used until the owner's own list has been read. */
+      policy: TrustPolicy
       timers: Pick<Timers, "graceMs" | "offlineSupervisedMs">
       store: GateStore
       now?: () => number
     },
   ) {
     this.memory = options.store.load() ?? { stops: [], lifts: [], acked: [], supervised: [], vanished: [] }
+    this.policy = this.memory.policy ?? options.policy
     this.lastReadOk = this.now()
   }
 
   private now(): number {
     return this.options.now?.() ?? Date.now()
+  }
+
+  get trust(): TrustConfig {
+    return trustFromPolicy(this.policy)
   }
 
   /** Keys whose lifts must keep being read, because this gate remembers them. */
@@ -99,11 +110,14 @@ export class GateRunner {
   }
 
   /** @param read reads Arkiv and throws if it cannot. */
-  async check(hashes: readonly string[], read: () => Promise<GateView>): Promise<CheckResult> {
-    const { trust, timers } = this.options
+  async check(
+    files: readonly LoadedFile[],
+    read: (policy: TrustPolicy, remembered: readonly Hex[]) => Promise<GateView>,
+  ): Promise<CheckResult> {
+    const { timers } = this.options
     let view: GateView | undefined
     try {
-      view = await read()
+      view = await read(this.policy, this.rememberedKeys())
     } catch {
       view = undefined
     }
@@ -112,12 +126,19 @@ export class GateRunner {
     if (view) {
       this.lastReadOk = this.now()
       this.lastBlock = view.block
+      if (view.policy) {
+        this.policy = view.policy
+        this.memory.policy = view.policy
+      }
+    }
+    const trust = this.trust
+    if (view) {
       this.mergeStops(view.stops.filter((s) => isTrustedStop(s, trust)))
       this.mergeLifts(view.lifts)
     }
 
-    const decision = evaluate({
-      hashes,
+    const decision = evaluateAgent({
+      files,
       rememberedStops: this.memory.stops,
       rememberedLifts: this.memory.lifts,
       advisories: view?.advisories ?? [],
@@ -132,12 +153,13 @@ export class GateRunner {
     const previouslySupervised = this.memory.supervised
     const acks = online ? acksOwed(decision, previouslySupervised, new Set(this.memory.acked)) : []
 
+    const decisions = [decision.core, ...decision.tools.map((t) => t.decision)]
+    const stops = dedupe(decisions.flatMap((d) => d.activeStops))
     if (online) {
-      this.memory.supervised = decision.activeAdvisories
+      this.memory.supervised = dedupe(decisions.flatMap((d) => d.activeAdvisories))
     }
 
-    const liveHashes = new Set(hashes.map(lower))
-    const stopsOnMyFiles = this.memory.stops.filter((s) => liveHashes.has(lower(s.artifact)))
+    const stopsOnMyFiles = this.memory.stops.filter((s) => files.some((f) => recallCovers(s, f)))
     const vanished = view
       ? vanishedStops(stopsOnMyFiles, view.stops, this.memory.lifts, trust)
       : this.memory.stops.filter((s) => this.memory.vanished.includes(s.key))
@@ -150,9 +172,10 @@ export class GateRunner {
       acks,
       online,
       block: this.lastBlock,
-      fixes: decision.activeStops.flatMap((stop) => {
+      fixes: stops.flatMap((stop) => {
         const lift = fixFor(stop, this.memory.lifts, trust)
-        return lift ? [{ stop, lift }] : []
+        const file = files.find((f) => recallCovers(stop, f))
+        return lift && file ? [{ stop, lift, file }] : []
       }),
       advisories: (view?.advisories ?? []).map((recall) => ({
         recall,
@@ -160,11 +183,12 @@ export class GateRunner {
       })),
       vanished,
       toExtend: view
-        ? decision.activeStops
+        ? stops
             .filter((s) => view!.stops.some((v) => v.key === s.key))
             .filter((s) => s.expiresAt - this.lastBlock < EXTEND_BELOW_BLOCKS)
             .map((s) => s.key)
         : [],
+      policy: this.policy,
     }
   }
 
@@ -186,3 +210,5 @@ export class GateRunner {
     for (const l of lifts) if (!known.has(l.key)) this.memory.lifts.push(l)
   }
 }
+
+const dedupe = (rows: readonly RecallRow[]): RecallRow[] => [...new Map(rows.map((r) => [r.key, r])).values()]

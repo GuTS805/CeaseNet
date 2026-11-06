@@ -1,13 +1,14 @@
-import type { Timers } from "./timers"
-import type { AckAction, EndorseRow, Hex, LiftRow, Mode, RecallRow } from "./types"
+import semver from "semver"
+import { CONFIRMATION_WINDOW_BLOCKS, type Timers } from "./timers"
+import type { AckAction, EndorseRow, Hex, LiftRow, LoadedFile, Mode, RecallRow, TrustPolicy } from "./types"
 
 /** Keys a gate listens to. All comparisons are done on lowercase addresses. */
 export interface TrustConfig {
-  /** May issue a STOP: makers, regulators and publishers, or an owner's chosen issuers. */
+  /** May issue a STOP this gate obeys. */
   stopKeys: ReadonlySet<string>
-  /** May lift any STOP and dismiss advisories. */
+  /** May also lift any STOP and dismiss warnings. */
   regulators: ReadonlySet<string>
-  /** The only key allowed to create advisories and confirmations. */
+  /** The only key allowed to create warnings and confirmations. */
   verifier: string
   threshold: number
   windowBlocks: bigint
@@ -31,12 +32,32 @@ export function makeTrust(input: {
   }
 }
 
-/** A STOP counts only if an accountable key created it. Labels prove nothing. */
+export const trustFromPolicy = (policy: TrustPolicy): TrustConfig =>
+  makeTrust({
+    stopKeys: policy.issuers,
+    regulators: policy.regulators,
+    verifier: policy.verifier,
+    threshold: policy.threshold,
+    windowBlocks: CONFIRMATION_WINDOW_BLOCKS,
+  })
+
+/**
+ * Whether a recall covers a file: by exact hash, or by package name and version range.
+ * A range that cannot be read covers nothing, so a badly written recall cannot stop what it did not name.
+ */
+export function recallCovers(recall: RecallRow, file: LoadedFile): boolean {
+  if (lower(recall.artifact) === lower(file.hash)) return true
+  if (!recall.pkg || !recall.versions || recall.pkg !== file.name) return false
+  if (semver.validRange(recall.versions) === null || semver.valid(file.version) === null) return false
+  return semver.satisfies(file.version, recall.versions)
+}
+
+/** A STOP counts only if a key this gate follows created it. Labels prove nothing. */
 export function isTrustedStop(r: RecallRow, trust: TrustConfig): boolean {
   return r.level === "STOP" && trust.stopKeys.has(lower(r.creator))
 }
 
-/** An advisory counts only if the verifier created it, which means a human or a passed scanner filed it. */
+/** A warning counts only if the verifier created it, which means a human or a passed scanner filed it. */
 export function isTrustedAdvisory(r: RecallRow, trust: TrustConfig): boolean {
   return r.level === "ADVISORY" && lower(r.creator) === trust.verifier
 }
@@ -51,14 +72,14 @@ export function isWithdrawn(stop: RecallRow, lifts: readonly LiftRow[], trust: T
   )
 }
 
-/** Only a regulator can dismiss an advisory. */
+/** Only a regulator can dismiss a warning. */
 export function isDismissed(advisory: RecallRow, lifts: readonly LiftRow[], trust: TrustConfig): boolean {
   return lifts.some(
     (l) => l.recall === advisory.key && l.kind === "DISMISSED" && trust.regulators.has(lower(l.creator)),
   )
 }
 
-/** A fix published by the issuer or a regulator. Robots still on the old file stay stopped. */
+/** A fix published by the issuer or a regulator. Agents still on the old version stay blocked. */
 export function fixFor(stop: RecallRow, lifts: readonly LiftRow[], trust: TrustConfig): LiftRow | undefined {
   return lifts.find(
     (l) =>
@@ -110,7 +131,7 @@ export interface Connectivity {
 }
 
 export interface GateInput {
-  hashes: readonly string[]
+  files: readonly LoadedFile[]
   /** Every trusted STOP this gate has ever seen, including ones that have since vanished from Arkiv. */
   rememberedStops: readonly RecallRow[]
   /** Every lift this gate has ever seen. */
@@ -119,7 +140,7 @@ export interface GateInput {
   endorsements: readonly EndorseRow[]
   currentBlock: bigint
   connectivity: Connectivity
-  /** Advisories that had the gate supervised when Arkiv was last readable. */
+  /** Warnings that required human approval when Arkiv was last readable. */
   lastSupervised: readonly RecallRow[]
   trust: TrustConfig
   timers: Pick<Timers, "graceMs" | "offlineSupervisedMs">
@@ -141,18 +162,17 @@ export interface GateDecision {
 }
 
 /**
- * What the robot must do right now. Pure, so every rule can be tested.
+ * What may happen with these files right now. Pure, so every rule can be tested.
  *
- * Order matters: remembered STOPs apply first, because losing the internet must never restart a robot
- * that has already been told to stop.
+ * Order matters: remembered STOPs apply first, because losing the internet must never bring back
+ * something an agent has already been told to stop using.
  */
 export function evaluate(input: GateInput): GateDecision {
-  const { hashes, trust, connectivity } = input
-  const loaded = new Set(hashes.map(lower))
+  const { files, trust, connectivity } = input
+  const covered = (r: RecallRow) => files.some((f) => recallCovers(r, f))
 
   const activeStops = input.rememberedStops.filter(
-    (r) =>
-      isTrustedStop(r, trust) && loaded.has(lower(r.artifact)) && !isWithdrawn(r, input.rememberedLifts, trust),
+    (r) => isTrustedStop(r, trust) && covered(r) && !isWithdrawn(r, input.rememberedLifts, trust),
   )
   if (activeStops.length > 0) {
     return {
@@ -168,12 +188,13 @@ export function evaluate(input: GateInput): GateDecision {
     if (connectivity.offlineForMs >= graceMs + offlineSupervisedMs) {
       return { mode: "STOPPED", reasons: [{ type: "OFFLINE_STOP" }], activeStops: [], activeAdvisories: [] }
     }
-    if (input.lastSupervised.length > 0) {
+    const stillSupervised = input.lastSupervised.filter(covered)
+    if (stillSupervised.length > 0) {
       return {
         mode: "SUPERVISED",
-        reasons: input.lastSupervised.map((recall) => ({ type: "CONFIRMED_ADVISORY", recall, confirmations: 0 })),
+        reasons: stillSupervised.map((recall) => ({ type: "CONFIRMED_ADVISORY", recall, confirmations: 0 })),
         activeStops: [],
-        activeAdvisories: [...input.lastSupervised],
+        activeAdvisories: stillSupervised,
       }
     }
     if (connectivity.offlineForMs >= graceMs) {
@@ -185,7 +206,7 @@ export function evaluate(input: GateInput): GateDecision {
   const reasons: Reason[] = []
   const activeAdvisories: RecallRow[] = []
   for (const a of input.advisories) {
-    if (!isTrustedAdvisory(a, trust) || !loaded.has(lower(a.artifact))) continue
+    if (!isTrustedAdvisory(a, trust) || !covered(a)) continue
     if (isDismissed(a, input.rememberedLifts, trust)) continue
     const { effective } = countConfirmations(a, input.endorsements, input.currentBlock, trust)
     if (effective >= trust.threshold) {
@@ -200,32 +221,80 @@ export function evaluate(input: GateInput): GateDecision {
   return { mode: "RUNNING", reasons: [{ type: "CLEAR" }], activeStops: [], activeAdvisories: [] }
 }
 
+/** Tools and skills can be blocked one at a time. Anything else, such as a model or prompt, is the agent itself. */
+export const isReplaceable = (file: LoadedFile): boolean => file.kind === "tool" || file.kind === "skill"
+
+export interface FileDecision {
+  file: LoadedFile
+  decision: GateDecision
+}
+
+export interface AgentDecision {
+  /** The agent's model and prompt. A STOP here stops the whole agent. */
+  core: GateDecision
+  coreFiles: LoadedFile[]
+  /** One decision per tool, so one bad tool does not take the agent down. */
+  tools: FileDecision[]
+}
+
+export function evaluateAgent(input: GateInput): AgentDecision {
+  const coreFiles = input.files.filter((f) => !isReplaceable(f))
+  return {
+    core: evaluate({ ...input, files: coreFiles }),
+    coreFiles,
+    tools: input.files
+      .filter(isReplaceable)
+      .map((file) => ({ file, decision: evaluate({ ...input, files: [file] }) })),
+  }
+}
+
+export type CallVerdict = "ALLOW" | "NEEDS_APPROVAL" | "BLOCK"
+
+/** The stricter of the agent's own state and the tool's state decides. */
+export function verdictFor(agent: AgentDecision, toolHash: string): CallVerdict {
+  const tool = agent.tools.find((t) => lower(t.file.hash) === lower(toolHash))
+  // A tool the gate was not told about is not allowed through.
+  if (!tool) return "BLOCK"
+  const modes = [agent.core.mode, tool.decision.mode]
+  if (modes.includes("STOPPED")) return "BLOCK"
+  if (modes.includes("SUPERVISED")) return "NEEDS_APPROVAL"
+  return "ALLOW"
+}
+
 export interface AckIntent {
   recall: RecallRow
   action: AckAction
 }
 
+export const ackId = (recall: Hex, action: AckAction): string => `${recall}:${action}`
+
 /** Receipts owed after a decision. Each recall and action is receipted once. */
 export function acksOwed(
-  decision: GateDecision,
+  agent: AgentDecision,
   previouslySupervised: readonly RecallRow[],
   alreadyAcked: ReadonlySet<string>,
 ): AckIntent[] {
+  const decisions = [agent.core, ...agent.tools.map((t) => t.decision)]
+  const stops = new Map(decisions.flatMap((d) => d.activeStops).map((r) => [r.key, r]))
+  const advisories = new Map(decisions.flatMap((d) => d.activeAdvisories).map((r) => [r.key, r]))
+
   const owed: AckIntent[] = []
   const add = (recall: RecallRow, action: AckAction) => {
     if (!alreadyAcked.has(ackId(recall.key, action))) owed.push({ recall, action })
   }
-  for (const r of decision.activeStops) add(r, "STOPPED")
-  for (const r of decision.activeAdvisories) add(r, "SLOWED")
+  for (const r of stops.values()) add(r, "BLOCKED")
+  for (const r of advisories.values()) add(r, "SUPERVISED")
+  const groups = [
+    { files: agent.coreFiles, decision: agent.core },
+    ...agent.tools.map((t) => ({ files: [t.file], decision: t.decision })),
+  ]
   for (const r of previouslySupervised) {
-    if (decision.mode === "RUNNING" && !decision.activeAdvisories.some((a) => a.key === r.key)) {
-      add(r, "LEFT_SLOW")
-    }
+    // A warning overtaken by a STOP on the same file has not cleared.
+    const overtaken = groups.some((g) => g.decision.activeStops.length > 0 && g.files.some((f) => recallCovers(r, f)))
+    if (!advisories.has(r.key) && !overtaken) add(r, "CLEARED")
   }
   return owed
 }
-
-export const ackId = (recall: Hex, action: AckAction): string => `${recall}:${action}`
 
 /** Remembered STOPs that no longer exist on Arkiv and were never properly lifted. */
 export function vanishedStops(
