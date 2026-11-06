@@ -7,7 +7,7 @@ import { formatEther, parseEther } from "viem"
 import { privateKeyToAccount } from "viem/accounts"
 
 /**
- * Runs the three real AI agents through everything they are meant to do, and checks each result against the system
+ * Runs the three real AI trading agents through everything they are meant to do, and checks each result against the system
  * rather than taking their word for it: processes are looked up, and files are read.
  *
  * It spends real model requests. It needs a MODEL_API_KEY in .env, or Claude Code logged in.
@@ -57,7 +57,8 @@ async function until<T>(what: string, test: () => T | undefined | false | Promis
 }
 
 const HOME = join(mkdtempSync(join(tmpdir(), "ceasenet-agents-")), "home")
-const env = { ...process.env, CEASENET_HOME: HOME }
+// Windows would only get in the way here: the check reads processes and files, and the terminals are looked at by a person.
+const env = { ...process.env, CEASENET_HOME: HOME, CEASENET_NO_TERMINALS: "1" }
 const cli = (...args: string[]) => execFileSync(process.execPath, [PROGRAM, ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
 
 section(`Setting up, on ${ARKIV ? "the live Arkiv chain" : "a local list"}`)
@@ -103,7 +104,7 @@ const shot = (name: string, page = "") => {
 const named = (t: any, id: string) => t.members.find((m: any) => m.id === id)
 const home = (id: string) => join(HOME, "team", id)
 const allClosed = (t: any, ids: string[]) => ids.every((id) => named(t, id).state?.phase === "closed")
-const ALL = ["invoices", "support", "research"]
+const ALL = ["momentum", "reversion", "risk"]
 
 // ---- Working ----
 
@@ -125,14 +126,13 @@ check("all three finished a real job", Boolean(firstJobs), `${((Date.now() - sta
 for (const m of (firstJobs ?? (await team())).members) {
   console.log(`     ${m.name}: "${String(m.state?.lastSaid ?? m.state?.problem ?? "").slice(0, 110)}"`)
   const outbox = join(home(m.id), "workspace", "outbox")
-  const files = existsSync(outbox) ? readdirSync(outbox) : []
-  check(`${m.name} really wrote a file`, files.length >= 1, files.join(", "))
+  // A flat market gives a trader nothing to do, so an order is reported, not demanded.
+  console.log(`     ${m.name} placed ${existsSync(outbox) ? readdirSync(outbox).length : 0} paper orders so far`)
   check(`${m.name}'s calls went through the gate`, m.calls.length >= 2 && m.calls.every((c: any) => c.allowed), `${m.calls.length} calls`)
   check(`${m.name} keeps reading the list`, (m.state?.checks ?? 0) >= 2, `${m.state?.checks} checks, the last in ${m.state?.lastCheck?.tookMs} ms`)
 }
-const memoryFile = join(home("invoices"), "workspace", "memory.jsonl")
-check("the memory tool kept its data in the agent's own folder", existsSync(memoryFile))
-check("that did not count as tampering with the tool", (await team()).members.every((m: any) => m.alive))
+check("the risk watcher has no account, because it never trades", !existsSync(join(home("risk"), "workspace", "book.json")))
+check("working did not count as tampering with a tool", (await team()).members.every((m: any) => m.alive))
 shot("agents-1-working.png")
 
 // ---- Recalling a tool all three use ----
@@ -141,9 +141,9 @@ section("Recalling the tool all three use")
 const before = await team()
 const pids: number[] = before.members.map((m: any) => m.state.pid)
 const toolPids: number[] = before.members.flatMap((m: any) => m.guards.flatMap((g: any) => (g.toolPid ? [g.toolPid] : [])))
-const filesTool = before.tools.find((t: any) => t.id === "files")
+const marketTool = before.tools.find((t: any) => t.id === "market")
 const pressedAt = Date.now()
-const recall = await api("/api/stop", { hash: filesTool.file.hash, name: filesTool.file.name, versions: filesTool.file.version, reason: "It reads files it should not" })
+const recall = await api("/api/stop", { hash: marketTool.file.hash, name: marketTool.file.name, versions: marketTool.file.version, reason: "It is feeding agents false prices" })
 const closedAll = await until("all three to close", async () => {
   const t = await team()
   return allClosed(t, ALL) ? t : undefined
@@ -188,34 +188,34 @@ check("all three are working again", Boolean(back))
 // ---- A recall that covers only some ----
 
 section("Recalling a tool only two of them use")
-const memoryTool = (await team()).tools.find((t: any) => t.id === "memory")
-const memoryRecall = await api("/api/stop", { hash: memoryTool.file.hash, name: memoryTool.file.name, versions: memoryTool.file.version, reason: "It keeps what it should not" })
+const brokerTool = (await team()).tools.find((t: any) => t.id === "broker")
+const brokerRecall = await api("/api/stop", { hash: brokerTool.file.hash, name: brokerTool.file.name, versions: brokerTool.file.version, reason: "It fills orders at the wrong price" })
 const twoClosed = await until("the two to close", async () => {
   const t = await team()
-  return allClosed(t, ["invoices", "research"]) ? t : undefined
+  return allClosed(t, ["momentum", "reversion"]) ? t : undefined
 }, 60_000)
 check("the two that use it closed", Boolean(twoClosed))
-check("the one that does not use it kept working", Boolean(twoClosed && named(twoClosed, "support").alive), named(twoClosed ?? (await team()), "support").state?.phase)
-await api("/api/lift", { recall: memoryRecall.entityKey })
-await until("the lift to be seen", async () => (await api("/api/state")).recalls?.find((r: any) => r.key === memoryRecall.entityKey)?.ended, 30_000)
+check("the one that does not use it kept working", Boolean(twoClosed && named(twoClosed, "risk").alive), named(twoClosed ?? (await team()), "risk").state?.phase)
+await api("/api/lift", { recall: brokerRecall.entityKey })
+await until("the lift to be seen", async () => (await api("/api/state")).recalls?.find((r: any) => r.key === brokerRecall.entityKey)?.ended, 30_000)
 await api("/api/team/start", {})
 await until("them to be back", async () => (await team()).members.every((m: any) => m.alive && m.state?.phase !== "starting"), 60_000)
 
 // ---- Stopping one by name ----
 
 section("Stopping one agent by name")
-const support = named(await team(), "support")
-const oneStop = await api("/api/kill", { agent: support.address, reason: "Only this one" })
+const watcher = named(await team(), "risk")
+const oneStop = await api("/api/kill", { agent: watcher.address, reason: "Only this one" })
 const oneClosed = await until("it to close", async () => {
   const t = await team()
-  return named(t, "support").state?.phase === "closed" ? t : undefined
+  return named(t, "risk").state?.phase === "closed" ? t : undefined
 }, 60_000)
 check("that agent closed", Boolean(oneClosed))
-check("the other two kept working", Boolean(oneClosed) && ["invoices", "research"].every((id) => named(oneClosed, id).alive))
+check("the other two kept working", Boolean(oneClosed) && ["momentum", "reversion"].every((id) => named(oneClosed, id).alive))
 await api("/api/lift", { recall: oneStop.entityKey })
 await until("the lift to be seen", async () => (await api("/api/state")).recalls?.find((r: any) => r.key === oneStop.entityKey)?.ended, 30_000)
 await api("/api/team/start", {})
-await until("it to be back", async () => named(await team(), "support").alive && named(await team(), "support").state?.phase !== "starting", 60_000)
+await until("it to be back", async () => named(await team(), "risk").alive && named(await team(), "risk").state?.phase !== "starting", 60_000)
 
 // ---- Stopping all three ----
 

@@ -55,7 +55,8 @@ async function until<T>(what: string, test: () => T | undefined | false | Promis
 }
 
 const HOME = join(mkdtempSync(join(tmpdir(), "ceasenet-records-")), "home")
-const env = { ...process.env, CEASENET_HOME: HOME }
+// Windows would only get in the way here: the check reads processes and files.
+const env = { ...process.env, CEASENET_HOME: HOME, CEASENET_NO_TERMINALS: "1" }
 const cli = (...args: string[]) => execFileSync(process.execPath, [PROGRAM, ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
 const script = (...args: string[]) => execFileSync(process.execPath, ["--import", "tsx", "--env-file=.env", ...args], { encoding: "utf8" })
 
@@ -164,7 +165,7 @@ console.log(`     storage wallet: ${stored?.wallet?.address} holds ${stored?.wal
 section("Reading it back as a stranger: no wallet, no keys, none of our programs")
 const stranger = arkivPublicClient(config.accessKey)
 const members = (await api("/api/team")).members
-const support = named({ members }, "support")
+const support = named({ members }, "risk")
 const readFrom0G = async (root: string): Promise<Uint8Array> => {
   const res = await fetch(`${INDEXER}/file?root=${encodeURIComponent(root)}`)
   if (!res.ok) throw new Error(`0G answered ${res.status}`)
@@ -233,7 +234,7 @@ picture("records-reports.png", `${base}/#/reports`)
 
 async function assertAgentRunning(what: string): Promise<void> {
   const t = await api("/api/team")
-  check(what, named(t, "support").alive === true && named(t, "support").state?.phase !== "closed", named(t, "support").state?.phase)
+  check(what, named(t, "risk").alive === true && named(t, "risk").state?.phase !== "closed", named(t, "risk").state?.phase)
 }
 
 async function expectRefused(what: string, attempt: () => Promise<unknown>): Promise<void> {
@@ -258,22 +259,22 @@ if (SHOTS) {
 // ---- The owner decides ----
 
 section("The owner decides")
-const others = ["invoices", "research"]
+const others = ["momentum", "reversion"]
 const recalled = await api(`/api/reports/${filed.key}/recall`, {})
 const closed = await until("the agent to close", async () => {
   const t = await api("/api/team")
-  return named(t, "support").state?.phase === "closed" ? t : undefined
+  return named(t, "risk").state?.phase === "closed" ? t : undefined
 }, 90_000)
-check("the owner's recall closed that agent", Boolean(closed), named(closed, "support")?.state?.closed?.reason)
-check("the recall says where it came from", String(named(closed, "support")?.state?.closed?.reason).includes("Reported by 3 people"))
+check("the owner's recall closed that agent", Boolean(closed), named(closed, "risk")?.state?.closed?.reason)
+check("the recall says where it came from", String(named(closed, "risk")?.state?.closed?.reason).includes("Reported by 3 people"))
 check("the other agents kept working", others.every((id) => named(closed, id).alive))
 check("the report is marked as dealt with", (await reportOf())?.state === "recalled", recalled.recall)
 
 section("An owner needs no votes")
-const direct = await api("/api/kill", { agent: named(closed, "research").address, reason: "I saw it myself" })
+const direct = await api("/api/kill", { agent: named(closed, "reversion").address, reason: "I saw it myself" })
 const closedDirect = await until("it to close", async () => {
   const t = await api("/api/team")
-  return named(t, "research").state?.phase === "closed" ? t : undefined
+  return named(t, "reversion").state?.phase === "closed" ? t : undefined
 }, 90_000)
 check("the owner's own recall closes an agent straight away, with no report at all", Boolean(closedDirect), direct.entityKey)
 
