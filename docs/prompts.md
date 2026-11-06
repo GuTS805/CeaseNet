@@ -115,3 +115,6 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 20:31 | [screenshot of Nook's drive screen] kahan khareedna hai |
 | 11-06 20:34 | now i have done it now see and tell me what u need |
 | 11-06 20:37 | hn fill it and give me project progress |
+| 11-06 20:45 | wait where should i do deployment of the projhcts vercel for site whre i deploye archive a? |
+| 11-06 20:48 | deploy it |
+| 11-06 20:55 | ho gyi public nowdeploy |

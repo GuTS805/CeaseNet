@@ -6,6 +6,8 @@ CeaseNet sits between an AI agent and its tools, with no change to either. Press
 
 It doesn't depend on us. Each gate reads a public recall list on [Arkiv](https://arkiv.network) by itself, so a STOP works from another machine and keeps working if everything we run disappears. It runs on test networks today.
 
+**Public site:** [guts805.github.io/CeaseNet](https://guts805.github.io/CeaseNet/). It reads the recall list, receipts, reports and the network map straight from Arkiv in your browser, with no server of ours.
+
 ![Three AI agents that closed themselves when a tool they use was recalled: each card shows how long it took, that its process has ended, and that its receipt is on the list](apps/web/public/console.png)
 
 | | |
