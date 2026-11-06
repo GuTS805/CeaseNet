@@ -1,0 +1,9 @@
+# Vercel builds the site from GitHub, where none of this exists. This keeps a deploy run from this folder
+# from uploading keys or anything the build does not need.
+.env
+.env.*
+!.env.example
+node_modules
+**/node_modules
+**/dist
+.ceasenet

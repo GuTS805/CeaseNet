@@ -1,0 +1,28 @@
+name: Test
+
+# Runs every test, and builds the public site, on each push. The site itself is published by Vercel from this
+# repository (see vercel.json), and reads Arkiv from the browser, with no server of ours.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build -w @ceasenet/web
+        env:
+          DEMO_URL: ""
+          VERIFIER_URL: ""

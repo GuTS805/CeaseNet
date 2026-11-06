@@ -38,3 +38,5 @@ desktop.ini
 # Packed releases, and what the build copies in for them
 *.tgz
 packages/cli/LICENSE
+# The link to the Vercel project, made by vercel link
+.vercel

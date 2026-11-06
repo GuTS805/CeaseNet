@@ -119,3 +119,5 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 20:48 | deploy it |
 | 11-06 20:55 | ho gyi public nowdeploy |
 | 11-06 21:00 | on vercel bro |
+| 11-06 21:10 | toh jod do |
+| 11-06 21:12 | do everything i permit you |
