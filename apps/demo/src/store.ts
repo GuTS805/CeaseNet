@@ -1,22 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { decodeMemory, encodeMemory, type GateMemory, type GateStore } from "@ceasenet/core"
+import type { GateStore } from "@ceasenet/core"
+import { fileStore } from "@ceasenet/guard"
 
 /** Local state lives in the repository root, in a folder Git ignores. */
 export const STATE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", ".ceasenet")
 
-/** A gate's memory on disk: a restart must not make an agent forget a STOP. */
-export function fileStore(name: string): GateStore {
-  const path = join(STATE_DIR, name)
-  return {
-    load: () => (existsSync(path) ? decodeMemory(readFileSync(path, "utf8")) : undefined),
-    save: (memory: GateMemory) => {
-      mkdirSync(dirname(path), { recursive: true })
-      writeFileSync(path, encodeMemory(memory))
-    },
-  }
-}
+export const gateStore = (name: string): GateStore => fileStore(join(STATE_DIR, name))
 
 export const sandboxDir = (id: string): string => {
   const dir = join(STATE_DIR, "sandbox", id)

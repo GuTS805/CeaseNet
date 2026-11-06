@@ -20,7 +20,8 @@
     "reset": "tsx --env-file=.env scripts/reset.ts",
     "web": "npm run dev -w @ceasenet/web",
     "demo": "tsx --env-file=.env apps/demo/src/server.ts",
-    "demo:dev": "tsx --env-file=.env scripts/demo-dev.ts"
+    "demo:dev": "tsx --env-file=.env scripts/demo-dev.ts",
+    "proxy-check": "tsx --env-file=.env scripts/proxy-check.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

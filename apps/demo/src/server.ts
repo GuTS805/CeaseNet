@@ -18,7 +18,7 @@ import { accountFor, type Role } from "../../../scripts/roles"
 import { argsHash, connectWith, OfficeAgent } from "./agent"
 import { type Brain, DevBrain, ZeroGBrain } from "./brain"
 import { catalog, coreFiles, SYSTEM_PROMPT, toolProcess } from "./catalog"
-import { countLines, fileStore, sandboxDir } from "./store"
+import { countLines, gateStore, sandboxDir } from "./store"
 import { ZeroGStore } from "./zeroG"
 
 const PORT = Number(process.env.DEMO_PORT ?? 8787)
@@ -119,7 +119,7 @@ const fleet = await Promise.all(
     const guard = new Guard({
       policy: demoPolicy(),
       timers,
-      store: fileStore(`gate-${c.id}.json`),
+      store: gateStore(`gate-${c.id}.json`),
       files: [tools.badMail.file, tools.files.file, ...coreFiles(model)],
       net: new ArkivGuardNet(client, owner, agentWriter, timers.heartbeatTtlSeconds),
       startSeq: (latest?.seq ?? 0n) + 1n,

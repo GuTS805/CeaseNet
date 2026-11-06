@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-import { arkivPublicClient, arkivWalletClient, ArkivWriter, DEMO_TIMERS, demoPolicy, type Hex, memoryStore, PRODUCTION_TIMERS, readLatestLoadout } from "@ceasenet/core"
+import { homedir } from "node:os"
+import { join } from "node:path"
+import { arkivPublicClient, arkivWalletClient, ArkivWriter, DEMO_TIMERS, demoPolicy, type Hex, PRODUCTION_TIMERS, readLatestLoadout } from "@ceasenet/core"
 import { privateKeyToAccount } from "viem/accounts"
 import { ArkivGuardNet, ReadOnlyNet } from "./arkivNet"
+import { fileStore } from "./fileStore"
 import { Guard, type GuardNet } from "./guard"
 import { measurePackage } from "./measure"
 import { runProxy } from "./proxyCore"
@@ -26,11 +29,18 @@ function parseArgs(argv: string[]) {
   }
   const pkg = value("--package")
   if (!pkg) throw new Error("--package must point at the installed tool, so it can be measured")
-  return { pkg, owner: value("--owner"), demoTimers: flags.includes("--demo-timers"), command: argv[split + 1]!, args: argv.slice(split + 2) }
+  return {
+    pkg,
+    owner: value("--owner"),
+    memory: value("--memory"),
+    demoTimers: flags.includes("--demo-timers"),
+    command: argv[split + 1]!,
+    args: argv.slice(split + 2),
+  }
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
-  const { pkg, owner, demoTimers, command, args } = parseArgs(argv)
+  const { pkg, owner, memory, demoTimers, command, args } = parseArgs(argv)
   const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
   const timers = demoTimers ? DEMO_TIMERS : PRODUCTION_TIMERS
   const client = arkivPublicClient(accessKey)
@@ -45,7 +55,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     startSeq = ((await readLatestLoadout(client, writer.address))?.seq ?? 0n) + 1n
   }
 
-  const guard = new Guard({ policy: demoPolicy(), timers, store: memoryStore(), files: [file], net, startSeq })
+  const store = fileStore(memory ?? join(homedir(), ".ceasenet", `gate-${file.name.replace(/[^\w.-]/g, "_")}.json`))
+  const guard = new Guard({ policy: demoPolicy(), timers, store, files: [file], net, startSeq })
   await guard.start()
   guard.run()
 
