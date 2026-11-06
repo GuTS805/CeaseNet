@@ -50,29 +50,30 @@ export interface MapFx {
   block(): void
 }
 
+/** A dot with a tail that runs along a path. The paths are all measured as 100 long. */
+export function cometOn(layer: SVGGElement, d: string, tone: Tone, ms: number, to = 100, size = 1) {
+  const base = { d, fill: "none", pathLength: 100, stroke: COLOUR[tone], "stroke-linecap": "round" }
+  const parts = [
+    { width: 15 * size, opacity: 0.14, dash: 7 },
+    { width: 3 * size, opacity: 0.6, dash: 16 },
+    { width: 8 * size, opacity: 1, dash: 0.01 },
+  ]
+  // Past the end of the path, so the tail runs out too. A dot that stops short just stops.
+  const stop = to === 100 ? 118 : to
+  return Promise.all(
+    parts.map(async ({ width, opacity, dash }) => {
+      const el = make("path", { ...base, "stroke-width": width, opacity, "stroke-dasharray": `${dash} 400` })
+      layer.append(el)
+      const run = el.animate([{ strokeDashoffset: dash }, { strokeDashoffset: dash - stop }], { duration: ms, easing: EASE, fill: "forwards" })
+      await run.finished.catch(() => undefined)
+      el.remove()
+    }),
+  )
+}
+
 function createFx(layer: SVGGElement): MapFx {
   let pulse: ReturnType<typeof setInterval> | undefined
-
-  /** A dot with a tail that runs along a path. The paths are all measured as 100 long. */
-  const comet = (d: string, tone: Tone, ms: number, to = 100, size = 1) => {
-    const base = { d, fill: "none", pathLength: 100, stroke: COLOUR[tone], "stroke-linecap": "round" }
-    const parts = [
-      { width: 15 * size, opacity: 0.14, dash: 7 },
-      { width: 3 * size, opacity: 0.6, dash: 16 },
-      { width: 8 * size, opacity: 1, dash: 0.01 },
-    ]
-    // Past the end of the path, so the tail runs out too. A dot that stops short just stops.
-    const stop = to === 100 ? 118 : to
-    return Promise.all(
-      parts.map(async ({ width, opacity, dash }) => {
-        const el = make("path", { ...base, "stroke-width": width, opacity, "stroke-dasharray": `${dash} 400` })
-        layer.append(el)
-        const run = el.animate([{ strokeDashoffset: dash }, { strokeDashoffset: dash - stop }], { duration: ms, easing: EASE, fill: "forwards" })
-        await run.finished.catch(() => undefined)
-        el.remove()
-      }),
-    )
-  }
+  const comet = (d: string, tone: Tone, ms: number, to = 100, size = 1) => cometOn(layer, d, tone, ms, to, size)
 
   const ring = (x: number, y: number, r: number, tone: Tone, scale: number, ms: number, delay = 0, width = 2.5) => {
     const el = make("circle", { cx: x, cy: y, r, fill: "none", stroke: COLOUR[tone], "stroke-width": width, "vector-effect": "non-scaling-stroke", opacity: 0 })

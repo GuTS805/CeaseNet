@@ -3,6 +3,7 @@ import {
   countConfirmations,
   decodeBundle,
   demoPolicy,
+  followersOf,
   type Hex,
   isDismissed,
   isWithdrawn,
@@ -13,7 +14,9 @@ import {
   trustFromPolicy,
 } from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
-import { explorerAddress, nameOf, shortHash, SWARM_GATEWAY, swarmLink, usePublicView } from "./lib"
+import { MeasureNpm } from "./IssuePage"
+import { explorerAddress, nameOf, shortHash, SWARM_GATEWAY, swarmLink, useNetworkView } from "./lib"
+import { useWallet, walletMessage } from "./wallet"
 import { WorldConfirm } from "./WorldConfirm"
 
 const trust = trustFromPolicy(demoPolicy())
@@ -22,26 +25,38 @@ const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : "Warning")
 
 /** Every recall from a key the demo's owners follow, newest first. */
 export function RecallList({ view }: { view: PublicView }) {
+  const [everyone, setEveryone] = useState(false)
   if (view.recalls.length === 0) return <p className="muted">No recalls on record.</p>
+  const followed = view.recalls.filter((r) => followersOf(r, view.agents) > 0)
+  const hidden = view.recalls.length - followed.length
+  const shown = everyone ? view.recalls : followed
   return (
     <div className="card">
+      {shown.length === 0 && <p className="muted">No owner follows the key behind any recall yet.</p>}
+      {hidden > 0 && (
+        <label className="small muted check-line">
+          <input type="checkbox" checked={everyone} onChange={(e) => setEveryone(e.target.checked)} /> Also show {hidden} recall{hidden === 1 ? "" : "s"} from keys nobody follows. Anyone can write one, and it binds nobody.
+        </label>
+      )}
       <table>
         <thead>
           <tr>
             <th>Level</th>
             <th>Reason</th>
             <th>Issued by</th>
+            <th>Following</th>
             <th>Block</th>
           </tr>
         </thead>
         <tbody>
-          {view.recalls.slice(0, 50).map((r) => (
+          {shown.slice(0, 50).map((r) => (
             <tr key={r.key}>
               <td>
                 <a href={`#/recall/${r.key}`}>{levelName(r)}</a>
               </td>
               <td>{r.reason}</td>
               <td>{nameOf(r.creator)}</td>
+              <td>{followersOf(r, view.agents)}</td>
               <td className="mono muted">{String(r.createdAt)}</td>
             </tr>
           ))}
@@ -52,7 +67,7 @@ export function RecallList({ view }: { view: PublicView }) {
 }
 
 export function RecallsPage() {
-  const { data: view, error } = usePublicView(4000)
+  const { data: view, error } = useNetworkView(4000)
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
   return (
@@ -109,9 +124,87 @@ function FixOnSwarm({ fix }: { fix: LiftRow }) {
   )
 }
 
+/** What the key behind a recall can do about it. Each action is signed by that key's own wallet, and is public. */
+function IssuerActions({ recall, hasFix, ended }: { recall: RecallRow; hasFix: boolean; ended: boolean }) {
+  const { address, writer, connect, missing } = useWallet()
+  const [version, setVersion] = useState("")
+  const [hash, setHash] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string>()
+  const mine = address?.toLowerCase() === recall.creator.toLowerCase()
+  if (ended || recall.level !== "STOP") return null
+  if (!mine) {
+    return missing || address ? null : (
+      <div className="small muted">
+        Issued this? <button className="link" onClick={() => void connect()}>Connect the wallet that signed it</button> to publish a fix.
+      </div>
+    )
+  }
+  const act = async (write: () => Promise<unknown>) => {
+    setBusy(true)
+    setProblem(undefined)
+    try {
+      await write()
+    } catch (e) {
+      setProblem(walletMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const publishFix = () =>
+    act(() =>
+      writer!.lift({
+        recall: recall.key,
+        artifact: recall.artifact,
+        kind: "FIX",
+        fixedHash: hash.trim(),
+        fixedVersion: version.trim(),
+        note: `${recall.pkg ?? "This tool"} ${version.trim()} is the fix`,
+      }),
+    )
+  const hashOk = /^0x[0-9a-fA-F]{64}$/.test(hash.trim())
+  return (
+    <div className="card form">
+      <h2>You issued this</h2>
+      {!hasFix && (
+        <>
+          <MeasureNpm
+            label="Measure the fix on npm"
+            onMeasured={(file) => {
+              setVersion(file.version)
+              setHash(file.hash)
+            }}
+          />
+          <div className="form-row">
+            <label>
+              Fixed version
+              <input value={version} onChange={(e) => setVersion(e.target.value)} spellCheck={false} />
+            </label>
+            <label>
+              Its exact file hash
+              <input value={hash} onChange={(e) => setHash(e.target.value)} placeholder="0x…" spellCheck={false} />
+            </label>
+          </div>
+          <div className="buttons">
+            <button className="primary" disabled={busy || !version.trim() || !hashOk} onClick={() => void publishFix()}>
+              {busy ? "Waiting for your wallet and the chain…" : "Sign and publish the fix"}
+            </button>
+          </div>
+        </>
+      )}
+      <div className="buttons">
+        <button disabled={busy} onClick={() => void act(() => writer!.lift({ recall: recall.key, artifact: recall.artifact, kind: "WITHDRAWN", note: "Withdrawn by the issuer" }))}>
+          Withdraw this STOP
+        </button>
+      </div>
+      {problem && <div className="error">{problem}</div>}
+    </div>
+  )
+}
+
 /** One recall: what it says, who issued it, who confirmed it and who obeyed. */
 export function RecallPage({ recallKey }: { recallKey: Hex }) {
-  const { data: view, error } = usePublicView(3000)
+  const { data: view, error } = useNetworkView(3000)
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
   const recall = view.recalls.find((r) => r.key === recallKey)
@@ -122,7 +215,7 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
         <div className="notice bad">
           {receipt
             ? `This recall is no longer on Arkiv, but agents posted receipts for it, which proves it existed. Issued by ${nameOf(receipt.issuer)} (${receipt.issuer}), content hash ${receipt.recallHash}.`
-            : "No key the demo's owners follow has issued a recall with this key."}
+            : "There is no recall with this key on Arkiv."}
         </div>
       </div>
     )
@@ -148,14 +241,19 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
         {recall.advice && <div className="notice">What to do: {recall.advice}</div>}
         <table>
           <tbody>
-            {known && (
+            {known ? (
               <tr>
                 <th>Tool</th>
                 <td>
                   {known.name} {known.version}
                 </td>
               </tr>
-            )}
+            ) : recall.pkg ? (
+              <tr>
+                <th>Tool</th>
+                <td>{recall.pkg}</td>
+              </tr>
+            ) : null}
             <tr>
               <th>Exact file</th>
               <td className="mono">{recall.artifact}</td>
@@ -175,6 +273,12 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
                 <a className="mono" href={explorerAddress(recall.creator)} target="_blank" rel="noreferrer">
                   {shortHash(recall.creator)}
                 </a>
+              </td>
+            </tr>
+            <tr>
+              <th>Who obeys this key</th>
+              <td>
+                {followersOf(recall, view.agents)} owner(s) follow it. <a href={`#/protect/${recall.creator}`}>Follow it</a>
               </td>
             </tr>
             <tr>
@@ -240,6 +344,8 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
           )}
         </div>
       )}
+
+      <IssuerActions recall={recall} hasFix={Boolean(fix)} ended={ended} />
 
       <RecallBoardCard recall={recall} view={view} />
     </div>

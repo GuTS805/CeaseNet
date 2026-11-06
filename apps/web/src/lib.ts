@@ -7,6 +7,7 @@ import {
   type Hex,
   type LoadedFile,
   type PublicView,
+  readNetworkView,
   readPublicView,
 } from "@ceasenet/core"
 
@@ -15,6 +16,7 @@ declare const __DEMO_URL__: string
 declare const __VERIFIER_URL__: string
 declare const __SWARM_GATEWAY__: string
 
+export const ACCESS_KEY = __ARKIV_ACCESS_KEY__
 export const client = arkivPublicClient(__ARKIV_ACCESS_KEY__)
 export const DEMO_URL = __DEMO_URL__
 export const VERIFIER_URL = __VERIFIER_URL__
@@ -95,6 +97,9 @@ export function usePoll<T>(read: () => Promise<T>, everyMs: number, deps: unknow
 
 /** Everything public, read straight from Arkiv with no server of ours in between. */
 export const usePublicView = (everyMs = 2500) => usePoll<PublicView>(() => readPublicView(client), HOSTED ? Math.max(everyMs, 15_000) : everyMs)
+
+/** The whole network, from anyone, with no list of keys to start from. */
+export const useNetworkView = (everyMs = 4000) => usePoll<PublicView>(() => readNetworkView(client), HOSTED ? Math.max(everyMs, 15_000) : everyMs)
 
 export async function demoGet<T>(path: string): Promise<T> {
   const res = await fetch(DEMO_URL + path)

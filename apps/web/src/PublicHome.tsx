@@ -1,11 +1,12 @@
 import { RecallList } from "./RecallPages"
-import { nameOf, statusColour, statusLabel, usePublicView } from "./lib"
+import { nameOf, statusColour, statusLabel, useNetworkView } from "./lib"
+import { NetworkMap } from "./NetworkPage"
 
 const REPOSITORY = "https://github.com/GuTS805/CeaseNet"
 
 /** The front page when no live agents can be reached from here. Everything on it comes straight from Arkiv. */
 export function PublicHome() {
-  const { data: view, error } = usePublicView()
+  const { data: view, error } = useNetworkView()
   return (
     <div className="page home">
       <section className="home-hero">
@@ -14,6 +15,20 @@ export function PublicHome() {
           When a tool an AI agent uses turns out to be malicious, taking it off the marketplace doesn't stop agents that already have it. CeaseNet is a public recall list on Arkiv that agents check for
           themselves. A STOP blocks that one tool within seconds, and each agent posts a public receipt.
         </p>
+        <div className="buttons home-actions">
+          <a className="button primary" href="#/protect">
+            Protect an agent
+          </a>
+          <a className="button" href="#/issue">
+            Recall a tool
+          </a>
+          <a className="button" href="#/network">
+            See the network
+          </a>
+          <a className="button" href="#/check">
+            Check a tool
+          </a>
+        </div>
         <img className="home-shot" src="./war-room.png" alt="The live demo: three companies' agents, a stranger's inbox that has gone silent, and a measured time from pressing STOP to blocked." />
         <p className="small muted">
           The picture is from the live demo, whose agents run on our machine. To press STOP yourself,{" "}
@@ -49,6 +64,7 @@ export function PublicHome() {
 
       {view && (
         <>
+          <NetworkMap view={view} />
           <RecallList view={view} />
           <div className="card">
             <h2>Agents on the record</h2>

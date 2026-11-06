@@ -14,9 +14,13 @@ import type { Hex } from "@ceasenet/core"
 import { AgentPage } from "./AgentPage"
 import { CheckPage } from "./CheckPage"
 import { HOSTED } from "./lib"
+import { IssuePage } from "./IssuePage"
 import { LivePage } from "./LivePage"
+import { NetworkPage } from "./NetworkPage"
+import { ProtectPage } from "./ProtectPage"
 import { PublicHome } from "./PublicHome"
 import { RecallPage, RecallsPage } from "./RecallPages"
+import { WalletProvider } from "./wallet"
 
 function useHash() {
   const [hash, setHash] = useState(window.location.hash)
@@ -40,13 +44,22 @@ function App() {
         <span className="tagline">Recalls for AI agents</span>
         <nav className="nav">
           <a className={page === "" ? "on" : ""} href="#/">
-            {HOSTED ? "Home" : "Live"}
+            {HOSTED ? "Home" : "Live demo"}
+          </a>
+          <a className={page === "network" ? "on" : ""} href="#/network">
+            Network
           </a>
           <a className={page.startsWith("recall") ? "on" : ""} href="#/recalls">
             Recalls
           </a>
           <a className={page === "check" ? "on" : ""} href="#/check">
             Check a tool
+          </a>
+          <a className={page === "protect" ? "on" : ""} href="#/protect">
+            Protect an agent
+          </a>
+          <a className={page === "issue" ? "on" : ""} href="#/issue">
+            Recall a tool
           </a>
         </nav>
       </header>
@@ -58,6 +71,12 @@ function App() {
         <RecallPage key={arg} recallKey={arg as Hex} />
       ) : page === "check" ? (
         <CheckPage />
+      ) : page === "network" ? (
+        <NetworkPage />
+      ) : page === "protect" ? (
+        <ProtectPage key={arg} suggested={arg} />
+      ) : page === "issue" ? (
+        <IssuePage />
       ) : HOSTED ? (
         <PublicHome />
       ) : (
@@ -69,6 +88,8 @@ function App() {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <WalletProvider>
+      <App />
+    </WalletProvider>
   </StrictMode>,
 )
