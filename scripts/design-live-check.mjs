@@ -38,7 +38,7 @@ await page.route("**/*", async route => {
 try {
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 960 })
-    await page.goto(`${base}/#/demo`)
+    await page.goto(`${base}/#/`)
     await page.locator(".live-agent-wrapper").first().waitFor()
     await page.waitForTimeout(700)
     assert.equal(await page.locator(".live-agent-wrapper").count(), 3)

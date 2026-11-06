@@ -129,3 +129,5 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 22:50 | so now arkiv is depllyed right and i can see the real data i will put in schemas? in arkiv portals? |
 | 11-06 22:52 | i want to make this the thing is that when the dairy are made on the arkiv i want u to chenge entity on a range of timestamps and also entity |
 | 11-06 22:53 | [chose "Dono" (both): one part per time window, and times on each part so a span can be looked up] |
+| 11-06 23:15 | dekho anirudh ne ek branch me push kiya / poora flow waisa hi rkho ditto bs ui and design jaisa hai waisa rhne do / i mean every option from page to page has to be like on the branch of anirudh / do not make any mistakes |
+| 11-06 23:17 | [chose: the page flow of the swarm-diary branch, with the new design] |

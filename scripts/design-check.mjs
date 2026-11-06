@@ -65,7 +65,7 @@ async function revealAll(page) {
 
 try {
   const { context, page } = await contextFor(publicURL)
-  const routes = ["", "product", "demo", "docs", "console", "network", "recalls", "check", "report", "protect", "issue", `agent/${address}`, `recall/${hash}`, "missing-page"]
+  const routes = ["", "network", "recalls", "check", "report", "protect", "issue", `agent/${address}`, `recall/${hash}`, "missing-page"]
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 960 })
     for (const route of routes) await check(`Public /${route || "home"} at ${width}px`, async () => {
@@ -75,36 +75,44 @@ try {
       const size = await overflow(page)
       assert.ok(size.content <= size.width + 1, `Horizontal overflow: ${size.content} > ${size.width}`)
       assert.equal(await page.locator(".net-map,.map svg").count(), 0, "A flowchart remains")
-      if (width === 1440 && ["", "network", "protect", "check", "demo"].includes(route)) {
+      if (width === 1440 && ["", "network", "protect", "check"].includes(route)) {
         await revealAll(page)
         await page.screenshot({ path: `.design-review/public-${route || "home"}.png`, fullPage: route !== "" })
       }
     })
   }
-  await check("Mobile navigation opens, navigates, and closes", async () => {
+  // The pages, in order, as the header lists them. Every one is reachable from every page.
+  const pages = [["Home", ""], ["Network", "network"], ["Recalls", "recalls"], ["Check a tool", "check"], ["Report", "report"], ["Protect an agent", "protect"], ["Recall a tool", "issue"]]
+  await check("The header lists every page, in order, and each link opens it", async () => {
+    await page.setViewportSize({ width: 1440, height: 960 })
+    await page.goto(`${publicURL}/#/network`)
+    const nav = page.locator(".desktop-nav")
+    assert.deepEqual((await nav.locator("a").allInnerTexts()).map(t => t.trim()), pages.map(([label]) => label))
+    for (const [label, path] of pages) {
+      await nav.getByRole("link", { name: label, exact: true }).click()
+      await page.waitForURL(`**/#/${path}`)
+      assert.equal(await nav.getByRole("link", { name: label, exact: true }).getAttribute("aria-current"), "page")
+    }
+  })
+  await check("An unknown address shows the home page", async () => {
+    await page.goto(`${publicURL}/#/no-such-page`)
+    await page.waitForTimeout(300)
+    assert.equal(await page.locator(".desktop-nav").getByRole("link", { name: "Home", exact: true }).getAttribute("aria-current"), null)
+    assert.ok((await page.locator("main").innerText()).trim().length > 15)
+  })
+  await check("Mobile navigation lists the same pages, navigates, and closes", async () => {
+    await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(publicURL)
     await page.getByRole("button", { name: "Open navigation" }).click()
-    await page.locator("#mobile-nav").getByRole("link", { name: "Docs", exact: true }).click()
-    await page.waitForURL("**/#/docs")
+    assert.deepEqual((await page.locator("#mobile-nav a").allInnerTexts()).map(t => t.trim()), pages.map(([label]) => label))
+    await page.locator("#mobile-nav").getByRole("link", { name: "Check a tool", exact: true }).click()
+    await page.waitForURL("**/#/check")
     await page.locator("#mobile-nav").waitFor({ state: "hidden" })
     assert.equal(await page.getByRole("button", { name: "Open navigation" }).getAttribute("aria-expanded"), "false")
-  })
-  await check("Demo stop, recall, diary, and search interactions", async () => {
-    await page.setViewportSize({ width: 1440, height: 960 })
-    await page.goto(publicURL)
-    await page.getByRole("button", { name: "Stop Momentum" }).click()
-    assert.equal(await page.getByRole("button", { name: "Resume Momentum" }).count(), 1)
-    await page.getByRole("button", { name: "Recall trade-broker-tool" }).click()
-    assert.equal(await page.getByText("Recall receipt recorded", { exact: true }).count(), 1)
-    await page.getByRole("button", { name: "Open activity diary" }).click()
-    assert.equal(await page.getByText("Broker tool recalled. Calls blocked.", { exact: false }).count(), 1)
-    await page.getByLabel("Search demo actions").fill("unmatched action")
-    assert.equal(await page.getByText("No matching actions.").count(), 1)
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto(publicURL)
   await revealAll(page)
-  assert.equal(await page.locator(".feature-column,.record-art,.closing-section").evaluateAll(elements => elements.filter(el => Number(getComputedStyle(el).opacity) < .99).length), 0, "Scroll reveals remained hidden")
   await page.screenshot({ path: ".design-review/home-mobile.png", fullPage: true })
   await context.close()
 
@@ -160,13 +168,12 @@ try {
   })
   await consoleSession.context.close()
 
-  await check("Reduced motion disables hero parallax and entrance transforms", async () => {
+  await check("Reduced motion disables page entrance transforms", async () => {
     const reduced = await contextFor(publicURL, false, "reduce")
     try {
-      await reduced.page.goto(publicURL)
+      await reduced.page.goto(`${publicURL}/#/network`)
       await reduced.page.waitForTimeout(500)
-      await reduced.page.evaluate(() => window.scrollTo(0, 200))
-      assert.equal(await reduced.page.locator(".metal-art").evaluate(el => getComputedStyle(el).transform), "none")
+      assert.equal(await reduced.page.locator(".route-content").evaluate(el => getComputedStyle(el).transform), "none")
     } finally { await reduced.context.close() }
   })
   await check("No uncaught browser exceptions", async () => assert.deepEqual(errors, []))
