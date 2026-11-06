@@ -109,3 +109,9 @@ The first part is idea rounds from before the first commit, on 6 November at 04:
 | 11-06 17:26 | ek baar chla ke verify toh krle / end to end / work kr rha ya nhi / phir 1 guide de |
 | 11-06 17:48 | chotti galtiyan sahi karo / and phir merge krdo / no ai trace |
 | 11-06 17:57 | conflicts dekho unhe solve karo / and then merge |
+| 11-06 18:15 | ethereum foundation ka kya kaam? / kch change mt krna |
+| 11-06 20:25 | [pasted another assistant's note saying the Nook Swarm node was not running on this computer] check this |
+| 11-06 20:28 | now check |
+| 11-06 20:31 | [screenshot of Nook's drive screen] kahan khareedna hai |
+| 11-06 20:34 | now i have done it now see and tell me what u need |
+| 11-06 20:37 | hn fill it and give me project progress |

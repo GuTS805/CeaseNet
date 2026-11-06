@@ -52,9 +52,9 @@ AI use is disclosed in docs/ai-usage.md.
 
 ### Arkiv + Swarm bonus
 
-Select this **only after** `npm run swarm-check` has passed on a real batch and [arkiv/swarm.md](../arkiv/swarm.md) is filled in.
+Ready to select. `npm run swarm-check` passed on a real batch on 6 Nov, and [arkiv/swarm.md](../arkiv/swarm.md) is filled in, apart from the video timestamp.
 
-**How we use it:** fixed tools live on Swarm, so a fix survives the maker's site going away. Agents and browsers check the hash, so nobody has to trust the host. Evidence stays encrypted until disclosure.
+**How we use it:** each agent's diary is encrypted to its owner and kept on Swarm, with its index and hash on Arkiv. Fixed tools live on Swarm, so a fix survives the maker's site going away. Agents and browsers check the hash, so nobody has to trust the host. Evidence stays encrypted until disclosure.
 
 ### World
 

@@ -1,6 +1,6 @@
 # Swarm and Arkiv
 
-> **Status: not yet run on the Swarm network.** The code is complete and tested against a local stand-in written from Bee's published OpenAPI, including the full story on live Arkiv. The items marked **TO FILL** need a real postage batch. Run `npm run swarm-check`, and it prints most of them.
+> **Status: runs on the Swarm network (Gnosis Chain mainnet).** On 6 Nov 2026, `npm run swarm-check` passed all 14 checks against a real Bee node. It stored a fix, sealed evidence and an encrypted diary part, read each back, and wrote and read the diary's index on Arkiv. The public gateway serves the same fix (`https://api.gateway.ethswarm.org/bzz/66805f5dfec4cb00ee28a3a0e94e0644c87cec57ad1d536b3d4a5f0554309865/`), so the files are on the network and not only on our node.
 
 ## What lives where
 
@@ -30,11 +30,12 @@ An encrypted Swarm reference is 64 bytes, and its second half is the key to the 
 ## Entity field and example
 
 - Entity fields holding a reference: `ceasenet.diary.root`, and `ceasenet.lift.fixedRef` in the scripted demo
-- Example entity key: **TO FILL** (the `ceasenet.diary` that `npm run swarm-check` prints)
-- Its Swarm reference: **TO FILL**
-- Postage batch ID: **TO FILL**
-- Batch buyer: **TO FILL**
-- Bee node or service: **TO FILL**
+- Example entity key: `0xc4c89aaddf0aef0f659cf0916a9f365714d41864897f02324aefae5c97617b4d` (a `ceasenet.diary` written by `npm run swarm-check`, with `storage` set to `swarm-sealed`)
+- Its Swarm reference (field `root`): `0f300c232683af92a56d245cd20c10bf6f17908ff35ddc487eb017e51b21fd34`. It reads back as encrypted bytes that only the owner's key opens.
+- A public fix stored in the same run: `66805f5dfec4cb00ee28a3a0e94e0644c87cec57ad1d536b3d4a5f0554309865`
+- Postage batch ID: `1f462de67b490f2dc886cfacdc311dd8098d62c25fb8e578c16b86aaffda18a1` (depth 18, immutable, about 30 days)
+- Batch buyer: our Bee node's wallet, `0x9cb8438d6800bb518c6ae6338b6a1c4790dac38a`, funded from a Swarm gift code
+- Bee node or service: our own light node, Bee 2.8.3, run by the Nook 0.7.7 desktop app
 - Demo video timestamp showing Swarm: **TO FILL**
 
 ## Upload and read code
@@ -61,5 +62,6 @@ To rehearse with no postage, `npm run local-bee` starts a stand-in on this machi
 ## Pain points
 
 - **Getting a batch was the main blocker for us.** Buying one needs a funded node. A hackathon team has to find a booth or fund a wallet before writing a single byte.
-- **We built before we could test for real.** Without a batch our tests follow Bee's OpenAPI, not a running node.
+- **We built before we could test for real.** Until the evening of 6 Nov we had no batch, so our tests followed Bee's OpenAPI, not a running node. The code then passed against a real node unchanged.
+- **Nook made the last step easy, but it was hard to see.** The node's postage data took a while to catch up with the chain. Nook then bought a batch on its own, labelled `nook-system`, and its drive screen did not show it, so we found it through `GET /stamps`.
 - **The encrypted-reference rule is easy to break by accident.** A 64-byte reference fits in a 128-byte Arkiv `str` column, and nothing warns you. We added our own check.
