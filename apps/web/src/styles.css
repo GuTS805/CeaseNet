@@ -92,68 +92,82 @@ h3 {
 }
 
 .live {
-  display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(370px, 1fr);
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 14px;
-  height: calc(100% - 55px);
 }
 
-.stage {
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #0a1019;
-  min-height: 360px;
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
 }
 
-.stage canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
+.hero-count {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 420px;
+  min-width: 0;
 }
 
-.chips {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: 12px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  pointer-events: none;
+.counter {
+  font-family: var(--mono);
+  font-size: 68px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.chip {
-  background: rgba(13, 20, 32, 0.85);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 13px;
+.counter.bad {
+  color: var(--red);
 }
 
-.chip .sub {
-  color: var(--muted);
-  font-size: 12px;
+.counter-label {
+  font-size: 19px;
+  font-weight: 700;
 }
 
-.stage-note {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
+.ok {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.warn {
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.hero-timer {
   text-align: center;
-  padding: 24px;
-  color: var(--muted);
+}
+
+.big-button {
+  padding: 12px 18px;
+  font-size: 16px;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(330px, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.agents {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
 }
 
 .side {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  min-height: 0;
-  overflow-y: auto;
+  min-width: 0;
 }
 
 .card {
@@ -169,6 +183,118 @@ h3 {
   color: var(--muted);
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+.agent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.agent.leaking {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.agent-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.tools {
+  display: grid;
+  gap: 6px;
+}
+
+.tool {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  text-align: center;
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 8px 4px;
+}
+
+.stat {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat.bad {
+  color: var(--red);
+}
+
+.feed {
+  height: 300px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.feed-line {
+  display: flex;
+  gap: 7px;
+  line-height: 1.35;
+}
+
+.feed-line .mark {
+  flex: 0 0 12px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.feed-line.job {
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.feed-line.allowed .mark,
+.feed-line.approved .mark {
+  color: var(--green);
+}
+
+.feed-line.blocked,
+.feed-line.refused {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.feed-line.said {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.feed-line.update {
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.feed-line.problem {
+  color: var(--amber);
+}
+
+.approval {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    border-color: rgba(245, 158, 11, 0.35);
+  }
 }
 
 .big {
@@ -210,11 +336,11 @@ h3 {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.03em;
-  white-space: nowrap;
 }
 
 .status::before {
   content: "";
+  flex: 0 0 8px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -262,6 +388,11 @@ th {
   font-size: 12.5px;
 }
 
+tbody tr:first-child td,
+tbody tr:first-child th {
+  border-top: 0;
+}
+
 button {
   font: inherit;
   font-weight: 600;
@@ -269,8 +400,9 @@ button {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 11px;
   cursor: pointer;
+  font-size: 13.5px;
 }
 
 button:hover:not(:disabled) {
@@ -292,6 +424,10 @@ button.primary {
   border-color: var(--teal);
 }
 
+button.big-button {
+  font-size: 16px;
+}
+
 .buttons {
   display: flex;
   flex-wrap: wrap;
@@ -300,9 +436,10 @@ button.primary {
 
 .timer {
   font-family: var(--mono);
-  font-size: 26px;
+  font-size: 34px;
   font-weight: 700;
   color: var(--teal);
+  line-height: 1.1;
 }
 
 .meter {
@@ -320,7 +457,7 @@ button.primary {
 }
 
 .plate {
-  max-width: 460px;
+  max-width: 680px;
   margin: 0 auto;
   border-radius: 14px;
   overflow: hidden;
@@ -333,6 +470,10 @@ button.primary {
   color: #06121a;
   font-weight: 800;
   font-size: 22px;
+}
+
+.plate-head.result {
+  border-radius: 10px;
 }
 
 .plate-head.green {
@@ -356,21 +497,46 @@ button.primary {
 .plate-body {
   padding: 16px;
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .field .label {
   color: var(--muted);
   font-size: 12.5px;
+  margin-bottom: 2px;
 }
 
-.qr {
-  display: block;
-  width: 150px;
-  height: 150px;
+.diary-part {
+  border-top: 1px solid var(--line);
+  padding: 8px 0;
+}
+
+.check-form {
+  display: grid;
+  grid-template-columns: 1fr 140px 1.4fr;
+  gap: 12px;
+}
+
+.check-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+input {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
-  padding: 6px;
+  padding: 8px 10px;
+  min-width: 0;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--teal);
 }
 
 .notice {
@@ -391,17 +557,26 @@ button.primary {
   font-size: 13px;
 }
 
-@media (max-width: 960px) {
-  .live {
+@media (max-width: 1250px) {
+  .columns {
     grid-template-columns: 1fr;
-    height: auto;
+  }
+}
+
+@media (max-width: 860px) {
+  .agents {
+    grid-template-columns: 1fr;
   }
 
-  .stage {
-    height: 48vh;
+  .check-form {
+    grid-template-columns: 1fr;
   }
 
   .tagline {
     display: none;
+  }
+
+  .counter {
+    font-size: 52px;
   }
 }

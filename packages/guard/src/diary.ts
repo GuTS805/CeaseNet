@@ -157,7 +157,8 @@ export class Diary {
       this.parts.push({ root, head, firstSeq: entries[0]!.seq, lastSeq: last.seq, entries: entries.length })
       this.lastError = undefined
     } catch (e) {
-      this.lastError = e instanceof Error ? e.message.split("\n")[0] : String(e)
+      // Library errors can run to pages. The first clause says what went wrong.
+      this.lastError = (e instanceof Error ? e.message : String(e)).split(/\n| \(/)[0]
     }
   }
 }

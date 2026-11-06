@@ -1,10 +1,10 @@
 import { StrictMode, useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import type { Hex } from "@ceasenet/core"
+import { AgentPage } from "./AgentPage"
+import { CheckPage } from "./CheckPage"
 import { LivePage } from "./LivePage"
-import { PlatePage } from "./PlatePage"
 import { RecallPage, RecallsPage } from "./RecallPages"
-import { ReplayPage } from "./ReplayPage"
 import "./styles.css"
 
 function useHash() {
@@ -26,7 +26,7 @@ function App() {
         <a className="brand" href="#/">
           Cease<span>Net</span>
         </a>
-        <span className="tagline">Recalls for robots and AI agents</span>
+        <span className="tagline">Recalls for AI agents</span>
         <nav className="nav">
           <a className={page === "" ? "on" : ""} href="#/">
             Live
@@ -34,19 +34,19 @@ function App() {
           <a className={page.startsWith("recall") ? "on" : ""} href="#/recalls">
             Recalls
           </a>
-          <a className={page === "replay" ? "on" : ""} href="#/replay/1">
-            Replay
+          <a className={page === "check" ? "on" : ""} href="#/check">
+            Check a tool
           </a>
         </nav>
       </header>
-      {page === "plate" ? (
-        <PlatePage key={arg} address={arg as Hex} />
+      {page === "agent" ? (
+        <AgentPage key={arg} address={arg as Hex} />
       ) : page === "recalls" ? (
         <RecallsPage />
       ) : page === "recall" ? (
         <RecallPage key={arg} recallKey={arg as Hex} />
-      ) : page === "replay" ? (
-        <ReplayPage key={arg} id={Number(arg) || 1} />
+      ) : page === "check" ? (
+        <CheckPage />
       ) : (
         <LivePage />
       )}

@@ -10,12 +10,11 @@
   },
   "dependencies": {
     "@ceasenet/core": "*",
-    "qrcode": "^1.5.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "@ceasenet/guard": "*"
   },
   "devDependencies": {
-    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "vite": "^7.0.0"

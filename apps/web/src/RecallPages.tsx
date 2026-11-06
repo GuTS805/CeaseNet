@@ -1,51 +1,56 @@
-import { countConfirmations, fleetTrust, isDismissed, isWithdrawn, type Hex, type RecallRow } from "@ceasenet/core"
+import { countConfirmations, demoPolicy, type Hex, isDismissed, isWithdrawn, type RecallRow, trustFromPolicy } from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
-import { explorerAddress, shortHash, useFleetView } from "./lib"
+import { explorerAddress, nameOf, shortHash, usePublicView } from "./lib"
 
-const trust = fleetTrust()
+const trust = trustFromPolicy(demoPolicy())
 
 const levelName = (r: RecallRow) => (r.level === "STOP" ? "STOP" : "Warning")
 
-/** Every recall from a key this site trusts, newest first. */
+/** Every recall from a key the demo's owners follow, newest first. */
 export function RecallsPage() {
-  const { data: view, error } = useFleetView(4000)
+  const { data: view, error } = usePublicView(4000)
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
   return (
     <div className="page">
-      <h1 style={{ marginBottom: 12 }}>Recalls</h1>
+      <h1 style={{ marginBottom: 4 }}>Recalls</h1>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Read straight from Arkiv in your browser. No server of ours is involved.
+      </p>
       {view.recalls.length === 0 && <p className="muted">No recalls on record.</p>}
-      <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th>Level</th>
-              <th>Reason</th>
-              <th>File</th>
-              <th>Block</th>
-            </tr>
-          </thead>
-          <tbody>
-            {view.recalls.slice(0, 50).map((r) => (
-              <tr key={r.key}>
-                <td>
-                  <a href={`#/recall/${r.key}`}>{levelName(r)}</a>
-                </td>
-                <td>{r.reason}</td>
-                <td className="mono muted">{shortHash(r.artifact)}</td>
-                <td className="mono muted">{String(r.createdAt)}</td>
+      {view.recalls.length > 0 && (
+        <div className="card">
+          <table>
+            <thead>
+              <tr>
+                <th>Level</th>
+                <th>Reason</th>
+                <th>Issued by</th>
+                <th>Block</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {view.recalls.slice(0, 50).map((r) => (
+                <tr key={r.key}>
+                  <td>
+                    <a href={`#/recall/${r.key}`}>{levelName(r)}</a>
+                  </td>
+                  <td>{r.reason}</td>
+                  <td>{nameOf(r.creator)}</td>
+                  <td className="mono muted">{String(r.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
 
 /** One recall: what it says, who issued it, who confirmed it and who obeyed. */
 export function RecallPage({ recallKey }: { recallKey: Hex }) {
-  const { data: view, error } = useFleetView(3000)
+  const { data: view, error } = usePublicView(3000)
   if (error && !view) return <div className="page notice bad">Cannot read Arkiv: {error}</div>
   if (!view) return <div className="page muted">Reading Arkiv…</div>
   const recall = view.recalls.find((r) => r.key === recallKey)
@@ -55,8 +60,8 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
       <div className="page">
         <div className="notice bad">
           {receipt
-            ? `This recall is no longer on Arkiv, but robots have receipted it, which proves it existed. Issuer ${receipt.issuer}, content hash ${receipt.recallHash}.`
-            : "No trusted key has issued a recall with this key."}
+            ? `This recall is no longer on Arkiv, but agents posted receipts for it, which proves it existed. Issued by ${nameOf(receipt.issuer)} (${receipt.issuer}), content hash ${receipt.recallHash}.`
+            : "No key the demo's owners follow has issued a recall with this key."}
         </div>
       </div>
     )
@@ -66,6 +71,7 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
   const counts = countConfirmations(recall, view.endorsements, view.block, trust)
   const fix = lifts.find((l) => l.kind === "FIX")
   const ended = recall.level === "STOP" ? isWithdrawn(recall, lifts, trust) : isDismissed(recall, lifts, trust)
+  const known = view.artifacts.find((a) => a.hash.toLowerCase() === recall.artifact.toLowerCase())
 
   return (
     <div className="page" style={{ display: "grid", gap: 12 }}>
@@ -80,15 +86,32 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
         {recall.advice && <div className="notice">What to do: {recall.advice}</div>}
         <table>
           <tbody>
+            {known && (
+              <tr>
+                <th>Tool</th>
+                <td>
+                  {known.name} {known.version}
+                </td>
+              </tr>
+            )}
             <tr>
-              <th>File</th>
+              <th>Exact file</th>
               <td className="mono">{recall.artifact}</td>
             </tr>
+            {recall.pkg && recall.versions && (
+              <tr>
+                <th>Also covers</th>
+                <td>
+                  {recall.pkg} {recall.versions}
+                </td>
+              </tr>
+            )}
             <tr>
               <th>Issued by</th>
-              <td className="mono">
-                <a href={explorerAddress(recall.creator)} target="_blank" rel="noreferrer">
-                  {recall.creator}
+              <td>
+                {nameOf(recall.creator)}{" "}
+                <a className="mono" href={explorerAddress(recall.creator)} target="_blank" rel="noreferrer">
+                  {shortHash(recall.creator)}
                 </a>
               </td>
             </tr>
@@ -113,23 +136,20 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
           <div className="meter">
             <div style={{ width: `${Math.min(100, (counts.effective / trust.threshold) * 100)}%` }} />
           </div>
-          <p className="small muted">
-            {counts.disputes} disputed. Robots slow down at {trust.threshold} confirmations within 72 hours, while confirmations
-            outnumber disputes. Only the maker, a regulator or the publisher can stop them.
-          </p>
           <p className="small muted" style={{ marginBottom: 0 }}>
-            Confirming with World ID comes with the verifier service.
+            {counts.disputes} disputed. At {trust.threshold} confirmations within 72 hours, while confirmations outnumber disputes,
+            agents must ask a human before using this tool. Only the keys an owner follows can stop it outright.
           </p>
         </div>
       )}
 
       {fix && (
         <div className="card">
-          <h2>Fix</h2>
+          <h2>Fix{fix.fixedVersion ? `: version ${fix.fixedVersion}` : ""}</h2>
           <p style={{ marginTop: 0 }}>{fix.note}</p>
           <div className="mono">{fix.fixedHash}</div>
           <p className="small muted" style={{ marginBottom: 0 }}>
-            Robots that install this exact file return to work. Robots still on the old file stay stopped.
+            Agents that move to this exact file use the tool again. Agents still on the old file stay blocked.
           </p>
         </div>
       )}
