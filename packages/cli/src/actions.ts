@@ -101,6 +101,8 @@ export async function liftRecall(ledger: Ledger, config: Config, recall: Hex, no
   const { rows } = await ledger.recalls([config.owner.address])
   const found = rows.find((r) => r.key.toLowerCase() === recall.toLowerCase())
   if (!found) throw new Error(`You did not issue a recall with the key ${recall}, so you cannot lift it.`)
+  // Lifting twice changes nothing, and on Arkiv it would still cost a write.
+  if (isEnded(found, await ledger.lifts([found.key]), await currentPolicy(ledger, config))) throw new Error(`The recall ${found.key} was already lifted, so nothing changed.`)
   return speaking(ledger, writer, () => writer.lift({ recall: found.key, artifact: found.artifact, kind: "WITHDRAWN", note }))
 }
 

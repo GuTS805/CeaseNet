@@ -123,6 +123,13 @@ describe("stopping things", () => {
     await expect(liftRecall(ledger(), config, "0x1234", "mine now")).rejects.toThrow(/did not issue/)
   })
 
+  it("says so when a recall was already lifted, and writes nothing", async () => {
+    const { entityKey } = await stopTool(ledger(), config, { hash: TOOL.hash, reason: "x" })
+    await liftRecall(ledger(), config, entityKey)
+    await expect(liftRecall(ledger(), config, entityKey)).rejects.toThrow(/already lifted/)
+    expect(await ledger().lifts([entityKey])).toHaveLength(1)
+  })
+
   it("marks a lifted recall as ended", async () => {
     const { entityKey } = await stopTool(ledger(), config, { hash: TOOL.hash, reason: "x" })
     await liftRecall(ledger(), config, entityKey)
