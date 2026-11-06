@@ -86,9 +86,10 @@ export function teamRoutes(ctx: TeamContext) {
         startError = explainWriteError(e, owner).message
       })
       preparing = "Starting them"
+      const compact = readSettings().AGENT_TERMINALS === "compact"
       for (const m of chosen) {
         if (memberView(m).alive) running.push(m.name)
-        else (startMember(m, homeDir(), self, prepared) === "terminal" ? terminals : background).push(m.name)
+        else (startMember(m, homeDir(), self, prepared, { compact }) === "terminal" ? terminals : background).push(m.name)
       }
     } finally {
       preparing = undefined

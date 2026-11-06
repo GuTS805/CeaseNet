@@ -7,7 +7,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { modelRunner } from "../src/agentRun"
-import { mcpSettingsPath, startReport, TEAM, terminalScript, TOOLS, toolDir } from "../src/fleet"
+import { compactSetup, mcpSettingsPath, PLACE_WINDOW_PS1, startReport, TEAM, terminalScript, TOOLS, toolDir } from "../src/fleet"
 
 /** Stands in for the market data service, so these tests can move the price and take the service away. */
 let spot: { status: number; amount: string }
@@ -210,6 +210,17 @@ describe("the terminal an agent runs in", () => {
     const script = terminalScript("win32", "Momentum trader", env, command)
     expect(script.indexOf("pause")).toBeGreaterThan(script.indexOf("agent-run"))
     expect(terminalScript("linux", "Momentum trader", env, command).indexOf("read _")).toBeGreaterThan(0)
+  })
+
+  it("places a compact window before the agent starts, and only when asked", () => {
+    const setup = compactSetup("C:\\Users\\a\\100%\\place-window.ps1", 1, TEAM.length)
+    expect(setup).toBe('powershell -NoProfile -ExecutionPolicy Bypass -File "C:\\Users\\a\\100%%\\place-window.ps1" -Slot 1 -Of 3')
+    const script = terminalScript("win32", "Reversion trader", env, command, [setup])
+    expect(script.indexOf(setup)).toBeGreaterThan(script.indexOf("title Reversion trader"))
+    expect(script.indexOf(setup)).toBeLessThan(script.indexOf("agent-run"))
+    expect(terminalScript("win32", "Reversion trader", env, command)).not.toContain("powershell")
+    expect(PLACE_WINDOW_PS1).toContain("MoveWindow")
+    expect(PLACE_WINDOW_PS1).toContain("$area.Height / $Of")
   })
 
   it("quotes for a Unix shell", () => {

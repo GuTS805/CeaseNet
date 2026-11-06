@@ -31,6 +31,7 @@ const ALLOWED = [
   "REPORT_VOTES_NEEDED",
   "REPORT_VERIFIER",
   "DIARY_MODE",
+  "AGENT_TERMINALS",
 ] as const
 
 export type Settings = Record<string, string | undefined>

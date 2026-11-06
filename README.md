@@ -86,7 +86,7 @@ Three terminals open: a momentum trader, a mean-reversion trader and a risk watc
 | **Recall** on the broker tool | The two traders close, and the risk watcher keeps working |
 | **Stop this agent** or **Stop all three** | Only those close, and nothing else you run is affected |
 
-Each card then shows how long closing took, that the system confirms the process has gone, and whether its receipt is on the list. The agents think with any model service that speaks the OpenAI chat API (Groq's free tier works), or with Claude Code if there is none.
+Each card then shows how long closing took, that the system confirms the process has gone, and whether its receipt is on the list. The agents think with any model service that speaks the OpenAI chat API (Groq's free tier works), or with Claude Code if there is none. To record them on Windows, set `AGENT_TERMINALS="compact"` in `~/.ceasenet/.env`: their windows open small, in a column on the right of the screen, leaving room for a browser.
 
 ## Stop agents and recall tools
 

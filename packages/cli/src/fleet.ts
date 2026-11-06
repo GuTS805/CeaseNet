@@ -320,16 +320,42 @@ export function prepareMember(member: Member, config: Config, self: { command: s
 const shellQuote = (text: string): string => `'${text.replace(/'/g, `'\\''`)}'`
 
 /**
+ * Run by each agent's window when AGENT_TERMINALS is "compact": a smaller font, and one slot of a column on the right of
+ * the screen, so all three agents and a browser fit on one screen for a recording. Windows only.
+ */
+export const PLACE_WINDOW_PS1 = `param([int]$Slot = 0, [int]$Of = 3, [int]$FontSize = 14)
+$ErrorActionPreference = "SilentlyContinue"
+Add-Type -Namespace CeaseNet -Name Win -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int w, int h, bool repaint);
+[DllImport("kernel32.dll", SetLastError = true)] public static extern IntPtr GetStdHandle(int n);
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] public struct FontInfo {
+  public int cbSize; public int nFont; public short dwFontSizeX; public short dwFontSizeY; public int FontFamily; public int FontWeight;
+  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string FaceName; }
+[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] public static extern bool SetCurrentConsoleFontEx(IntPtr h, bool max, ref FontInfo f);
+'@
+$font = New-Object CeaseNet.Win+FontInfo
+$font.cbSize = [System.Runtime.InteropServices.Marshal]::SizeOf($font)
+$font.dwFontSizeY = $FontSize; $font.FontFamily = 54; $font.FontWeight = 400; $font.FaceName = "Consolas"
+[CeaseNet.Win]::SetCurrentConsoleFontEx([CeaseNet.Win]::GetStdHandle(-11), $false, [ref]$font) | Out-Null
+Add-Type -AssemblyName System.Windows.Forms
+$area = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$w = [int]($area.Width * 0.36); $h = [int][Math]::Floor($area.Height / $Of)
+[CeaseNet.Win]::MoveWindow([CeaseNet.Win]::GetConsoleWindow(), $area.Right - $w, $area.Top + $Slot * $h, $w, $h, $true) | Out-Null
+`
+
+/**
  * Opens a real terminal window running this script, and says whether one could be opened.
  * On a machine with no screen, set CEASENET_NO_TERMINALS=1 and the agents run in the background instead.
+ * A classic window on Windows is a console window of its own, which the script can then size and place.
  */
-export function openTerminal(script: string): boolean {
+export function openTerminal(script: string, options: { classic?: boolean } = {}): boolean {
   if (process.env.CEASENET_NO_TERMINALS === "1") return false
   const opened = (command: string, args: string[]) => {
     const result = spawnSync(command, args, { stdio: "ignore", windowsHide: false })
     return !result.error && result.status === 0
   }
-  if (process.platform === "win32") return opened("cmd", ["/c", "start", "", script])
+  if (process.platform === "win32") return opened("cmd", options.classic ? ["/c", "start", "", "conhost.exe", "cmd.exe", "/c", script] : ["/c", "start", "", script])
   if (process.platform === "darwin") return opened("osascript", ["-e", `tell application "Terminal" to do script ${JSON.stringify(`sh ${shellQuote(script)}`)}`])
   for (const [command, flag] of [["x-terminal-emulator", "-e"], ["gnome-terminal", "--"], ["konsole", "-e"], ["xterm", "-e"]] as const) {
     if (spawnSync("sh", ["-c", `command -v ${command}`], { stdio: "ignore" }).status !== 0) continue
@@ -339,14 +365,18 @@ export function openTerminal(script: string): boolean {
   return false
 }
 
-/** What a terminal runs: the agent, then a note that stays on screen, so the reason it closed can still be read. */
-export function terminalScript(platform: NodeJS.Platform, title: string, env: Record<string, string>, command: string[]): string {
+/**
+ * What a terminal runs: the agent, then a note that stays on screen, so the reason it closed can still be read.
+ * `setup` runs first, on Windows only, and is written as given.
+ */
+export function terminalScript(platform: NodeJS.Platform, title: string, env: Record<string, string>, command: string[], setup: string[] = []): string {
   if (platform === "win32") {
     const safe = (text: string) => text.replace(/%/g, "%%")
     return [
       "@echo off",
       "chcp 65001 >nul",
       `title ${title}`,
+      ...setup,
       ...Object.entries(env).map(([k, v]) => `set "${k}=${safe(v)}"`),
       command.map((c) => `"${safe(c)}"`).join(" "),
       "echo.",
@@ -366,8 +396,12 @@ export function terminalScript(platform: NodeJS.Platform, title: string, env: Re
   ].join("\n")
 }
 
+/** The line a compact window runs first: it takes slot `slot` of `of` in a column on the right of the screen. */
+export const compactSetup = (placeScript: string, slot: number, of: number): string =>
+  `powershell -NoProfile -ExecutionPolicy Bypass -File "${placeScript.replace(/%/g, "%%")}" -Slot ${Math.max(0, slot)} -Of ${Math.max(1, of)}`
+
 /** Where an agent ended up: in a terminal of its own, or in the background when no terminal could be opened. */
-export function startMember(member: Member, mainHome: string, self: { command: string; args: string[] }, tools: PreparedTool[]): "terminal" | "background" {
+export function startMember(member: Member, mainHome: string, self: { command: string; args: string[] }, tools: PreparedTool[], options: { compact?: boolean } = {}): "terminal" | "background" {
   const home = memberHome(member.id)
   const toolsFile = join(home, "tools.json")
   writeAtomic(toolsFile, JSON.stringify(tools.filter((t) => member.tools.includes(t.id)).map((t) => t.file)))
@@ -375,8 +409,15 @@ export function startMember(member: Member, mainHome: string, self: { command: s
   const env = { CEASENET_HOME: home, CEASENET_MAIN_HOME: mainHome, CEASENET_NO_DAEMON: "1" }
 
   const script = join(home, process.platform === "win32" ? "terminal.cmd" : "terminal.sh")
-  writeFileSync(script, terminalScript(process.platform, member.name, { ...env, CEASENET_TERMINAL: "1" }, [self.command, ...run]))
-  if (openTerminal(script)) return "terminal"
+  const compact = options.compact === true && process.platform === "win32"
+  const setup: string[] = []
+  if (compact) {
+    const place = join(home, "place-window.ps1")
+    writeFileSync(place, PLACE_WINDOW_PS1)
+    setup.push(compactSetup(place, TEAM.indexOf(member), TEAM.length))
+  }
+  writeFileSync(script, terminalScript(process.platform, member.name, { ...env, CEASENET_TERMINAL: "1" }, [self.command, ...run], setup))
+  if (openTerminal(script, { classic: compact })) return "terminal"
 
   const child = nodeSpawn(self.command, run, {
     // On Windows a detached process has no console, so everything it starts would open a window of its own.
