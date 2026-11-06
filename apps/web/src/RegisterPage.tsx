@@ -92,11 +92,11 @@ export function RegisterPage() {
             <h2 style={{ marginTop: 0 }}>1. Give the agent its own key</h2>
             <p style={{ marginTop: 0 }}>On the machine the agent runs on, run this. It makes the agent's key there, and makes it answer to your wallet. Your own key never leaves your wallet.</p>
             <pre className="mono">
-              npm run install-cli{"\n"}ceasenet init --owner {address}
+              ceasenet init --name "My agent" --owner {address}
               {"\n"}ceasenet protect
             </pre>
             <p className="small muted" style={{ marginBottom: 0 }}>
-              It prints the agent's address. <code>ceasenet protect</code> puts the gate in front of the agent's MCP tools, so a STOP from you closes them.
+              It prints the agent's address: paste it below. <code>ceasenet protect</code> puts the gate in front of the agent's MCP tools, so a STOP from you closes them. To get <code>ceasenet</code>, run <code>npm run install-cli</code> inside a clone of the repository. If this machine already has a CeaseNet agent, give the new one a folder of its own first. In PowerShell: <code>{'$env:CEASENET_HOME = "$HOME\\.ceasenet-2"'}</code>
             </p>
           </div>
 

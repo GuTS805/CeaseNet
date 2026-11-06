@@ -132,10 +132,16 @@ async function cmdInit(p: Parsed): Promise<void> {
   out(created ? "CeaseNet is set up." : `CeaseNet was already set up in ${homeDir()}. Nothing was changed.`)
   out()
   out(`  Agent    ${config.agent.name}  ${config.agent.address}`)
-  out(`  Owner    ${config.owner.address}${owner ? "  (key held elsewhere)" : ""}`)
+  out(`  Owner    ${config.owner.address}${created && owner ? "  (key held elsewhere)" : ""}`)
   out(`  Recalls  ${networkLine(config)}`)
   out(`  Keys     ${homeDir()}`)
   out()
+  if (!created && owner && owner.toLowerCase() !== config.owner.address.toLowerCase()) {
+    out(`This agent already answers to ${config.owner.address}, so --owner was not used. For another agent that answers to`)
+    out(`${owner}, give it a folder of its own first. In PowerShell:  $env:CEASENET_HOME = "$HOME\\.ceasenet-2"`)
+    out(`In a POSIX shell:  export CEASENET_HOME=~/.ceasenet-2`)
+    out()
+  }
   if (config.network === "arkiv" && !owner) {
     out("Stopping things on the public list costs a little test money. Fund the owner's address once:")
     out(`  ${config.owner.address}`)
