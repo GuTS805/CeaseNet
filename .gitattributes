@@ -1,0 +1,3 @@
+* text=auto
+# A tool's hash covers these bytes exactly, so they must be the same on every machine.
+tools/** text eol=lf

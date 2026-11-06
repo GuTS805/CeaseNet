@@ -1,0 +1,12 @@
+{
+  "name": "@ceasenet/guard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "bin": { "ceasenet-guard": "./src/proxy.ts" },
+  "dependencies": {
+    "@ceasenet/core": "*",
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  }
+}
