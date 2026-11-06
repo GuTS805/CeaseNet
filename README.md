@@ -141,6 +141,8 @@ npm run verifier        # needs WORLD_APP_ID, WORLD_RP_ID and WORLD_RP_SIGNING_K
 npm run web             # the public site, on http://localhost:5173
 ```
 
+The hosted site runs the same verifier as a Vercel function, [api/verifier.mjs](api/verifier.mjs), built from [apps/verifier/src/vercel.ts](apps/verifier/src/vercel.ts) with `npm run build:verifier`. It needs `WORLD_APP_ID`, `WORLD_RP_ID`, `WORLD_RP_SIGNING_KEY`, `WORLD_ENVIRONMENT`, `ARKIV_ACCESS_KEY` and `VERIFIER_PRIVATE_KEY` in the project's settings, and the site needs `VERIFIER_URL`. Only the verifier's own key goes there, never the phrase the other wallets come from.
+
 There are no simulated people: every vote is from a different person logged in with a real World ID. In test mode, World's simulator stands in for World App, and it is one identity.
 
 ## The console

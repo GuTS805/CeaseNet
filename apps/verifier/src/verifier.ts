@@ -56,6 +56,12 @@ export interface VerifierOptions {
   fileReport?(input: { artifact: string; reason: string; pkg?: string; versions?: string; opener: Hex }): Promise<{ entityKey: Hex; txHash: Hex }>
   fetchImpl?: typeof fetch
   now?: () => number
+  /**
+   * Refuse a World ID result unless this verifier started its request, and only once. True unless turned off: a
+   * serverless copy cannot know what another copy started. World still checks our signature on the request and its
+   * expiry, and a login needs a fresh signature from the wallet, so a replay can only log the same pair in again.
+   */
+  trackRequests?: boolean
 }
 
 /** A request signed by a logged-in wallet. */
@@ -238,7 +244,7 @@ export class Verifier {
   private readProof(result: any, signal: string): { nullifier: string } {
     if (!result || typeof result !== "object") throw new Refused("bad_request", "There is no World ID result in this request.")
     this.forgetExpired()
-    if (!this.issued.has(result.nonce)) {
+    if (this.options.trackRequests !== false && !this.issued.has(result.nonce)) {
       throw new Refused("stale_request", "This verification has expired or was already used. Please try again.")
     }
     if (result.environment !== this.options.environment) {

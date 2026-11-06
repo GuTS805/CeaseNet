@@ -35,6 +35,7 @@
     "fresh": "tsx --env-file=.env scripts/fresh.ts",
     "proxy-check": "tsx --env-file=.env scripts/proxy-check.ts",
     "verifier": "tsx --env-file=.env apps/verifier/src/server.ts",
+    "build:verifier": "esbuild apps/verifier/src/vercel.ts --bundle --platform=node --format=esm --target=node20 --outfile=api/verifier.mjs --log-level=warning \"--banner:js=import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
     "diary-check": "tsx --env-file=.env scripts/diary-check.ts",
     "model-check": "tsx --env-file=.env scripts/model-check.ts",
     "swarm-check": "tsx --env-file=.env scripts/swarm-check.ts",

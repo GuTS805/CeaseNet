@@ -1,23 +1,9 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
-import {
-  ADDRESSES,
-  arkivPublicClient,
-  arkivWalletClient,
-  ArkivWriter,
-  type Hex,
-  lower,
-  readAgent,
-  readEndorsements,
-  readHuman,
-  readHumanById,
-  readRecallsBy,
-} from "@ceasenet/core"
+import { createServer } from "node:http"
 import { accountFor } from "../../../scripts/roles"
-import { AlreadyReported, CONFIRM_ACTION, Refused, Verifier, type WorldEnvironment } from "./verifier"
+import { verifierHandler } from "./handler"
+import { CONFIRM_ACTION, type WorldEnvironment } from "./verifier"
 
 const PORT = Number(process.env.VERIFIER_PORT ?? 8788)
-const MAX_BODY_BYTES = 64 * 1024
-const log = (...args: unknown[]) => console.log(new Date().toISOString().slice(11, 23), ...args)
 
 const required = (name: string): string => {
   const value = process.env[name]
@@ -25,95 +11,18 @@ const required = (name: string): string => {
   return value
 }
 
-const appId = required("WORLD_APP_ID")
-const rpId = required("WORLD_RP_ID")
 const environment = (process.env.WORLD_ENVIRONMENT || "staging") as WorldEnvironment
 
-const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
-const client = arkivPublicClient(accessKey)
-const writer = new ArkivWriter(arkivWalletClient(accountFor("verifier"), accessKey))
-
-const verifier = new Verifier({
-  rpId,
+const handle = verifierHandler({
+  appId: required("WORLD_APP_ID"),
+  rpId: required("WORLD_RP_ID"),
   signingKey: required("WORLD_RP_SIGNING_KEY"),
   environment,
-  readWarning: async (recall) => {
-    const { rows } = await readRecallsBy(client, [ADDRESSES.verifier])
-    return rows.find((r) => lower(r.key) === lower(recall) && r.level === "ADVISORY")
-  },
-  readEndorsements: (recall) => readEndorsements(client, [recall], ADDRESSES.verifier),
-  endorse: (input) => writer.endorse(input),
-  readOpenReports: async (artifact) => {
-    const { rows } = await readRecallsBy(client, [ADDRESSES.verifier])
-    return rows.filter((r) => r.level === "ADVISORY" && lower(r.artifact) === lower(artifact))
-  },
-  agentExists: async (address) => Boolean(await readAgent(client, address)),
-  fileReport: (input) => writer.advisory({ artifact: input.artifact, severity: "REPORT", reason: input.reason, pkg: input.pkg, versions: input.versions, opener: input.opener }),
-  readHuman: (address) => readHuman(client, address, ADDRESSES.verifier),
-  readHumanById: (human) => readHumanById(client, human, ADDRESSES.verifier),
-  writeHuman: (input) => writer.human(input),
+  accessKey: process.env.ARKIV_ACCESS_KEY ?? "",
+  account: accountFor("verifier"),
+  trackRequests: true,
 })
 
-function send(res: ServerResponse, status: number, body: unknown) {
-  res.writeHead(status, {
-    "content-type": "application/json",
-    "access-control-allow-origin": "*",
-    "access-control-allow-headers": "content-type",
-    "access-control-allow-methods": "GET,POST,OPTIONS",
-  })
-  res.end(JSON.stringify(body))
-}
-
-async function readBody(req: IncomingMessage): Promise<any> {
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const c of req) {
-    size += (c as Buffer).length
-    if (size > MAX_BODY_BYTES) throw new Refused("too_large", "This request is too large.")
-    chunks.push(c as Buffer)
-  }
-  try {
-    return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : {}
-  } catch {
-    throw new Refused("bad_request", "This request is not valid JSON.")
-  }
-}
-
-const server = createServer(async (req, res) => {
-  if (req.method === "OPTIONS") return send(res, 204, {})
-  const route = `${req.method} ${new URL(req.url ?? "/", "http://x").pathname}`
-  try {
-    // Only public values. The signing key stays here.
-    if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment })
-    if (route === "POST /api/rp-signature") return send(res, 200, verifier.rpSignature())
-    if (route === "POST /api/login") {
-      const body = await readBody(req)
-      const done = await verifier.login({ address: body.address, signature: body.signature, at: body.at, result: body.result })
-      log(`${done.already ? "logged in again" : "logged in"}: ${done.address}`)
-      return send(res, 200, done)
-    }
-    if (route === "POST /api/confirm") {
-      const body = await readBody(req)
-      const done = await verifier.confirm({ recall: body.recall as Hex, stance: body.stance, address: body.address, signature: body.signature, at: body.at })
-      log(`${body.stance} from ${done.human} on ${body.recall}: ${done.key}`)
-      return send(res, 200, done)
-    }
-    if (route === "POST /api/report") {
-      const body = await readBody(req)
-      const done = await verifier.report({ target: body.target, reason: body.reason, address: body.address, signature: body.signature, at: body.at })
-      log(`recall opened by ${body.address}: ${done.key}`)
-      return send(res, 200, done)
-    }
-    return send(res, 404, { error: "not found" })
-  } catch (e) {
-    if (e instanceof AlreadyReported) return send(res, 409, { code: "already_reported", error: e.message, key: e.key })
-    if (e instanceof Refused) {
-      log(`refused ${route}: ${e.code}`)
-      return send(res, 400, { code: e.code, error: e.message })
-    }
-    log("failed", route, (e as Error).message.split("\n")[0])
-    return send(res, 500, { code: "server_error", error: "Something went wrong, and nothing was counted." })
-  }
-})
-
-server.listen(PORT, () => log(`verifier on http://localhost:${PORT}, World ID ${environment}, action ${CONFIRM_ACTION}`))
+createServer((req, res) => void handle(req, res)).listen(PORT, () =>
+  console.log(`${new Date().toISOString().slice(11, 23)} verifier on http://localhost:${PORT}, World ID ${environment}, action ${CONFIRM_ACTION}`),
+)
