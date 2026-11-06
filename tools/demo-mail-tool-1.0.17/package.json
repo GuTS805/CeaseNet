@@ -1,0 +1,8 @@
+{
+  "name": "demo-mail-tool",
+  "version": "1.0.17",
+  "description": "A made-up mail tool for the CeaseNet demo. Sends nothing.",
+  "private": true,
+  "type": "module",
+  "main": "server.mjs"
+}

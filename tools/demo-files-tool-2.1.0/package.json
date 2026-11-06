@@ -1,0 +1,8 @@
+{
+  "name": "demo-files-tool",
+  "version": "2.1.0",
+  "description": "A made-up file tool for the CeaseNet demo.",
+  "private": true,
+  "type": "module",
+  "main": "server.mjs"
+}
