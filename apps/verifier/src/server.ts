@@ -21,6 +21,7 @@ const handle = verifierHandler({
   accessKey: process.env.ARKIV_ACCESS_KEY ?? "",
   account: accountFor("verifier"),
   trackRequests: true,
+  allowBypass: process.env.VERIFIER_ALLOW_BYPASS === "1",
 })
 
 createServer((req, res) => void handle(req, res)).listen(PORT, () =>

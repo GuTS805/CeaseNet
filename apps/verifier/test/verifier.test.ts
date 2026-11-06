@@ -58,6 +58,7 @@ function make({ world, environment = "staging", open: alreadyOpen = false, exist
       humans.push({ key: `0x${String(humans.length + 1).padStart(64, "0")}` as Hex, address: input.address, human: input.human, creator: WARNING.creator, createdAt: 3n })
       return { entityKey: humans.at(-1)!.key, txHash: "0xe2" as Hex }
     },
+    allowBypass: true,
     readOpenReports: async () => (alreadyOpen ? [{ ...WARNING, key: FILED }] : []),
     agentExists: async () => exists,
     fileReport: async (input) => {
@@ -226,6 +227,34 @@ describe("logging in with World", () => {
     await refusedWith(down.login(), "world_unreachable")
     const other = make({ world: () => new Response(JSON.stringify({ success: true, environment: "production" }), { status: 200 }) })
     await refusedWith(other.login(), "wrong_environment")
+  })
+})
+
+describe("logging in without World ID, when allowed", () => {
+  it("logs the wallet in, marked as unverified on the record", async () => {
+    const m = make()
+    const done = await m.verifier.bypassLogin(await m.signLogin())
+    expect(done.human).toBe(`unverified-${ALICE.address.toLowerCase()}`)
+    await m.vote()
+    expect(m.votes).toHaveLength(1)
+  })
+
+  it("still needs the wallet's own signature", async () => {
+    const m = make()
+    const signed = await m.signLogin(BOB)
+    await refusedWith(m.verifier.bypassLogin({ ...signed, address: ALICE.address }), "bad_signature")
+  })
+
+  it("lets a World ID login from the same wallet take over", async () => {
+    const m = make()
+    await m.verifier.bypassLogin(await m.signLogin())
+    const real = await m.login()
+    expect(real.already).toBe(false)
+  })
+
+  it("is refused when turned off", async () => {
+    const off = new Verifier({ rpId: "r", signingKey: KEY, environment: "staging", readWarning: async () => undefined, readEndorsements: async () => [], endorse: async () => ({ entityKey: "0x1", txHash: "0x2" }), readHuman: async () => undefined, readHumanById: async () => undefined, writeHuman: async () => ({ entityKey: "0x1", txHash: "0x2" }) })
+    await refusedWith(off.bypassLogin({ address: ALICE.address, at: Date.now(), signature: await ALICE.signMessage({ message: loginMessage(ALICE.address, Date.now()) }) }), "not_available")
   })
 })
 

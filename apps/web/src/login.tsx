@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react"
-import { ADDRESSES, type Hex, type HumanRow, loginMessage, loginSignal, readHuman } from "@ceasenet/core"
+import { ADDRESSES, type Hex, type HumanRow, isUnverifiedHuman, loginMessage, loginSignal, readHuman } from "@ceasenet/core"
 import { IDKitRequestWidget, proofOfHuman, type RpContext } from "@worldcoin/idkit"
 import { client, shortHash, VERIFIER_URL } from "./lib"
 import { useWallet, walletMessage } from "./wallet"
@@ -9,6 +9,8 @@ export interface WorldConfig {
   rpId: string
   action: string
   environment: "production" | "staging" | "sandbox"
+  /** The verifier lets a wallet log in without World ID. */
+  bypass?: boolean
 }
 
 /** The verifier's public settings. Null when it cannot be reached. */
@@ -98,7 +100,7 @@ export function LoginBadge({ route }: { route: string }) {
   const next = route.startsWith("login") ? "" : route
   if (human && address) {
     return (
-      <a className="login-badge in" href="#/login" title="Logged in with World">
+      <a className={`login-badge in${isUnverifiedHuman(human.human) ? " unverified" : ""}`} href="#/login" title={isUnverifiedHuman(human.human) ? "Logged in without World ID" : "Logged in with World"}>
         <span aria-hidden="true">●</span> {shortHash(address)}
       </a>
     )
@@ -139,6 +141,23 @@ export function LoginPage({ next }: { next: string }) {
 
   const back = next ? `#/${next}` : "#/"
 
+  const skip = async () => {
+    if (!address) return
+    setProblem(undefined)
+    setBusy(true)
+    try {
+      const at = Date.now()
+      const signature = await sign(loginMessage(address, at))
+      await postVerifier("/api/login-bypass", { address, signature, at })
+      setDone(true)
+      for (let i = 0; i < 10 && !(await refresh()); i++) await new Promise((r) => setTimeout(r, 2000))
+    } catch (e) {
+      setProblem(e instanceof VerifierError ? e.message : walletMessage(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const start = async () => {
     if (!address || !config) return
     setProblem(undefined)
@@ -166,11 +185,19 @@ export function LoginPage({ next }: { next: string }) {
         </p>
       </div>
 
-      {human && address ? (
+      {human && address && (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>{done ? "You are logged in" : "Logged in"}</h2>
           <p style={{ marginTop: 0 }}>
-            <b className="mono">{address}</b> is linked to a real person checked by World ID. The record is public on Arkiv, written by the CeaseNet verifier.
+            {isUnverifiedHuman(human.human) ? (
+              <>
+                <b className="mono">{address}</b> is logged in without World ID, so nothing has checked that a real person is behind it. The public record on Arkiv says so. Log in with World ID below to replace it.
+              </>
+            ) : (
+              <>
+                <b className="mono">{address}</b> is linked to a real person checked by World ID. The record is public on Arkiv, written by the CeaseNet verifier.
+              </>
+            )}
           </p>
           <div className="buttons">
             <a className="button primary" href={back}>
@@ -187,7 +214,8 @@ export function LoginPage({ next }: { next: string }) {
             To log out, disconnect this site in your wallet, or switch to another account.
           </p>
         </div>
-      ) : (
+      )}
+      {(!human || !address || isUnverifiedHuman(human.human)) && (
         <div className="card form">
           <h2>1. Your wallet</h2>
           {missing ? (
@@ -217,7 +245,17 @@ export function LoginPage({ next }: { next: string }) {
                 <button className="primary" disabled={!address || busy || checking} onClick={() => void start()}>
                   {busy ? "Waiting for your wallet…" : "Log in with World ID"}
                 </button>
+                {config.bypass && (
+                  <button disabled={!address || busy || checking} onClick={() => void skip()}>
+                    Skip World ID for now
+                  </button>
+                )}
               </div>
+              {config.bypass && (
+                <p className="small muted" style={{ margin: 0 }}>
+                  Skipping logs this wallet in with its signature alone. It is marked as not checked by World ID, on the record and on every page.
+                </p>
+              )}
               {config.environment !== "production" && (
                 <p className="small muted" style={{ marginBottom: 0 }}>
                   Test mode: use the{" "}

@@ -78,10 +78,15 @@ function toHuman(r: any): HumanRow {
 
 /** The person behind an address, if the verifier has seen them log in with it. Anyone else's record proves nothing. */
 export async function readHuman(client: ArkivPublic, address: string, verifier: string): Promise<HumanRow | undefined> {
-  const res = await client.select().from(Human).where(eq("address", addr(address)), eq("$creator", addr(verifier))).orderBy(asc("$key")).limit(1).fetch()
-  const r = res.entities[0]
-  return r ? toHuman(r) : undefined
+  const res = await client.select().from(Human).where(eq("address", addr(address)), eq("$creator", addr(verifier))).orderBy(asc("$key")).limit(10).fetch()
+  const rows = res.entities.map(toHuman)
+  // A login checked by World counts over one that skipped it.
+  return rows.find((h) => !isUnverifiedHuman(h.human)) ?? rows[0]
 }
+
+/** The value kept for a login that skipped World ID. It says so on the record. */
+export const unverifiedHuman = (address: string): string => `unverified-${address.toLowerCase()}`
+export const isUnverifiedHuman = (human: string): boolean => human.startsWith("unverified-")
 
 /** The address a person logged in with, found by the value that stays the same for them. */
 export async function readHumanById(client: ArkivPublic, human: string, verifier: string): Promise<HumanRow | undefined> {

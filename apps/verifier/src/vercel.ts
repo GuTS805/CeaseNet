@@ -27,6 +27,7 @@ export default async function verifier(req: IncomingMessage, res: ServerResponse
     accessKey: process.env.ARKIV_ACCESS_KEY ?? "",
     account: privateKeyToAccount(process.env.VERIFIER_PRIVATE_KEY as Hex),
     trackRequests: false,
+    allowBypass: process.env.VERIFIER_ALLOW_BYPASS === "1",
   })
   // The site's /api/<route> is rewritten to this one function, with the route passed along.
   const route = new URL(req.url ?? "/", "http://x").searchParams.get("route")

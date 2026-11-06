@@ -1,4 +1,4 @@
-import { type EndorseRow, hashBytes, type Hex, type HumanRow, loginMessage, loginSignal, lower, openRecallMessage, type RecallRow, SIGNED_REQUEST_MS, type Stance, voteMessage } from "@ceasenet/core"
+import { type EndorseRow, hashBytes, type Hex, type HumanRow, isUnverifiedHuman, loginMessage, loginSignal, lower, openRecallMessage, type RecallRow, SIGNED_REQUEST_MS, type Stance, unverifiedHuman, voteMessage } from "@ceasenet/core"
 import { hashSignal } from "@worldcoin/idkit-core/hashing"
 import { signRequest } from "@worldcoin/idkit-core/signing"
 import { recoverMessageAddress } from "viem"
@@ -64,6 +64,11 @@ export interface VerifierOptions {
    * expiry, and a login needs a fresh signature from the wallet, so a replay can only log the same pair in again.
    */
   trackRequests?: boolean
+  /**
+   * Let a wallet log in without World ID, for showing the flow when World App cannot be used. Such a login is marked
+   * "unverified-" on the record and on every page, and a later World ID login from the same wallet replaces it.
+   */
+  allowBypass?: boolean
 }
 
 /** A request signed by a logged-in wallet. */
@@ -171,10 +176,25 @@ export class Verifier {
     if (byPerson && lower(byPerson.address) !== lower(address)) {
       throw new Refused("other_address", `Your World ID is already linked to ${byPerson.address}. One person logs in with one wallet: please use that one.`)
     }
-    if (byAddress && byAddress.human !== human) {
+    if (byAddress && byAddress.human !== human && !isUnverifiedHuman(byAddress.human)) {
       throw new Refused("other_person", "This wallet is already linked to another person.")
     }
     if (byPerson) return { key: byPerson.key, address, human, already: true }
+    const { entityKey } = await this.options.writeHuman({ address, human })
+    return { key: entityKey, address, human, already: false }
+  }
+
+  get bypassAllowed(): boolean {
+    return Boolean(this.options.allowBypass)
+  }
+
+  /** Logs a wallet in with its signature alone, when allowed. It says so on the record: nothing checked a person. */
+  async bypassLogin(input: Signed): Promise<{ key: Hex; address: Hex; human: string; already: boolean }> {
+    if (!this.options.allowBypass) throw new Refused("not_available", "Logging in without World ID is turned off here.")
+    const address = await this.checkSigned(input, (a, at) => loginMessage(a, at))
+    const existing = await this.options.readHuman(address)
+    if (existing) return { key: existing.key, address, human: existing.human, already: true }
+    const human = unverifiedHuman(address)
     const { entityKey } = await this.options.writeHuman({ address, human })
     return { key: entityKey, address, human, already: false }
   }

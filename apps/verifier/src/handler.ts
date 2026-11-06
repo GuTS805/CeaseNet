@@ -31,6 +31,8 @@ export interface VerifierSettings {
    * where the next request may reach another copy, cannot.
    */
   trackRequests?: boolean
+  /** Let a wallet log in without World ID. Marked as such on the record. */
+  allowBypass?: boolean
 }
 
 /** What the verifier answers, for any Node server: our own, or a serverless function. */
@@ -47,6 +49,7 @@ export function verifierHandler(settings: VerifierSettings): (req: IncomingMessa
     signingKey: settings.signingKey,
     environment,
     trackRequests: settings.trackRequests,
+    allowBypass: settings.allowBypass,
     readWarning: async (recall) => {
       const { rows } = await readRecallsBy(client, [ADDRESSES.verifier])
       return rows.find((r) => lower(r.key) === lower(recall) && r.level === "ADVISORY")
@@ -69,12 +72,18 @@ export function verifierHandler(settings: VerifierSettings): (req: IncomingMessa
     const route = `${req.method} ${new URL(req.url ?? "/", "http://x").pathname}`
     try {
       // Only public values. The signing key stays here.
-      if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment })
+      if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment, bypass: verifier.bypassAllowed })
       if (route === "POST /api/rp-signature") return send(res, 200, verifier.rpSignature())
       if (route === "POST /api/login") {
         const body = await readBody(req)
         const done = await verifier.login({ address: body.address, signature: body.signature, at: body.at, result: body.result })
         log(`${done.already ? "logged in again" : "logged in"}: ${done.address}`)
+        return send(res, 200, done)
+      }
+      if (route === "POST /api/login-bypass") {
+        const body = await readBody(req)
+        const done = await verifier.bypassLogin({ address: body.address, signature: body.signature, at: body.at })
+        log(`logged in without World ID: ${done.address}`)
         return send(res, 200, done)
       }
       if (route === "POST /api/confirm") {

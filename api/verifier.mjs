@@ -25528,10 +25528,12 @@ function toHuman(r) {
   return { key: r.$key, address: r.address.value, human: r.human.value, creator: r.$creator, createdAt: r.$createdAt };
 }
 async function readHuman(client, address, verifier2) {
-  const res = await client.select().from(Human).where(eq("address", addr(address)), eq("$creator", addr(verifier2))).orderBy(asc("$key")).limit(1).fetch();
-  const r = res.entities[0];
-  return r ? toHuman(r) : void 0;
+  const res = await client.select().from(Human).where(eq("address", addr(address)), eq("$creator", addr(verifier2))).orderBy(asc("$key")).limit(10).fetch();
+  const rows = res.entities.map(toHuman);
+  return rows.find((h) => !isUnverifiedHuman(h.human)) ?? rows[0];
 }
+var unverifiedHuman = (address) => `unverified-${address.toLowerCase()}`;
+var isUnverifiedHuman = (human) => human.startsWith("unverified-");
 async function readHumanById(client, human, verifier2) {
   const res = await client.select().from(Human).where(eq("human", str(human)), eq("$creator", addr(verifier2))).orderBy(asc("$key")).limit(1).fetch();
   const r = res.entities[0];
@@ -27698,10 +27700,23 @@ var Verifier = class {
     if (byPerson && lower(byPerson.address) !== lower(address)) {
       throw new Refused("other_address", `Your World ID is already linked to ${byPerson.address}. One person logs in with one wallet: please use that one.`);
     }
-    if (byAddress && byAddress.human !== human) {
+    if (byAddress && byAddress.human !== human && !isUnverifiedHuman(byAddress.human)) {
       throw new Refused("other_person", "This wallet is already linked to another person.");
     }
     if (byPerson) return { key: byPerson.key, address, human, already: true };
+    const { entityKey } = await this.options.writeHuman({ address, human });
+    return { key: entityKey, address, human, already: false };
+  }
+  get bypassAllowed() {
+    return Boolean(this.options.allowBypass);
+  }
+  /** Logs a wallet in with its signature alone, when allowed. It says so on the record: nothing checked a person. */
+  async bypassLogin(input) {
+    if (!this.options.allowBypass) throw new Refused("not_available", "Logging in without World ID is turned off here.");
+    const address = await this.checkSigned(input, (a, at) => loginMessage(a, at));
+    const existing = await this.options.readHuman(address);
+    if (existing) return { key: existing.key, address, human: existing.human, already: true };
+    const human = unverifiedHuman(address);
     const { entityKey } = await this.options.writeHuman({ address, human });
     return { key: entityKey, address, human, already: false };
   }
@@ -27829,6 +27844,7 @@ function verifierHandler(settings) {
     signingKey: settings.signingKey,
     environment,
     trackRequests: settings.trackRequests,
+    allowBypass: settings.allowBypass,
     readWarning: async (recall) => {
       const { rows } = await readRecallsBy(client, [ADDRESSES.verifier]);
       return rows.find((r) => lower(r.key) === lower(recall) && r.level === "ADVISORY");
@@ -27849,12 +27865,18 @@ function verifierHandler(settings) {
     if (req.method === "OPTIONS") return send(res, 204, {});
     const route = `${req.method} ${new URL(req.url ?? "/", "http://x").pathname}`;
     try {
-      if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment });
+      if (route === "GET /api/world-config") return send(res, 200, { appId, rpId, action: CONFIRM_ACTION, environment, bypass: verifier2.bypassAllowed });
       if (route === "POST /api/rp-signature") return send(res, 200, verifier2.rpSignature());
       if (route === "POST /api/login") {
         const body = await readBody(req);
         const done = await verifier2.login({ address: body.address, signature: body.signature, at: body.at, result: body.result });
         log(`${done.already ? "logged in again" : "logged in"}: ${done.address}`);
+        return send(res, 200, done);
+      }
+      if (route === "POST /api/login-bypass") {
+        const body = await readBody(req);
+        const done = await verifier2.bypassLogin({ address: body.address, signature: body.signature, at: body.at });
+        log(`logged in without World ID: ${done.address}`);
         return send(res, 200, done);
       }
       if (route === "POST /api/confirm") {
@@ -27930,7 +27952,8 @@ async function verifier(req, res) {
     environment: process.env.WORLD_ENVIRONMENT || "production",
     accessKey: process.env.ARKIV_ACCESS_KEY ?? "",
     account: privateKeyToAccount(process.env.VERIFIER_PRIVATE_KEY),
-    trackRequests: false
+    trackRequests: false,
+    allowBypass: process.env.VERIFIER_ALLOW_BYPASS === "1"
   });
   const route = new URL(req.url ?? "/", "http://x").searchParams.get("route");
   if (route) req.url = `/api/${route}`;
