@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { ADDRESSES, countConfirmations, demoPolicy, type RecallRow, trustFromPolicy } from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
+import { WorldConfirm } from "./WorldConfirm"
 import {
   type CallVerdict,
   type DemoAgent,
@@ -298,6 +299,11 @@ export function LivePage() {
                   {counts.confirms} of {trust.threshold} people confirmed
                   {counts.disputes > 0 ? `, ${counts.disputes} disputed` : ""}
                 </div>
+                {warning && (
+                  <div style={{ marginTop: 10 }}>
+                    <WorldConfirm recall={warning.key} />
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -320,7 +326,7 @@ export function LivePage() {
                   void act("Confirmation", "/api/lab/confirm", { recall: warning?.key, human: `person-${humans + 1}` })
                 }}
               >
-                Confirm as a new person
+                Add a simulated person
               </button>
               <button disabled={!warning || Boolean(busy)} onClick={() => void act("Dismiss", "/api/regulator/dismiss", { recall: warning?.key })}>
                 Dismiss as a regulator
@@ -330,7 +336,7 @@ export function LivePage() {
               </button>
             </div>
             <p className="small muted" style={{ marginBottom: 0 }}>
-              Confirmations here are stand-ins for people verified with World ID, until that service is connected.
+              Simulated people let you reach three quickly in a demo. The World ID buttons above are the real path.
             </p>
           </div>
         </div>

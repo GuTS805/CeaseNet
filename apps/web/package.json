@@ -10,9 +10,10 @@
   },
   "dependencies": {
     "@ceasenet/core": "*",
+    "@ceasenet/guard": "*",
+    "@worldcoin/idkit": "^4.6.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "@ceasenet/guard": "*"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

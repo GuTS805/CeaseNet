@@ -12,9 +12,11 @@ import {
 
 declare const __ARKIV_ACCESS_KEY__: string
 declare const __DEMO_URL__: string
+declare const __VERIFIER_URL__: string
 
 export const client = arkivPublicClient(__ARKIV_ACCESS_KEY__)
 export const DEMO_URL = __DEMO_URL__
+export const VERIFIER_URL = __VERIFIER_URL__
 
 export const shortHash = (h: string) => (h.length > 14 ? `${h.slice(0, 8)}…${h.slice(-4)}` : h)
 

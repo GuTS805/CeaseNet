@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
     define: {
       __ARKIV_ACCESS_KEY__: JSON.stringify(env.ARKIV_ACCESS_KEY ?? ""),
       __DEMO_URL__: JSON.stringify(env.DEMO_URL ?? "http://localhost:8787"),
+      __VERIFIER_URL__: JSON.stringify(env.VERIFIER_URL ?? "http://localhost:8788"),
     },
     server: { port: 5173, strictPort: true, fs: { allow: ["../.."] } },
     build: { target: "esnext", chunkSizeWarningLimit: 4000 },

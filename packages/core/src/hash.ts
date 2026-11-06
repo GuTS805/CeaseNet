@@ -16,6 +16,9 @@ export function canonicalJson(value: unknown): string {
   })
 }
 
+/** Ties a World ID proof to one warning and one answer, so it cannot be replayed on another. */
+export const confirmationSignal = (recall: string, stance: string): string => `${recall.toLowerCase()}:${stance}`
+
 export interface RecallContent {
   artifact: string
   level: string

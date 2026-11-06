@@ -1,6 +1,7 @@
 import { countConfirmations, demoPolicy, type Hex, isDismissed, isWithdrawn, type RecallRow, trustFromPolicy } from "@ceasenet/core"
 import { RecallBoardCard } from "./Board"
 import { explorerAddress, nameOf, shortHash, usePublicView } from "./lib"
+import { WorldConfirm } from "./WorldConfirm"
 
 const trust = trustFromPolicy(demoPolicy())
 
@@ -140,6 +141,9 @@ export function RecallPage({ recallKey }: { recallKey: Hex }) {
             {counts.disputes} disputed. At {trust.threshold} confirmations within 72 hours, while confirmations outnumber disputes,
             agents must ask a human before using this tool. Only the keys an owner follows can stop it outright.
           </p>
+          <div style={{ marginTop: 10 }}>
+            <WorldConfirm recall={recall.key} />
+          </div>
         </div>
       )}
 

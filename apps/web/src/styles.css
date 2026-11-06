@@ -506,6 +506,10 @@ button.big-button {
   margin-bottom: 2px;
 }
 
+.world p {
+  margin: 8px 0 0;
+}
+
 .diary-part {
   border-top: 1px solid var(--line);
   padding: 8px 0;
