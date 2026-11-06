@@ -546,6 +546,33 @@ describe("planner", () => {
     expect(b.requestId).toBe("cmpl")
   })
 
+  it("uses the ID 0G reports in its trace, and keeps the provider", async () => {
+    const body = {
+      id: "as-1",
+      x_0g_trace: { request_id: "308254f5", provider: "0xabc" },
+      choices: [{ message: { content: '{"box":0,"slot":4}' } }],
+    }
+    const d = await new ZeroGPlanner("k", "m", reply(200, body, { "x-request-id": "bde4fa83, 308254f5" })).decide(obs, "p")
+    expect(d.requestId).toBe("308254f5")
+    expect(d.provider).toBe("0xabc")
+  })
+
+  it("never stores two joined IDs from the header", async () => {
+    const content = { choices: [{ message: { content: '{"box":0,"slot":4}' } }] }
+    const d = await new ZeroGPlanner("k", "m", reply(200, content, { "x-request-id": "bde4fa83, 308254f5" })).decide(obs, "p")
+    expect(d.requestId).toBe("308254f5")
+  })
+
+  it("asks the model not to spend time reasoning about a move", async () => {
+    let sent: any
+    const f = (async (_url: string, init: RequestInit) => {
+      sent = JSON.parse(init.body as string)
+      return new Response(JSON.stringify({ request_id: "r", choices: [{ message: { content: '{"box":0,"slot":4}' } }] }))
+    }) as unknown as typeof fetch
+    await new ZeroGPlanner("k", "m", f).decide(obs, "p")
+    expect(sent.reasoning_effort).toBe("none")
+  })
+
   it("treats a reply with no request ID as unusable", async () => {
     const f = reply(200, { choices: [{ message: { content: '{"box":0,"slot":4}' } }] })
     await expect(new ZeroGPlanner("k", "m", f).decide(obs, "p")).rejects.toThrow(PlannerUnavailable)

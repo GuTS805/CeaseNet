@@ -7,6 +7,8 @@ export interface Decision {
   /** Exactly what the model answered, kept for the episode log. */
   raw: string
   source: "0g" | "dev"
+  /** The 0G provider that answered, when 0G reports one. */
+  provider?: string
 }
 
 /** The planner could not be reached. The robot must pause safely: it may not invent a decision. */
@@ -49,6 +51,15 @@ export function parseMove(text: string): Move {
   return { box, slot }
 }
 
+/**
+ * 0G puts its own ID in `x_0g_trace`. The x-request-id header can hold two IDs joined by a comma, and the
+ * last one is the same ID, so a joined value must never be stored.
+ */
+function findRequestId(body: any, headers: Headers): unknown {
+  const header = headers.get("x-request-id")?.split(",").pop()?.trim()
+  return body.x_0g_trace?.request_id ?? body.request_id ?? header ?? body.id
+}
+
 /** Calls a model on 0G for every decision. */
 export class ZeroGPlanner implements Planner {
   constructor(
@@ -67,6 +78,8 @@ export class ZeroGPlanner implements Planner {
         body: JSON.stringify({
           model: this.model,
           temperature: 0,
+          // A move is a small choice. With reasoning on, one decision took up to 18 s and the robot stood idle.
+          reasoning_effort: "none",
           messages: [
             { role: "system", content: prompt },
             { role: "user", content: JSON.stringify(observation) },
@@ -90,11 +103,12 @@ export class ZeroGPlanner implements Planner {
     const raw = body?.choices?.[0]?.message?.content
     if (typeof raw !== "string") throw new PlannerUnavailable("0G returned no answer")
 
-    const requestId = body.request_id ?? res.headers.get("x-request-id") ?? body.id
+    const requestId = findRequestId(body, res.headers)
     if (typeof requestId !== "string" || requestId === "") {
       throw new PlannerUnavailable("0G returned no request ID")
     }
-    return { move: parseMove(raw), requestId, model: body.model ?? this.model, raw, source: "0g" }
+    const provider = body.x_0g_trace?.provider ?? res.headers.get("x-provider") ?? undefined
+    return { move: parseMove(raw), requestId, model: body.model ?? this.model, raw, source: "0g", provider }
   }
 }
 

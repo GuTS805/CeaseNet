@@ -30,6 +30,7 @@ export interface DecisionRecord {
   requestId: string
   model: string
   source: Decision["source"]
+  provider?: string
   raw: string
   move: Move
   softwareHash: string
@@ -285,6 +286,7 @@ export class RobotRuntime {
         requestId: decision.requestId,
         model: decision.model,
         source: decision.source,
+        ...(decision.provider ? { provider: decision.provider } : {}),
         raw: decision.raw,
         move: decision.move,
         softwareHash,
