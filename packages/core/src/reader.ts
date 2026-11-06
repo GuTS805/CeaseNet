@@ -303,10 +303,12 @@ export async function readDiaries(client: ArkivPublic, agent: Hex): Promise<Diar
 }
 
 export interface DisclosureRow {
+  key: Hex
   recall: Hex
   description: string
   reproductionRef?: string
   creator: Hex
+  createdAt: bigint
 }
 
 export async function readDisclosures(client: ArkivPublic, recalls: readonly Hex[]): Promise<DisclosureRow[]> {
@@ -322,6 +324,8 @@ export async function readDisclosures(client: ArkivPublic, recalls: readonly Hex
     description: hexToString(r.description.value),
     reproductionRef: r.reproductionRef?.value,
     creator: r.$creator,
+    key: r.$key,
+    createdAt: r.$createdAt,
   }))
 }
 

@@ -15,6 +15,21 @@ export const sandboxDir = (id: string): string => {
   return dir
 }
 
+/** The newest records in one of a sandbox's files. A line still being written is skipped. */
+export function lastRecords<T>(dir: string, file: string, count: number): T[] {
+  const path = join(dir, file)
+  if (!existsSync(path)) return []
+  const records: T[] = []
+  for (const line of readFileSync(path, "utf8").split("\n").filter(Boolean).slice(-count)) {
+    try {
+      records.push(JSON.parse(line) as T)
+    } catch {
+      // Picked up on the next read, once it is complete.
+    }
+  }
+  return records
+}
+
 /** Counts lines in one of a sandbox's files. Missing means nothing has happened yet. */
 export function countLines(dir: string, file: string): number {
   const path = join(dir, file)

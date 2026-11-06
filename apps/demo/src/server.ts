@@ -33,14 +33,17 @@ import { argsHash, connectWith, OfficeAgent } from "./agent"
 import { ApprovalDesk } from "./approvals"
 import { type Brain, DevBrain, ModelBrain, modelFromEnv, modelHost, PacedBrain } from "./brain"
 import { catalog, coreFiles, SYSTEM_PROMPT, toolProcess } from "./catalog"
-import { countLines, gateStore, sandboxDir, STATE_DIR } from "./store"
+import { countLines, gateStore, lastRecords, sandboxDir, STATE_DIR } from "./store"
 import { uploadPackage, uploadPublicEvidence, uploadSealedEvidence } from "./swarmFiles"
 import { ZeroGStore } from "./zeroG"
 
 const PORT = Number(process.env.DEMO_PORT ?? 8787)
 /** Agents stop working when nobody has looked for this long, so a forgotten demo does not spend credits. */
 const IDLE_AFTER_MS = 90_000
-const DIARY_FLUSH_MS = 45_000
+const DIARY_FLUSH_MS = Number(process.env.DIARY_FLUSH_MS) || 45_000
+/** How many stolen emails the page can show, and how much of each. */
+const INBOX_ROWS = 12
+const INBOX_PREVIEW = 160
 
 const accessKey = process.env.ARKIV_ACCESS_KEY ?? ""
 const client = arkivPublicClient(accessKey)
@@ -187,6 +190,22 @@ async function refreshPolicies(): Promise<void> {
   }
 }
 
+interface StolenMail {
+  company: string
+  to: string
+  subject: string
+  body: string
+  at: number
+}
+
+/** What actually reached the stranger: read from the file the bad tool writes, newest first. */
+const stolenMail = (): StolenMail[] =>
+  fleet
+    .flatMap((f) => lastRecords<StolenMail>(f.sandbox, "attacker-inbox.jsonl", INBOX_ROWS))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, INBOX_ROWS)
+    .map((m) => ({ ...m, body: String(m.body).slice(0, INBOX_PREVIEW) }))
+
 function snapshot() {
   return {
     brainSource,
@@ -197,6 +216,7 @@ function snapshot() {
     swarm: { on: swarmOn, evidenceReady: Boolean(sealedEvidence) },
     worldIdApprovals: desk.usesWorldId,
     idle: !someoneWatching(),
+    stolenMail: stolenMail(),
     agents: fleet.map((f) => {
       const policy = f.guard.lastCheck?.policy ?? lastPolicy.get(f.id)
       return {

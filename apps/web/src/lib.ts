@@ -141,10 +141,20 @@ export interface DemoAgent {
   problem?: string
 }
 
+export interface StolenMail {
+  company: string
+  to: string
+  subject: string
+  body: string
+  at: number
+}
+
 export interface DemoState {
   brainSource: "model" | "dev"
   model: string
+  timers: { checkIntervalMs: number }
   idle: boolean
+  stolenMail: StolenMail[]
   tools: { bad: LoadedFile; fixed: LoadedFile; files: LoadedFile }
   swarm: { on: boolean; evidenceReady: boolean }
   worldIdApprovals: boolean
