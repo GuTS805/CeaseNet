@@ -17,15 +17,15 @@ function stopRunningDemo(): void {
   spawnSync("sh", ["-c", `lsof -ti tcp:${PORT} -s tcp:LISTEN | xargs kill`], { stdio: "ignore" })
 }
 
-function run(script: string): void {
-  const { status } = spawnSync("npm", ["run", script], { stdio: "inherit", shell: true })
+const run = (script: string) => spawnSync("npm", ["run", script], { stdio: "inherit", shell: true }).status
+
+stopRunningDemo()
+for (const script of ["reset", "seed"]) {
+  const status = run(script)
   if (status !== 0) {
     console.error(`npm run ${script} failed, so the demo was not started`)
     process.exit(status ?? 1)
   }
 }
-
-stopRunningDemo()
-run("reset")
-run("seed")
-run("demo")
+// This runs until someone stops it, by Ctrl+C or another npm run fresh.
+process.exit(run("demo") ?? 0)
