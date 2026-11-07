@@ -33,7 +33,7 @@ For the connected-demo layout, run the public server in demo mode on 5175, then 
 
 ## Artwork
 
-- Saved asset: `apps/web/public/metal-ribbon.png`, with its style in `.metal-art`. It was made for a landing page the site no longer has, and is kept with the design.
+- Saved asset: `apps/shared/metal-ribbon.webp`, shared by the site and the console as `--ribbon-image`, with its style in `.metal-art`. It was made for a landing page the site no longer has, and is kept with the design.
 - Generation: built-in image generation tool, opaque raster background.
 - Prompt summary: wide abstract brushed-metal ribbon on a near-black background, finely textured silver surfaces with subtle warm copper edges, sweeping through the right side and lower edge, dark negative space on the left for the headline; premium photographic lighting; no text, interface, logos, nodes, or flowcharts.
 - The artwork supplies only the background. Headline, buttons, panels, controls, and records are real HTML and React components.
