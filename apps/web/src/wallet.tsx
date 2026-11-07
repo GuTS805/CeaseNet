@@ -7,7 +7,10 @@ export const FAUCET = "https://hub.arkiv.network/faucet"
 
 declare global {
   interface Window {
-    ethereum?: Eip1193Provider & { on?: (event: string, listener: (value: unknown) => void) => void }
+    ethereum?: Eip1193Provider & {
+      on?: (event: string, listener: (value: unknown) => void) => void
+      removeListener?: (event: string, listener: (value: unknown) => void) => void
+    }
   }
 }
 
@@ -109,12 +112,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!provider) return
+    // The wallet chosen can change once MetaMask announces itself. An answer from the one used before must not land
+    // after it, or the page would show an address MetaMask has not let this site use.
+    let current = true
+    const takeAccounts = (accounts: unknown) => {
+      if (current) takeAccount(accounts)
+    }
+    const takeChain = (id: unknown) => {
+      if (current) setChainId(Number(id))
+    }
     // Already connected from an earlier visit. This asks the person nothing.
-    void provider.request({ method: "eth_accounts" }).then(takeAccount, () => undefined)
-    provider.on?.("accountsChanged", takeAccount)
-    const takeChain = (id: unknown) => setChainId(Number(id))
+    void provider.request({ method: "eth_accounts" }).then(takeAccounts, () => undefined)
+    provider.on?.("accountsChanged", takeAccounts)
     void provider.request({ method: "eth_chainId" }).then(takeChain, () => undefined)
     provider.on?.("chainChanged", takeChain)
+    return () => {
+      current = false
+      provider.removeListener?.("accountsChanged", takeAccounts)
+      provider.removeListener?.("chainChanged", takeChain)
+    }
   }, [provider, takeAccount])
 
   const connect = useCallback(async () => {
@@ -140,6 +156,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const sign = useCallback(
     async (message: string): Promise<Hex> => {
       if (!provider || !address) throw new Error("Connect your wallet first.")
+      // Asks the wallet for the address it lets this site use, connecting first if it has not. It must be the one the
+      // message names, or the wallet refuses to sign.
+      const accounts = (await provider.request({ method: "eth_requestAccounts" })) as string[] | undefined
+      const allowed = accounts?.[0]
+      if (!allowed) throw new Error("Connect your wallet first.")
+      if (allowed.toLowerCase() !== address.toLowerCase()) {
+        takeAccount(accounts)
+        throw new Error(`Your wallet is using ${shortHash(allowed as Hex)} now. Press again to sign with it.`)
+      }
       return (await provider.request({ method: "personal_sign", params: [toHex(message), address] })) as Hex
     },
     [provider, address],
