@@ -200,8 +200,6 @@ export async function testModel(settings: Settings, name: string): Promise<Model
   }
 }
 
-// ---- What each agent says about itself ----
-
 export type AgentPhase = "starting" | "working" | "idle" | "paused" | "waiting" | "closing" | "closed" | "off"
 
 export interface AgentState {
@@ -255,8 +253,6 @@ export function readAgentEvents(home: string, limit = 60): AgentEvent[] {
     return []
   }
 }
-
-// ---- Getting them ready ----
 
 let claudeLookup: { at: number; result: { ok: boolean; version?: string; problem?: string } } | undefined
 /** Starting a program to ask this takes a moment, and the page asks often. */
@@ -314,8 +310,6 @@ export function prepareMember(member: Member, config: Config, self: { command: s
   writeAtomic(mcpSettingsPath(home), JSON.stringify(memberMcpSettings(member, home, mainHome, self), null, 2))
   return created
 }
-
-// ---- Starting and ending them ----
 
 const shellQuote = (text: string): string => `'${text.replace(/'/g, `'\\''`)}'`
 
@@ -463,8 +457,6 @@ export function shutDownMember(member: Member): void {
   }
   writeAgentState(home, { ...state, phase: "off", job: undefined, updatedAt: Date.now() })
 }
-
-// ---- What the console shows ----
 
 export interface MemberView {
   id: string

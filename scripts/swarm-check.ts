@@ -67,8 +67,6 @@ check("nobody else can", !othersCanOpen)
 const read = new TextDecoder().decode(await swarm.read(opened))
 check("the evidence reads back whole", read === new TextDecoder().decode(evidence))
 
-// ---- What agents did: encrypted on Swarm, with its index on Arkiv ----
-
 const SECRET_WORDS = "Bought 200 dollars of BTC because it fell"
 const owner = accountFor("treasury")
 const ownerKey = toHex(owner.getHdKey().privateKey!)

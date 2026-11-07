@@ -54,8 +54,6 @@ async function until<T>(what: string, test: () => T | undefined | false | Promis
   return undefined
 }
 
-// ---- Setting up, as a person would ----
-
 section("Setting up")
 const files = join(work, "files")
 mkdirSync(files, { recursive: true })
@@ -89,8 +87,6 @@ const wrapped = JSON.parse(readFileSync(settings, "utf8"))
 check("protect left everything else in the file alone", wrapped.unrelated?.keep === true && wrapped.mcpServers.hosted.url === "https://example.com/mcp" && wrapped.mcpServers.files.env.MY_TOOL_TOKEN === "stays")
 check("protect pinned the real server ahead of time", protectOut.includes(REAL_SERVER), `${((Date.now() - started) / 1000).toFixed(1)} s`)
 
-// ---- A standard client, using exactly what the settings file now says ----
-
 const connect = async (name: "files" | "mail") => {
   const entry = wrapped.mcpServers[name]
   const client = new Client({ name: "any-mcp-client", version: "1.0.0" })
@@ -113,8 +109,6 @@ const first = await readNote()
 check("a call goes through and returns real data", !first.isError && textOf(first).includes("real file"))
 const mailed = await sendMail()
 check("a second server works alongside it", !mailed.isError)
-
-// ---- The console ----
 
 section("The console")
 const info = await until("the console to start by itself", () => {
@@ -158,8 +152,6 @@ const rebinding = await new Promise<number>((done) => {
 check("a request naming another host is refused", rebinding === 403)
 const page = await (await fetch(base)).text()
 check("the page itself is served", page.includes('id="root"') && !page.includes("__CEASENET_TOKEN__"))
-
-// ---- Stopping one tool ----
 
 section("Stopping one tool")
 const toolBefore = toolNamed(state, "demo-mail-tool")
@@ -208,8 +200,6 @@ const back = (await until("the tool to work again", async () => {
 })) as Answer | undefined
 check("the same session works again, with no reconnecting", Boolean(back))
 
-// ---- A package recalled before it ever reaches this machine ----
-
 section("Recalled before it was ever installed")
 const NEVER = "@modelcontextprotocol/server-memory"
 const neverDir = () => join(HOME, "tools")
@@ -230,8 +220,6 @@ check("not a byte of it was downloaded", !installed.some((d) => d.includes("serv
 await neverClient.close()
 await api("/api/lift", { recall: neverStop.entityKey, note: "Checked" })
 
-// ---- Asking a person ----
-
 section("Asking a person first")
 const heldName = REAL_SERVER
 await api("/api/hold", { tool: heldName, hold: true })
@@ -247,8 +235,6 @@ await api(`/api/approvals/${asked2.id}`, { approve: true })
 const approved = await heldCall2
 check("approving lets it through", !approved.isError && textOf(approved).includes("real file"))
 await api("/api/hold", { tool: heldName, hold: false })
-
-// ---- Stopping the agent ----
 
 section("Stopping the whole agent")
 const beforeKill = (await api("/api/state")) as any
@@ -277,8 +263,6 @@ const revived = await until("the agent to work again", async () => {
   return a.isError ? undefined : a
 })
 check("restarting it brings everything back, in the same sessions", Boolean(revived))
-
-// ---- Cleaning up ----
 
 section("Taking it away")
 await filesClient.close()

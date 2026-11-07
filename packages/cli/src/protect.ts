@@ -74,8 +74,6 @@ export function unwrapEntry(entry: ServerEntry): ServerEntry {
   return restored
 }
 
-// ---- Claude Code's own tools ----
-
 /** Where Claude Code keeps settings that apply to every project for this user. */
 export const claudeSettingsPath = (home = homedir()): string => join(home, ".claude", "settings.json")
 /** Claude Code exists on this machine, whether or not it has settings yet. */

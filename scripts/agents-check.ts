@@ -106,8 +106,6 @@ const home = (id: string) => join(HOME, "team", id)
 const allClosed = (t: any, ids: string[]) => ids.every((id) => named(t, id).state?.phase === "closed")
 const ALL = ["momentum", "reversion", "risk"]
 
-// ---- Working ----
-
 section("Starting them, and watching them do real work")
 if (MODEL) await api("/api/team/thinking", { choice: MODEL })
 const started = Date.now()
@@ -135,8 +133,6 @@ check("the risk watcher has no account, because it never trades", !existsSync(jo
 check("working did not count as tampering with a tool", (await team()).members.every((m: any) => m.alive))
 shot("agents-1-working.png")
 
-// ---- Recalling a tool all three use ----
-
 section("Recalling the tool all three use")
 const before = await team()
 const pids: number[] = before.members.map((m: any) => m.state.pid)
@@ -162,8 +158,6 @@ const receipts = await until("the receipts", async () => {
 check("each of them posted a receipt", Boolean(receipts), `${receipts?.receipts ?? 0} receipts`)
 shot("agents-2-closed.png")
 
-// ---- They cannot be started around it ----
-
 section("Starting them while the recall stands")
 const jobsBefore = (await team()).members.map((m: any) => m.state.jobs)
 await api("/api/team/start", {})
@@ -172,8 +166,6 @@ const refused = await until("them to refuse", async () => {
   return t.members.every((m: any) => m.state?.phase === "closed" && m.state?.closed?.afterStart === false) ? t : undefined
 }, 60_000)
 check("each refused to start, and ran no job", Boolean(refused) && refused.members.every((m: any) => m.state.jobs === 0), jobsBefore.join(","))
-
-// ---- Lifting ----
 
 section("Lifting it, and starting them again")
 await api("/api/lift", { recall: recall.entityKey, note: "Checked" })
@@ -184,8 +176,6 @@ const back = await until("them to be working again", async () => {
   return t.members.every((m: any) => m.alive && ["working", "idle"].includes(m.state?.phase)) ? t : undefined
 }, 60_000)
 check("all three are working again", Boolean(back))
-
-// ---- A recall that covers only some ----
 
 section("Recalling a tool only two of them use")
 const brokerTool = (await team()).tools.find((t: any) => t.id === "broker")
@@ -201,8 +191,6 @@ await until("the lift to be seen", async () => (await api("/api/state")).recalls
 await api("/api/team/start", {})
 await until("them to be back", async () => (await team()).members.every((m: any) => m.alive && m.state?.phase !== "starting"), 60_000)
 
-// ---- Stopping one by name ----
-
 section("Stopping one agent by name")
 const watcher = named(await team(), "risk")
 const oneStop = await api("/api/kill", { agent: watcher.address, reason: "Only this one" })
@@ -217,8 +205,6 @@ await until("the lift to be seen", async () => (await api("/api/state")).recalls
 await api("/api/team/start", {})
 await until("it to be back", async () => named(await team(), "risk").alive && named(await team(), "risk").state?.phase !== "starting", 60_000)
 
-// ---- Stopping all three ----
-
 section("Stopping all three, and nothing else")
 const teamStop = await api("/api/team/stop", { reason: "Everyone stop" })
 const allStopped = await until("all to close", async () => {
@@ -229,8 +215,6 @@ check("all three closed", Boolean(allStopped))
 const machine = await api("/api/state")
 check("this machine's own agent was not stopped", machine.agent.status !== "STOPPED", machine.agent.status)
 await api("/api/lift", { recall: teamStop.entityKey })
-
-// ---- The other pages ----
 
 section("The dashboard's other pages")
 const arkiv = await api("/api/arkiv")
@@ -250,8 +234,6 @@ if (ARKIV) {
 }
 shot("arkiv.png", "arkiv")
 shot("services.png", "services")
-
-// ---- Putting it away ----
 
 await api("/api/team/shutdown", {})
 const finalPids = (await team()).members.map((m: any) => m.state?.pid)

@@ -150,8 +150,6 @@ export async function readServices(_config: Config, env: NodeJS.ProcessEnv): Pro
   ]
 }
 
-// ---- Arkiv ----
-
 export interface RecordRow {
   type: string
   key?: string

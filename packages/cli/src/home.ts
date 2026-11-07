@@ -138,8 +138,6 @@ export const obeyingOwner = (_policy: TrustPolicy, owner: string): TrustPolicy =
 /** Safe to use as a file name on any system. */
 export const safeName = (name: string): string => name.replace(/[^\w.@-]/g, "_")
 
-// ---- Telling other CeaseNet processes on this machine that something changed ----
-
 const NUDGE = "nudge"
 
 /** Tells every running gate to read the list now, rather than at its next turn. */
@@ -155,8 +153,6 @@ export function nudgeTime(): number {
     return 0
   }
 }
-
-// ---- Tools whose owner approves each call ----
 
 export function loadHolds(): string[] {
   try {

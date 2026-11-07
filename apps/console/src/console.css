@@ -101,8 +101,6 @@ code {
   color: var(--muted);
 }
 
-/* ---- Top ---- */
-
 .top {
   display: flex;
   align-items: center;
@@ -146,8 +144,6 @@ main {
   display: grid;
   gap: 16px;
 }
-
-/* ---- Buttons ---- */
 
 button {
   font: inherit;
@@ -229,8 +225,6 @@ button.copy {
   text-underline-offset: 2px;
 }
 
-/* ---- Notices ---- */
-
 .notice {
   display: flex;
   justify-content: space-between;
@@ -245,8 +239,6 @@ button.copy {
   background: var(--red-soft);
   color: var(--red);
 }
-
-/* ---- The main control ---- */
 
 .hero {
   display: flex;
@@ -319,8 +311,6 @@ button.copy {
   background: var(--red);
 }
 
-/* ---- Waiting on a person ---- */
-
 .approvals {
   display: grid;
   gap: 8px;
@@ -368,8 +358,6 @@ button.copy {
   padding-top: 6px;
 }
 
-/* ---- Still to do ---- */
-
 .setup {
   display: grid;
   gap: 1px;
@@ -383,8 +371,6 @@ button.copy {
   background: var(--panel);
   padding: 10px 16px;
 }
-
-/* ---- Panels ---- */
 
 .columns {
   display: grid;
@@ -438,8 +424,6 @@ button.copy {
   display: grid;
   gap: 10px;
 }
-
-/* ---- Tables ---- */
 
 table {
   width: 100%;
@@ -550,8 +534,6 @@ thead + tbody tr:first-child td {
   color: var(--muted);
 }
 
-/* ---- Recalls ---- */
-
 .recalls {
   list-style: none;
   margin: 0;
@@ -602,8 +584,6 @@ thead + tbody tr:first-child td {
   align-items: center;
   gap: 10px;
 }
-
-/* ---- Forms ---- */
 
 input:not([type]),
 input[type="text"],
@@ -694,16 +674,12 @@ fieldset {
   gap: 8px;
 }
 
-/* ---- Foot ---- */
-
 .foot {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
   padding-top: 4px;
 }
-
-/* ---- Pages ---- */
 
 .pages {
   display: flex;
@@ -789,8 +765,6 @@ fieldset {
   max-width: 100ch;
 }
 
-/* ---- Figures ---- */
-
 .tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -823,8 +797,6 @@ fieldset {
   color: var(--muted);
   margin-top: 1px;
 }
-
-/* ---- The agents ---- */
 
 .agents {
   display: grid;
@@ -968,8 +940,6 @@ fieldset {
   gap: 2px;
 }
 
-/* ---- Arkiv ---- */
-
 .golive {
   display: flex;
   justify-content: space-between;
@@ -1035,8 +1005,6 @@ fieldset {
   font-size: 12px;
   white-space: pre-wrap;
 }
-
-/* ---- Services ---- */
 
 .services {
   display: grid;
@@ -1119,8 +1087,6 @@ fieldset {
   color: var(--ink);
 }
 
-/* ---- The diary ---- */
-
 .tabs-loose {
   padding: 0;
 }
@@ -1134,8 +1100,6 @@ fieldset {
   border-radius: 8px;
   padding: 8px 12px;
 }
-
-/* ---- Reports ---- */
 
 .report-list {
   display: grid;
@@ -1190,8 +1154,6 @@ fieldset {
   background: var(--amber);
   border-radius: 999px;
 }
-
-/* ---- Looking up a diary by time ---- */
 
 .diary-range {
   display: flex;

@@ -123,8 +123,6 @@ process.on("exit", () => {
 })
 const named = (team: any, id: string) => team.members.find((m: any) => m.id === id)
 
-// ---- Real work, and a real agent of your own ----
-
 section("The three agents doing real work")
 if (MODEL) await api("/api/team/thinking", { choice: MODEL })
 await api("/api/team/start", {})
@@ -150,8 +148,6 @@ await own.connect(
 const read = (await own.callTool({ name: "read_text_file", arguments: { path: join(folder, "note.txt") } })) as { content: { text: string }[] }
 check("it really read the private file", read.content[0]!.text.includes(SECRET))
 
-// ---- Stored ----
-
 section("Storing it all on 0G, with the index on Arkiv")
 const stored = await until("the diaries to be stored", async () => {
   await api("/api/diary/store", {})
@@ -161,8 +157,6 @@ const stored = await until("the diaries to be stored", async () => {
 }, 300_000)
 check("every agent's diary reached storage", Boolean(stored), stored?.agents.map((a: any) => `${a.name}: ${a.entries} entries`).join(", "))
 console.log(`     storage wallet: ${stored?.wallet?.address} holds ${stored?.wallet?.balance} 0G`)
-
-// ---- Read the way a stranger would ----
 
 section("Reading it back as a stranger: no wallet, no keys, none of our programs")
 const stranger = arkivPublicClient(config.accessKey)
@@ -207,8 +201,6 @@ check("the Arkiv page shows it all", arkivView.agents.some((a: any) => a.address
 picture("records-arkiv.png", `${base}/#/arkiv`)
 picture("records-diary.png", `${base}/#/diary`)
 
-// ---- People opening a recall ----
-
 // Logging in needs a real person scanning with World App, which a script cannot do. What it can check is that nobody
 // gets past the verifier without one: a wallet that has not logged in can neither open a recall nor vote.
 section("Opening a recall needs a login with World")
@@ -248,8 +240,6 @@ if (SHOTS) {
   site.kill()
 }
 
-// ---- The owner decides ----
-
 section("The owner decides, and needs no votes")
 const others = ["momentum", "reversion"]
 const direct = await api("/api/kill", { agent: named(await api("/api/team"), "risk").address, reason: "It keeps telling customers they have been refunded" })
@@ -271,8 +261,6 @@ check("and it still checks out against Arkiv", afterwards ? verifyPart(afterward
 const history = await api("/api/diary/support")
 check("the console can read all of it back, with no gaps", history.parts.length >= 1 && history.parts.every((p: any) => p.check.ok && p.followsOn !== false), `${history.parts.reduce((n: number, p: any) => n + p.items.length, 0)} entries in ${history.parts.length} parts`)
 picture("records-diary-closed.png", `${base}/#/diary`)
-
-// ---- Putting it away ----
 
 await api("/api/team/shutdown", {})
 await own.close()

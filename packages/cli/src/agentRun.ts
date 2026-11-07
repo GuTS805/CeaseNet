@@ -287,8 +287,6 @@ export class TeamAgent {
   }
 }
 
-// ---- Thinking with Claude Code ----
-
 /** A real model, deciding each step through real MCP servers. It has no built-in tools at all, only gated ones. */
 export const claudeJob =
   (home: string, member: Member, model: string): StartJob =>
@@ -317,8 +315,6 @@ export const claudeJob =
     timer = setTimeout(() => killTree(child), JOB_LIMIT_MS)
     return { done, kill: () => killTree(child) }
   }
-
-// ---- Thinking with any service that speaks the OpenAI chat API ----
 
 const BLANK_REPLY_REMINDER = "Carry on with the job: use a tool, or say in one short sentence what happened."
 const BAD_CALL_REMINDER = "Your last tool call was not valid. Call the tool again, with its arguments as a valid JSON object."

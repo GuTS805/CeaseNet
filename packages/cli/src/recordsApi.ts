@@ -65,8 +65,6 @@ export function recordsService(ctx: RecordsContext) {
   const payerKey = keys.owner ?? keys.agent
   const ownerPublicKey = keys.owner ? privateKeyToAccount(keys.owner).publicKey : undefined
 
-  // ---- Where diaries go ----
-
   const localDir = join(homeDir(), "diary-store")
   const local = localDiaryStore(localDir)
   const keptHere = (root: string) => /^0x[0-9a-f]{64}$/i.test(root) && existsSync(join(localDir, root))
@@ -114,8 +112,6 @@ export function recordsService(ctx: RecordsContext) {
       }),
     ]
   }
-
-  // ---- Storing ----
 
   const problems = new Map<string, string>()
   let walletProblem: string | undefined
@@ -168,8 +164,6 @@ export function recordsService(ctx: RecordsContext) {
     }
   }
 
-  // ---- Reports ----
-
   let reports: ReportView[] = []
   let reportProblem: string | undefined
 
@@ -194,8 +188,6 @@ export function recordsService(ctx: RecordsContext) {
       reportProblem = `Cannot read reports right now: ${shortError(e)}`
     }
   }
-
-  // ---- Running ----
 
   const timers = [setInterval(() => void flush(), TICK_MS), setInterval(() => void refreshReports(), REPORTS_EVERY_MS)]
   void refreshReports()

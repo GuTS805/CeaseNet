@@ -189,8 +189,6 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
     else problems.set(key, explainWriteError(e, agentAddress).message)
   }
 
-  // ---- Reporting what this agent does ----
-
   const identity = identityFiles(agentAddress, owner)
   const reporter = new Guard({
     policy: await currentPolicy(ledger, config).catch(() => startingPolicy(owner)),
@@ -243,8 +241,6 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
       problems.set("funds", explainWriteError(e, owner).message)
     }
   }
-
-  // ---- What the console shows ----
 
   let slowState: Record<string, unknown> = {}
   const refreshSlow = async () => {
@@ -361,8 +357,6 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
       ...recallState,
     }
   }
-
-  // ---- Requests ----
 
   const refreshAfterChange = async () => {
     nudge()
@@ -568,8 +562,6 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
   port = (server.address() as { port: number }).port
   writeAtomic(inHome("daemon.json"), JSON.stringify({ pid: process.pid, port, token }))
 
-  // ---- Running ----
-
   await refreshSlow()
   try {
     await reporter.start()
@@ -618,4 +610,3 @@ export async function startDaemon(options: DaemonOptions = {}): Promise<DaemonHa
     },
   }
 }
-

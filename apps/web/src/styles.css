@@ -96,12 +96,6 @@ h3 {
   margin: 0 auto;
 }
 
-
-
-
-
-
-
 .ok {
   color: var(--green);
   font-weight: 700;
@@ -111,11 +105,6 @@ h3 {
   color: var(--amber);
   font-weight: 700;
 }
-
-
-
-
-
 
 .card {
   background: var(--panel);
@@ -131,8 +120,6 @@ h3 {
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-
-
 
 .agent-name {
   font-weight: 700;
@@ -362,13 +349,11 @@ button.primary {
   border-color: var(--teal);
 }
 
-
 .buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
-
 
 .meter {
   height: 8px;
@@ -443,7 +428,6 @@ button.primary {
   padding: 8px 0;
 }
 
-/* Looking up an agent's diary by time. */
 .diary-range {
   display: flex;
   flex-wrap: wrap;

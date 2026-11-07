@@ -181,8 +181,6 @@ export function waitingCount(home: string): number {
   }
 }
 
-// ---- Keeping parts on this machine, while recalls are ----
-
 /** Keeps parts in files, for an agent whose records are not public. Named by their hash, as a storage network would. */
 export function localDiaryStore(dir: string): DiaryStore {
   return {
@@ -199,8 +197,6 @@ export function localDiaryStore(dir: string): DiaryStore {
   }
 }
 
-// ---- Keeping parts on Swarm, encrypted ----
-
 /**
  * Keeps parts on Swarm, encrypted to the owner before they leave this machine. The index on Arkiv is public, and shows
  * only that a part exists, where it is, how many entries it holds and when. Only the owner's key can read what is in it.
@@ -214,8 +210,6 @@ export function sealedSwarmStore(swarm: SwarmClient, ownerPublicKey: Hex): Diary
     get: (root) => swarm.read(root),
   }
 }
-
-// ---- Reading a diary back ----
 
 export interface DiaryPartView {
   root: string

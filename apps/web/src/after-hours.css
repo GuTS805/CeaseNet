@@ -116,7 +116,6 @@ main:focus { outline: none; }
 }
 @media (max-width: 390px) { .hero-copy h1 { font-size: 36px; }.hero-copy p { font-size: 15px; }.command-action { font-size: 13px; }.stack-command { padding: 17px; }.command-action kbd { display: none; }.hero-ctas { gap: 10px; }.hero-ctas .button { padding-inline: 16px; }.stack-receipt { font-size: 12px; padding: 18px; } }
 
-/* Public records and the connected demo use the same editorial workspace. */
 .network-records { display: grid; gap: 25px; }
 .docs-steps, .code-frame pre, .console-connect > div { min-width: 0; }
 .code-frame button { flex-shrink: 0; }
@@ -145,7 +144,6 @@ main:focus { outline: none; }
 .after-live .honest { color: var(--muted); font-size: 12px; line-height: 1.8; }.after-live .timer-box { text-align: left; }.after-live .timer { font-size: 55px; text-shadow: none; }.after-live .hub-note { display: flex; align-items: center; gap: 20px; text-align: left; }.after-live .hub-pill { font-size: 16px; }.after-live .inbox { border-radius: 14px; border-color: var(--line); background: #1c1511; }.after-live .inbox-head { background: transparent; }.after-live .inbox-list { height: auto; max-height: 300px; }.after-live .ticker { background: #171411; border-radius: 12px; border-color: var(--line); }.after-live .detail { padding: 45px 0 0; max-width: none; }.after-live .detail h2.detail-title { font-size: 30px; letter-spacing: -.035em; text-transform: none; margin-bottom: 25px; }.after-live .detail-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }.after-live .agent-log h3 { font-size: 21px; margin-bottom: 18px; }
 @media(max-width: 760px) { .network-figures { grid-template-columns: repeat(2,minmax(0,1fr)); }.network-figures b { font-size: 28px; }.issuer-record { grid-template-columns: 1fr; gap: 6px; }.after-live { padding-inline: 22px; }.after-live .live-agent-grid, .after-live .rail, .after-live .detail-grid { grid-template-columns: minmax(0,1fr); }.after-live .phase-side { flex-wrap: wrap; }.after-live .node.agent { padding: 20px; } }
 
-/* The page list: every page in the header, as the site's flow has it. */
 .brand-block { display: flex; align-items: baseline; gap: 18px; min-width: 0; }
 .site-header .tagline { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .desktop-nav { gap: 30px; }
@@ -153,7 +151,6 @@ main:focus { outline: none; }
 @media (max-width: 1360px) { .desktop-nav { gap: 22px; }.desktop-nav > a { font-size: 14px; }.site-header .tagline { display: none; } }
 @media (max-width: 1100px) { .site-header { height: 82px; padding-inline: 24px; }.site-header .brand-word { font-size: 31px; }.desktop-nav { display: none; }.mobile-toggle { display: grid; place-items: center; width: 42px; height: 42px; background: #211c16; }.mobile-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow: hidden; background: #181512; border-bottom: 1px solid var(--line); padding-inline: 24px; position: relative; z-index: 10; }.mobile-nav a { color: var(--text); font-size: 14px; padding: 13px 5px; } }
 
-/* Logging in with World: one button in the header, and who is logged in once they are. */
 .login-badge { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid #8a8175; border-radius: 999px; color: var(--text); font-size: 13px; white-space: nowrap; text-decoration: none; transition: border-color .2s, color .2s; }
 .login-badge:hover { border-color: var(--copper); color: var(--copper); }
 .login-badge.in { font-family: var(--mono); border-color: var(--line); }
@@ -163,7 +160,6 @@ main:focus { outline: none; }
 .page pre.mono { white-space: pre-wrap; background: #171411; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-size: 13px; }
 .login-badge.unverified span { color: #d6a24a; }
 
-/* Reference palette and backgrounds only; existing content and layout stay intact. */
 .workspace-content { background: transparent; }
 .site-header { background: #0b0a0933; }
 .workspace-nav, .mobile-nav { background: #151311f5; border-color: var(--line); }

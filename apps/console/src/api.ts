@@ -44,8 +44,6 @@ export function usePoll<T>(path: string, everyMs: number) {
   return { data, error, refresh }
 }
 
-// ---- The three agents ----
-
 export interface AgentEvent {
   at: number
   kind: "started" | "check" | "job" | "said" | "closed" | "problem" | "paused"
@@ -108,8 +106,6 @@ export interface TeamState {
   teamRecall?: { key: string; reason: string }
   canSign: boolean
 }
-
-// ---- The diary ----
 
 export interface DiaryAgent {
   id: string
@@ -185,8 +181,6 @@ export interface DiaryRead {
   range?: { from?: number; to?: number }
 }
 
-// ---- Reports from people ----
-
 export interface ReportView {
   key: string
   artifact: string
@@ -208,8 +202,6 @@ export interface ReportsState {
   votesNeeded: number
   verifier: string
 }
-
-// ---- Arkiv and the other services ----
 
 export interface RecordRow {
   type: string

@@ -86,8 +86,6 @@ export interface Ledger {
 
 export const formatBalance = (wei: bigint): string => Number(formatEther(wei)).toLocaleString("en", { maximumFractionDigits: 4 })
 
-// ---- The public list ----
-
 class ArkivReadNet extends ReadOnlyNet {
   constructor(
     private readonly clientFor: ReturnType<typeof arkivPublicClient>,
@@ -194,8 +192,6 @@ export function arkivLedger(config: Config): Ledger {
     balance: (address) => client.getBalance({ address }),
   }
 }
-
-// ---- This machine only ----
 
 type Row =
   | ({ type: "recall" } & RecallRow)
