@@ -37,7 +37,7 @@ We left Open as the default because a recall's reach can then be counted by anyo
 - **A private agent can't be counted.** A tool recall's page can't show it among the agents covered, and the site can't tell its owner a tool recall concerns them. The console on its own machine still can. An owner's console on another machine sees only who the agent is.
 - **Timing is still visible** unless an agent is silent. A heartbeat and a diary index show when an agent is running, though not what it does.
 - **"Skip World ID" is off.** It was on (`VERIFIER_ALLOW_BYPASS`) while World App could not finish our request, and let one person log in from several wallets. Those logins stay on Arkiv, marked `unverified-` on the record and on every page, and the verifier no longer accepts them for a vote or a recall. A verifier you run yourself can turn it on again.
-- **The public Swarm gateway refuses websites,** so the Swarm copy opens through your own Bee node, such as Swarm Desktop or Nook, at `http://localhost:1633/bzz/b5520ac0997beb6db176034ec5b0774653e543ae6365d4708965ff0eda502842/`. It reads Arkiv's public endpoint, with no access key in it.
+- **The public Swarm gateway refuses websites,** so the Swarm copy opens through your own Bee node, such as Swarm Desktop or Nook, at `http://localhost:1633/bzz/f9d69d548e95aa768add58b3bfdd94a9a7b68558ca309fe7aeb1aa462c7fd9ab/`. It reads Arkiv's public endpoint, with no access key in it.
 
 ## We assume that
 

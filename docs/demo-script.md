@@ -78,7 +78,7 @@ Before recording: the three trading agents on the public list (`ceasenet network
 | 1:15 | Close the site. Show Vercel's domain blocked, or just no browser | "Now take us away: no website, no verifier, no server of ours." |
 | 1:30 | In a terminal: `ceasenet kill --all --reason "Owner stopped them"` | "The owner signs one STOP, straight to Arkiv, from their own machine." |
 | 1:45 | The three terminals close themselves, each with the reason and how long it took | "Every agent read it itself and stopped. Nothing of ours was in the path." |
-| 2:15 | Open the copy of the site on Swarm through Nook: `http://localhost:1633/bzz/b5520ac0997beb6db176034ec5b0774653e543ae6365d4708965ff0eda502842/#/recalls`. Open the STOP: receipts from all three | "Even the site survives losing its domain: this copy lives on Swarm and reads Arkiv directly. And the receipts prove each agent obeyed." |
+| 2:15 | Open the copy of the site on Swarm through Nook: `http://localhost:1633/bzz/f9d69d548e95aa768add58b3bfdd94a9a7b68558ca309fe7aeb1aa462c7fd9ab/#/recalls`. Open the STOP: receipts from all three | "Even the site survives losing its domain: this copy lives on Swarm and reads Arkiv directly. And the receipts prove each agent obeyed." |
 | 2:45 | The README's CROPS section | "MIT, builds with no keys, no trackers, every record signed in your own wallet. The tradeoffs are written down in the README." |
 
 To restart them afterwards: `ceasenet lift <key>`, with the key `kill` printed.
