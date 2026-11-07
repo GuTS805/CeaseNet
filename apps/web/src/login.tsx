@@ -217,10 +217,16 @@ export function LoginPage({ next }: { next: string }) {
               Register an agent
             </a>
             <button onClick={() => void logOut()}>Log out</button>
+            {config && !isUnverifiedHuman(human.human) && (
+              <button disabled={busy || checking} onClick={() => void start()}>
+                {busy ? "Waiting for your wallet…" : "Check again with World ID"}
+              </button>
+            )}
           </div>
           <p className="small muted" style={{ marginBottom: 0 }}>
-            Logging out disconnects this site from your wallet. The record on Arkiv stays, so logging in again with this wallet is instant.
+            Logging out disconnects this site from your wallet. The record on Arkiv stays, so logging in again with this wallet is instant. Checking again asks your wallet and World App once more, and changes nothing on the record.
           </p>
+          {problem && <div className="error">{problem}</div>}
         </div>
       )}
       {loggedOut && !address && (
