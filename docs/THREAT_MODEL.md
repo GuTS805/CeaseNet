@@ -24,7 +24,7 @@ A gate reads only recalls whose `$creator` is its owner, which the chain sets an
 
 Votes stop nothing. A normal recall binds nobody until the owner approves it with a STOP signed by their own wallet (`normal-recall-with-votes`). Only the verifier's records count as votes, one per person, inside a 72-hour window ([`countConfirmations`](../packages/core/src/gate.ts)).
 
-**Not covered:** with "Skip World ID" on, as it is for the hackathon, one person can vote from several wallets. Those logins are marked `unverified-`, and the owner still decides.
+**Not covered:** with "Skip World ID" on, one person can vote from several wallets. It is off on the hosted verifier. A verifier that turns it on marks those logins `unverified-`, and the owner still decides.
 
 ### A dishonest verifier
 

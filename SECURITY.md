@@ -22,7 +22,7 @@ We aim to answer within a week. Once a fix is out, the advisory is published wit
 
 - What the README lists under [what this does not do](README.md#what-this-does-not-do), such as a tool that has already taken over your machine.
 - Arkiv itself or its rate limits. Please report those to the Arkiv team.
-- "Skip World ID" allowing several wallets per person on the hackathon site. It is on purpose, labelled, and listed as a tradeoff.
+- "Skip World ID" allowing several wallets per person on a verifier that turns it on. It is off on the hosted site, and such logins are labelled `unverified-`.
 - Test tokens, which have no value.
 
 [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) sets out what we defend against, how, and what we don't.

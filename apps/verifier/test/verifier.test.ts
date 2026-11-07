@@ -30,9 +30,10 @@ interface Setup {
   environment?: WorldEnvironment
   open?: boolean
   exists?: boolean
+  allowBypass?: boolean
 }
 
-function make({ world, environment = "staging", open: alreadyOpen = false, exists = true }: Setup = {}) {
+function make({ world, environment = "staging", open: alreadyOpen = false, exists = true, allowBypass = true }: Setup = {}) {
   const votes: { recall: Hex; stance: Stance; human: string }[] = []
   const humans: HumanRow[] = []
   const reports: { artifact: string; reason: string; pkg?: string; versions?: string; opener: Hex }[] = []
@@ -52,13 +53,17 @@ function make({ world, environment = "staging", open: alreadyOpen = false, exist
       votes.push(input)
       return { entityKey: "0xe1" as Hex, txHash: "0xe2" as Hex }
     },
-    readHuman: async (address) => humans.find((h) => h.address.toLowerCase() === address.toLowerCase()),
+    // As the real reader does, a login checked by World counts over one that skipped it.
+    readHuman: async (address) => {
+      const mine = humans.filter((h) => h.address.toLowerCase() === address.toLowerCase())
+      return mine.find((h) => !h.human.startsWith("unverified-")) ?? mine[0]
+    },
     readHumanById: async (human) => humans.find((h) => h.human === human),
     writeHuman: async (input) => {
       humans.push({ key: `0x${String(humans.length + 1).padStart(64, "0")}` as Hex, address: input.address, human: input.human, creator: WARNING.creator, createdAt: 3n })
       return { entityKey: humans.at(-1)!.key, txHash: "0xe2" as Hex }
     },
-    allowBypass: true,
+    allowBypass,
     readOpenReports: async () => (alreadyOpen ? [{ ...WARNING, key: FILED }] : []),
     agentExists: async () => exists,
     fileReport: async (input) => {
@@ -250,6 +255,18 @@ describe("logging in without World ID, when allowed", () => {
     await m.verifier.bypassLogin(await m.signLogin())
     const real = await m.login()
     expect(real.already).toBe(false)
+  })
+
+  it("stops counting once turned off: an earlier unverified login can no longer vote or open a recall", async () => {
+    const m = make({ allowBypass: false })
+    m.humans.push({ key: `0x${"1".padStart(64, "0")}` as Hex, address: ALICE.address, human: `unverified-${ALICE.address.toLowerCase()}`, creator: WARNING.creator, createdAt: 3n })
+    await refusedWith(m.vote(), "not_verified")
+    await refusedWith(m.open(), "not_verified")
+    expect(m.votes).toHaveLength(0)
+    expect(m.reports).toHaveLength(0)
+    await m.login()
+    await m.vote()
+    expect(m.votes).toHaveLength(1)
   })
 
   it("is refused when turned off", async () => {

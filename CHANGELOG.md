@@ -2,6 +2,12 @@
 
 Changes to the `ceasenet` program and to the public contract in [arkiv/schema.md](arkiv/schema.md). Records on Arkiv can't be changed, so anything that affects readers of old records is called out.
 
+## Unreleased
+
+- The site has a **Log out** button. It disconnects the site from your wallet, and the login record on Arkiv stays.
+- A verifier with "Skip World ID" turned off no longer accepts an earlier `unverified-` login for a vote or a recall. The hosted verifier has it off.
+- On Windows, `AGENT_TERMINALS="compact"` opens the three trading agents' windows small, in a column on the right of the screen.
+
 ## 0.1.0 (7 November 2026)
 
 The first version, built at ETHGlobal Mumbai 2026. It runs on test networks.

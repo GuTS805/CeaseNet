@@ -129,7 +129,7 @@ export function NeedLogin({ to, next }: { to: string; next: string }) {
  * it. The verifier checks both and writes the link on Arkiv. One person can link only one address.
  */
 export function LoginPage({ next }: { next: string }) {
-  const { missing, address, connect, sign, problem: walletProblem } = useWallet()
+  const { missing, address, connect, sign, disconnect, problem: walletProblem } = useWallet()
   const { human, checking, refresh } = useLogin()
   const config = useWorldConfig()
   const [rpContext, setRpContext] = useState<RpContext>()
@@ -138,6 +138,13 @@ export function LoginPage({ next }: { next: string }) {
   const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<string>()
   const [done, setDone] = useState(false)
+  const [loggedOut, setLoggedOut] = useState<"wallet" | "here">()
+
+  const logOut = async () => {
+    setProblem(undefined)
+    setDone(false)
+    setLoggedOut((await disconnect()) ? "wallet" : "here")
+  }
 
   const back = next ? `#/${next}` : "#/"
 
@@ -209,10 +216,18 @@ export function LoginPage({ next }: { next: string }) {
             <a className="button" href="#/register">
               Register an agent
             </a>
+            <button onClick={() => void logOut()}>Log out</button>
           </div>
           <p className="small muted" style={{ marginBottom: 0 }}>
-            To log out, disconnect this site in your wallet, or switch to another account.
+            Logging out disconnects this site from your wallet. The record on Arkiv stays, so logging in again with this wallet is instant.
           </p>
+        </div>
+      )}
+      {loggedOut && !address && (
+        <div className="notice good">
+          {loggedOut === "wallet"
+            ? "You are logged out, and this site is disconnected from your wallet."
+            : "You are logged out here. Your wallet did not let this site disconnect itself, so it will connect again when this page next loads. To stop that, disconnect this site in your wallet."}
         </div>
       )}
       {(!human || !address || isUnverifiedHuman(human.human)) && (

@@ -22,6 +22,11 @@ interface Wallet {
   connect: () => Promise<void>
   /** Signs a plain message. It costs nothing, sends nothing, and works on any network. */
   sign: (message: string) => Promise<Hex>
+  /**
+   * Logs out: this site forgets the wallet, and asks the wallet to disconnect it. Says whether the wallet agreed. One
+   * that can't be asked connects again when the page next loads, until it is disconnected in the wallet.
+   */
+  disconnect: () => Promise<boolean>
   problem?: string
 }
 
@@ -29,7 +34,7 @@ const noWallet = async (): Promise<never> => {
   throw new Error("There is no wallet in this browser.")
 }
 
-const WalletContext = createContext<Wallet>({ missing: true, wrongNetwork: false, connect: async () => undefined, sign: noWallet })
+const WalletContext = createContext<Wallet>({ missing: true, wrongNetwork: false, connect: async () => undefined, sign: noWallet, disconnect: async () => false })
 const ARKIV_CHAIN_ID = arkivChain("").id
 
 export const useWallet = () => useContext(WalletContext)
@@ -140,12 +145,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [provider, address],
   )
 
+  const disconnect = useCallback(async (): Promise<boolean> => {
+    setProblem(undefined)
+    setAddress(undefined)
+    if (!provider) return false
+    try {
+      // EIP-2255. MetaMask and most current wallets let a site give up its own access.
+      await provider.request({ method: "wallet_revokePermissions", params: [{ eth_accounts: {} }] })
+      return true
+    } catch {
+      return false
+    }
+  }, [provider])
+
   const wrongNetwork = Boolean(address) && chainId !== undefined && chainId !== ARKIV_CHAIN_ID
   const writer = useMemo(
     () => (provider && address && !wrongNetwork ? new ArkivWriter(arkivBrowserWallet(provider, address, ACCESS_KEY)) : undefined),
     [provider, address, wrongNetwork],
   )
-  const value = useMemo(() => ({ missing: !provider, address, wrongNetwork, writer, connect, sign, problem }), [provider, address, wrongNetwork, writer, connect, sign, problem])
+  const value = useMemo(() => ({ missing: !provider, address, wrongNetwork, writer, connect, sign, disconnect, problem }), [provider, address, wrongNetwork, writer, connect, sign, disconnect, problem])
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>
 }
 

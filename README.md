@@ -45,7 +45,7 @@
 | **Ethereum Foundation: Best CROPS app** | The lead property is censorship resistance. A second gate in Python, written from the spec with none of our code, passes the same 56 cases as ours, and every part we run has a stated replacement | [CROPS](#crops), [Build on it](#open-source-build-on-it-or-replace-us) |
 | **Arkiv** | Arkiv is the recall list itself. Every gate decides from what it reads there, and authority comes only from who signed a record | [How we use Arkiv](arkiv/how-you-use-arkiv.md), [the schema](arkiv/schema.md), and `npm run query`, which needs no key |
 | **Arkiv + Swarm** | Each agent's diary is encrypted to its owner and kept on Swarm, with its index and hash on Arkiv. A copy of the site lives on Swarm too | [arkiv/swarm.md](arkiv/swarm.md) |
-| **World** | Log in with World: one real person per wallet, so votes on a recall count people, not wallets. Votes alone never stop an agent, because its owner decides | [docs/world.md](docs/world.md). Logging in with World App works on the hosted site. For the hackathon it also offers "Skip World ID", marked as unverified |
+| **World** | Log in with World: one real person per wallet, so votes on a recall count people, not wallets. Votes alone never stop an agent, because its owner decides | [docs/world.md](docs/world.md). Logging in with World App works on the hosted site, and nothing else logs you in there |
 
 To try it with no wallet and nothing public, see [Start](#start) and use `ceasenet init --local`. The [live site](https://ceasenet.vercel.app/) reads Arkiv from your browser, with no account.
 
@@ -120,7 +120,7 @@ A recall opened by someone who isn't the owner never stops anything by itself, b
 
 ![A normal recall's page: what it is aimed at and who opened it, that it binds nobody until the owner approves, and its votes so far](docs/images/recall.png)
 
-The hosted site runs the verifier as a Vercel function, [api/verifier.mjs](api/verifier.mjs), built from [this source](apps/verifier/src/vercel.ts). `npm run verifier` runs your own. Logging in with World App works there, and the first real login is on Arkiv. For the hackathon the site also offers "Skip World ID", marked as unverified everywhere it shows.
+The hosted site runs the verifier as a Vercel function, [api/verifier.mjs](api/verifier.mjs), built from [this source](apps/verifier/src/vercel.ts). `npm run verifier` runs your own. Logging in with World App works there, and the first real login is on Arkiv. To log out, press **Log out** on the login page, which disconnects the site from your wallet.
 
 ## Look back: what did that agent do?
 
@@ -211,7 +211,7 @@ You choose how much the public list sees, and none of these changes what your ag
 | **Silent** | `ceasenet init --owner <wallet>`, and never fund the agent | Nothing from the agent, and it still obeys. There are no receipts to prove it did |
 | **This machine** | `ceasenet init --local` | Nothing |
 
-**Tradeoffs we accept:** logging in links your wallet to "a person checked by World ID" on Arkiv, and votes are public, so anyone can recount them. The verifier is one key that decides who counts as a person, but votes stop nothing until the owner approves, and anyone can run their own. A private agent can't be counted on a recall's page. "Skip World ID" is on for the hackathon, so one person can vote from several wallets, and such logins are marked `unverified-` everywhere.
+**Tradeoffs we accept:** logging in links your wallet to "a person checked by World ID" on Arkiv, and votes are public, so anyone can recount them. The verifier is one key that decides who counts as a person, but votes stop nothing until the owner approves, and anyone can run their own. A private agent can't be counted on a recall's page. A "Skip World ID" login was offered while World App could not finish our request. It is now off, and the few such logins still on Arkiv, marked `unverified-`, can no longer vote or open a recall.
 
 [docs/privacy.md](docs/privacy.md) has the rest: [who learns what](docs/privacy.md#who-learns-what), from the Arkiv node you read through to World and our host, every tradeoff, and what we assume.
 

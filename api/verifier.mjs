@@ -27773,6 +27773,9 @@ var Verifier = class {
   async loggedIn(address) {
     const person = await this.options.readHuman(address);
     if (!person) throw new Refused("not_logged_in", "Log in with World first. It shows you are a real person.");
+    if (isUnverifiedHuman(person.human) && !this.options.allowBypass) {
+      throw new Refused("not_verified", "This wallet logged in without World ID, which is now turned off here. Log in with World to go on.");
+    }
     return person;
   }
   /** Everything about a proof that can be checked before asking World. Nothing from the browser is believed yet. */
