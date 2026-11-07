@@ -1,84 +1,71 @@
 # Demo script
 
-Target: **2:45**. The Ethereum Foundation's prize needs 3 minutes or less, and ETHGlobal needs 2 to 4.
+One video, **2:55**, for every prize. The Ethereum Foundation's prize needs 3 minutes or less, and ETHGlobal needs 2 to 4.
 
-Rules for the video: your own voice (no AI voice or text-to-speech), no speed-up, at least 720p, recorded from a screen (not a phone), and at most 4 bullets on any slide. Cutting between takes is fine.
+Rules: your own voice (no AI voice or text-to-speech), no speed-up, at least 720p, recorded from a screen (not a phone), and at most 4 bullets on any slide. Cutting between takes is fine, so cut the waits.
+
+| Part | Time | What it does |
+|---|---|---|
+| Hook | 0:00 to 0:25 | The title, the problem and the answer, in one breath |
+| How it works | 0:25 to 0:55 | The flowchart |
+| Demo | 0:55 to 2:25 | Everything live: agents, Arkiv, Swarm, World, a recall that is ignored and one that is obeyed |
+| Close | 2:25 to 2:55 | Why nobody, us included, sits in the middle |
 
 ## Before recording
 
-```bash
-npm run reset && npm run seed
-npm run demo        # the real model. Check the page does NOT say "built-in rules"
-npm run web:demo
-npm run verifier
-```
-
-`npm run fresh` does the first two lines in one go, and also stops a demo that is already running. If PowerShell says running scripts is disabled, type `npm.cmd` instead of `npm`.
-
-Open `http://localhost:5173` and press F11, so the screen fills the recording. Sound starts after your first click: use the **sound on** button if it competes with your voice. Wait until each company has sent a few emails, and check that the stranger's inbox is filling up. Say out loud that the timers are shortened: the page checks every 2 seconds, where production settings use 30.
+1. **Slides:** [docs/video/01-title.png](video/01-title.png) and [docs/video/02-how-it-works.png](video/02-how-it-works.png), open full screen.
+2. **Agents:** in your own terminal, `ceasenet agents start`. With `AGENT_TERMINALS="compact"` in `~/.ceasenet/.env`, three small windows open in a column on the right. Wait until each says it started a job. They run for 20 minutes, so start them just before recording.
+3. **Console:** `ceasenet console`, at `http://127.0.0.1:7787`. Check the Agents page shows all three working, and nothing recalled.
+4. **Browser:** snap Chrome to the left of the agent windows (`Win + ←`, then drag its right edge to them). Open these tabs:
+   - `https://ceasenet.vercel.app/#/network`
+   - `https://ceasenet.vercel.app/#/agent/0xF40a2b4d23007085E6C6AD5dfe1EcD2d0DE3acE6` (Momentum trader)
+   - `https://ceasenet.vercel.app/#/login`
+   - `https://ceasenet.vercel.app/#/recalls`
+   - the console
+5. **Wallet:** MetaMask on Account 2 (`0xA80f…3bE4`), which is not the agents' owner and has tGLM. World App open on your phone.
+6. **Bee:** Nook running, for the last shot.
 
 ## The script
 
-| Time | Do this | Say this |
+| Time | Show | Say |
 |---|---|---|
-| 0:00 | Title slide, or the Live page | "In September 2025, an email tool for AI agents started copying every email to an attacker. It was pulled from npm. Every agent that already had it kept running it. Nothing tells a running agent to stop." |
-| 0:20 | Live page, pointing at the agents, the red lines and the stranger's inbox | "These are three companies' agents, using a real model and real MCP tools. This mail tool is made up and nothing is really sent, but it does what the real one did. Each red line carries a copy to a stranger, and this inbox is what that tool really wrote. Watch the counter." |
-| 0:35 | Press **File a warning** | "A researcher notices first. They have no power to stop anything. But real people can confirm the warning." |
-| 0:42 | Press **Confirm with World ID** and complete it in the simulator. Then press **Add a simulated person** twice | "World ID proves each one is a different human, without saying who. That one was a real proof. The next two are simulated, and labelled so, because World's simulator is one person." |
-| 1:05 | Mail tool flips to **Needs a human**. Point at the amber card beside the agent, and approve or refuse | "At three, every call to this tool waits for a person. The model can't approve itself." |
-| 1:15 | Press **STOP**. Say nothing for a moment and let the timer run | "Now the maker issues a STOP. It goes on Arkiv. No server of ours is in between." |
-| 1:22 | Point at the timer, the CEASED stamps, the files tool still **Allowed**, and the receipts landing in the blocks at the bottom | "Blocked, in seconds. We shortened the timers for this demo: it checks every 2 seconds, and production settings use 30. Only that tool stops. The rest of the agent keeps working. And each agent posts a public receipt." When the model's words appear beside an agent, read them out: they are its own reply. That takes 15 to 35 seconds, so cut to it if you need to. |
-| 1:32 | Press **Fake STOP from an outsider**. It lands in the blocks at the bottom, and no line moves | "Anyone can write to Arkiv, so here's a fake STOP from a competitor. Nothing happens, because the chain records who created it, and nobody follows that key." |
-| 1:42 | In a terminal, run `npm run query` | "This website could vanish. Here's the same record from a terminal, with no key and no server of ours. Each agent reads Arkiv the same way. There's no company in the middle, including us." |
-| 1:52 | Press **Publish fix**. Open the recall in a second tab, then press **Download from Swarm and check** | "The fix is on Swarm, so it survives the maker's site going away. Agents check its hash before running it, and so can you, right here in the browser." **Note this timestamp for `arkiv/swarm.md`.** |
-| 2:12 | On the Live tab, press **Maker deletes its STOP**. The STOP breaks up on screen, and each receipt arrives marked **Still proven** | "This is the moment the design is for. The maker changes its mind and deletes the STOP. Arkiv lets an owner do that. But agents remember, and they keep refusing. And their receipts prove the STOP existed. You can't erase this quietly." |
-| 2:35 | Show the proxy command from the README | "And it works today, with no code change: one command in front of any MCP server." |
-| 2:42 | Live page | "CeaseNet. Recalls for AI agents." |
+| **0:00** | Slide 1, the title | "In September 2025, an email tool for AI agents on npm started quietly copying every email to an attacker. It was pulled from npm, but every agent that already had it kept running it. Nothing could tell them to stop. This is CeaseNet: recalls for AI agents. An owner signs one STOP, and every one of their agents obeys it, everywhere, in seconds." |
+| **0:25** | Slide 2, the flowchart. Point at each box as you name it | "One command puts a gate between your agents and their tools. Before every call, the gate reads a recall list on Arkiv by itself, and obeys only a STOP signed by its owner's wallet. Not a crowd, not a registry, not us. If it can't read the list, it fails closed. Every call is logged to Swarm, sealed to the owner. And anyone can raise a recall, one real person at a time, with World ID." |
+| **0:55** | The three agent windows on the right, then the Network tab | "These are three real AI agents, each its own process, trading live prices with paper money through real MCP tools." |
+| **1:05** | Network page: the owner, 3 agents, live heartbeats | "Our site reads Arkiv straight from the browser, with no server of ours: three agents, one owner, live heartbeats." |
+| **1:15** | Momentum trader's page: fingerprint, then scroll to the diary, "Encrypted on Swarm" | "Each agent's exact tools and model have a public fingerprint, and its diary sits on Swarm, encrypted to its owner, indexed on Arkiv." **Note this time for [arkiv/swarm.md](../arkiv/swarm.md).** |
+| **1:27** | Login tab: **Log out**, then **Log in with World**, sign in MetaMask, scan with World App, "Logged in" | "Now I'm someone else. I log in with World: my wallet signs, and World ID proves I'm one real person, without saying who." Cut the wait for the scan. |
+| **1:42** | Back on Momentum trader's page: **Open a recall on this agent**, a reason, sign. "Your recall is open", 1 of 3 votes. Then the agent windows, still trading | "I'm not its owner, so I open a recall. It needs three people, and then the owner decides. Until then, nothing happens. A crowd can't switch off someone else's agent." |
+| **1:57** | Console, Agents page: **Recall** on the broker tool. Watch the two trader windows close themselves, and the risk watcher keep working. Point at "closed … after you pressed Stop" and "Its receipt is on the list" | "Now I'm the owner. I recall the broker tool. The STOP goes on Arkiv, and both traders close themselves. The risk watcher doesn't use that tool, so it keeps working." Cut the 5 seconds while the transaction confirms. |
+| **2:15** | Recalls tab: the new STOP, "Binds … agents of its owner", and its receipts | "And each agent posted a public receipt proving it obeyed." |
+| **2:25** | Close the site's tab. Open the Swarm copy through Nook: `http://localhost:1633/bzz/f9d69d548e95aa768add58b3bfdd94a9a7b68558ca309fe7aeb1aa462c7fd9ab/#/recalls` | "None of this needed us. Each gate read Arkiv itself, so if our site, our server and this repository disappeared, an owner's STOP would still land. The site lives on Swarm too." |
+| **2:40** | The README's CROPS section, or the npm page | "It's MIT licensed, on npm with provenance, and a second gate in Python, sharing none of our code, passes the same 56 test cases. CeaseNet. Recalls for AI agents." |
+| **2:55** | Slide 1 | End |
 
-If Agent Pass is connected, approve at 1:05 with **Approve with World ID**, and refuse one too. World's prize needs the full journey and a path where the action does not happen.
+## After recording
+
+1. In the console, **Lift this recall** on a trader card, so the agents can run again.
+2. Optional: on the recall you opened as the stranger, withdraw it, or leave it as a record.
+3. Put the video's link in [docs/submission.md](submission.md), and the Swarm timestamp in [arkiv/swarm.md](../arkiv/swarm.md).
 
 ## If something goes wrong
 
-- **The site says "built-in rules".** You started `demo:dev`. Use `npm run demo`.
-- **The model is slow.** It takes a few seconds per step. Wait, or cut.
-- **The World simulator link isn't there.** Check that `npm run verifier` is running.
-- **Nothing moves after STOP.** Check you're online. If an agent shows "Asks a human", it lost Arkiv and is failing closed, which is worth showing.
+- **An agent window says a recall covers it and won't start.** Something is still recalled. Lift it in the console and start them again.
+- **A trader stops on its own with "model limit".** The free model's daily allowance ran out. Choose another model at the top of the console's Agents page.
+- **World App can't finish.** Retry once. If it still fails, cut the login, and say the wallet is already logged in with World: its record is on Arkiv.
+- **Nothing happens after Recall.** Check you're online. If an agent shows "asks a human", it lost Arkiv and is failing closed, which is also worth showing.
+- **Don't run `ceasenet kill --all`.** It also stops this machine's own agent, including Claude Code's tools. Use **Stop all three** in the console.
 
-## For the finalist round: 4 minutes, then 3 minutes of questions
+## Likely questions
 
-**Show it isn't only a demo.** Open **Network**: every agent and line on it is read from Arkiv, with no list of keys. Then **Log in with World**, open a recall on an agent, and show its votes. With the owner's wallet, approve it at 3 votes, or stop it directly as the owner, and show an MCP client refused by `ceasenet`. Practise this first with a wallet that has tGLM.
-
-Add this with the extra time: press **Cut off** on one company before the STOP. It keeps working for the grace period, then asks a human, then refuses. The public board shows it as silent, not disobeying.
-
-| Likely question | Answer |
+| Question | Answer |
 |---|---|
-| Why not just remove it from npm? | That was done. It doesn't reach what's already installed. |
-| Why a chain? Why not a shared database? | Whoever runs the database can hide a recall from one customer or delete it. Here nobody can, including us. |
-| Can't the maker delete the STOP? | Yes, and we show it. Agents keep obeying, and receipts prove it. That is a limit of Arkiv we designed around. We've asked for an undeletable flag in our feedback. |
-| What stops someone from STOPping a competitor's tool? | Agents obey only keys their owner chose, on a public list. A stranger's STOP is never read. |
-| What if the issuer's key is stolen? | The attacker can stop your tool but can't run code on your machine. Remove that key from your list. |
-| What if an agent just doesn't check? | Then this doesn't bind it. The board reports it as silent. We protect agents that aren't already compromised. |
-| What if Arkiv is down? | Grace period, then a human for each call, then refuse. |
-| Who issues recalls on day one? | A researcher or registry can publish STOPs for tools already known to be bad, with no help from makers. |
-| How is this different from Gravitee or Lasso? | Those are per-company gateways. This is a shared public list with public receipts. |
-| What did you actually build, and what did AI do? | Answer honestly from `docs/ai-usage.md`. Each person should be able to explain their part. |
-| What isn't real here? | The tools are made up, the timers are short, it's on testnet, two of the three people are simulated. |
-
-## For the EF CROPS prize: under 3 minutes, on censorship resistance
-
-The lead property is censorship resistance: nobody but an agent's owner can stop it, and nobody, us included, can keep the owner from stopping it. The moment it matters is when CeaseNet itself is out of the picture and the owner's STOP still lands.
-
-Before recording: the three trading agents on the public list (`ceasenet network arkiv`, with the owner funded), their terminals open, a browser wallet that is not the owner's (for the outsider), and Nook running.
-
-| Time | Show | Say |
-|---|---|---|
-| 0:00 | The three trading agents trading in their terminals | "Three AI agents, trading with real models through MCP tools. Each one's gate reads Arkiv itself." |
-| 0:20 | The site, signed in with a wallet that is not the owner's. **Stop it as the owner**, choose "a tool", paste the market tool's hash from a terminal, sign | "I'm not their owner. Here is a STOP on the tool they all use, signed and on Arkiv." |
-| 0:50 | The terminals: still trading. The STOP's page: "No agent owned by this key is covered" | "Nothing happens. An agent obeys only a STOP its owner signed. No crowd, registry or company can switch it off." |
-| 1:15 | Close the site. Show Vercel's domain blocked, or just no browser | "Now take us away: no website, no verifier, no server of ours." |
-| 1:30 | In a terminal: `ceasenet kill --all --reason "Owner stopped them"` | "The owner signs one STOP, straight to Arkiv, from their own machine." |
-| 1:45 | The three terminals close themselves, each with the reason and how long it took | "Every agent read it itself and stopped. Nothing of ours was in the path." |
-| 2:15 | Open the copy of the site on Swarm through Nook: `http://localhost:1633/bzz/f9d69d548e95aa768add58b3bfdd94a9a7b68558ca309fe7aeb1aa462c7fd9ab/#/recalls`. Open the STOP: receipts from all three | "Even the site survives losing its domain: this copy lives on Swarm and reads Arkiv directly. And the receipts prove each agent obeyed." |
-| 2:45 | The README's CROPS section | "MIT, builds with no keys, no trackers, every record signed in your own wallet. The tradeoffs are written down in the README." |
-
-To restart them afterwards: `ceasenet lift <key>`, with the key `kill` printed.
+| Why not just remove it from npm? | That was done. It doesn't reach what's already installed and running. |
+| Why a chain? Why not a shared database? | Whoever runs the database can hide a recall from one customer, or delete it. Here nobody can, including us, and a gate reads it with no server of ours in between. |
+| Can't the owner delete the STOP? | Yes, Arkiv allows it. A gate keeps obeying a STOP it has seen, and its receipt proves the STOP existed. |
+| What stops someone from stopping a competitor's agent? | An agent obeys only its owner's wallet, which the chain records and nobody can fake. Anyone else can only open a recall, which needs 3 real people and then the owner's approval. |
+| What if the owner's key is stolen? | The thief can stop your agents, not run code on your machine. Keep the owner's key in a wallet on another machine, with `ceasenet init --owner`. |
+| What if an agent just doesn't run the gate? | Then this doesn't bind it, and the public board shows it as silent, not obeying. We protect agents that aren't already compromised. |
+| What if Arkiv is down? | Five minutes of work, then a person approves each call for five more, then it refuses. A node more than 2 minutes behind counts as down. |
+| What isn't real here? | The money is paper, it runs on test networks, and the three trading tools are our own samples. The model, the prices, the MCP calls, Arkiv, Swarm and World ID are real. |
+| What did AI do? | Answer honestly from [docs/ai-usage.md](ai-usage.md). Each of us should be able to explain our part. |
