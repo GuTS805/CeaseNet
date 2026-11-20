@@ -16,6 +16,6 @@
     "@ceasenet/core": "*",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "cross-spawn": "^7.0.6",
-    "jose": "^6.2.15"
+    "jose": "^6.2.17"
   }
 }
